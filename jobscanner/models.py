@@ -36,6 +36,7 @@ class Job:
     salary_text: str = ""
     requirements: list = field(default_factory=list)
     tech_stack: list = field(default_factory=list)
+    role: str = ""                      # Zielrolle aus queries.yaml (z.B. "unity_games")
     sources: list = field(default_factory=list)  # [{portal, url, found_at}]
     first_seen: str = ""                # ISO YYYY-MM-DD
     last_seen: str = ""

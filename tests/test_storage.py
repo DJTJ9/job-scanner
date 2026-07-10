@@ -116,6 +116,11 @@ class TestStorage:
         with pytest.raises(ValueError):
             storage.update_job(fp, fingerprint="hack")
 
+    def test_role_field_roundtrips(self, db):
+        fp = storage.upsert_job(_job(role="unity_games"))
+        loaded = storage.get_job(fp)
+        assert loaded.role == "unity_games"
+
     def test_list_jobs_filters(self, db):
         storage.upsert_job(_job())
         storage.upsert_job(_job(title="Unreal Developer", language="en"))

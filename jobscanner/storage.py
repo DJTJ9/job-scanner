@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     employment_type TEXT,
     language TEXT,
     salary_text TEXT,
+    role TEXT,
     requirements_json TEXT,
     tech_stack_json TEXT,
     sources_json TEXT,
@@ -72,12 +73,12 @@ def upsert_job(job: Job) -> str:
     if row is None:
         conn.execute(
             """INSERT INTO jobs (fingerprint, title, company, location, remote_flag,
-                   employment_type, language, salary_text, requirements_json,
+                   employment_type, language, salary_text, role, requirements_json,
                    tech_stack_json, sources_json, first_seen, last_seen, archive_path,
                    score, score_reason, category, status, nocodb_row_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (fp, job.title, job.company, job.location, job.remote_flag,
-             job.employment_type, job.language, job.salary_text,
+             job.employment_type, job.language, job.salary_text, job.role,
              json.dumps(job.requirements, ensure_ascii=False),
              json.dumps(job.tech_stack, ensure_ascii=False),
              json.dumps(job.sources, ensure_ascii=False),
@@ -105,6 +106,7 @@ def _row_to_job(row: sqlite3.Row) -> Job:
         employment_type=row["employment_type"] or "",
         language=row["language"] or "",
         salary_text=row["salary_text"] or "",
+        role=row["role"] or "",
         requirements=json.loads(row["requirements_json"] or "[]"),
         tech_stack=json.loads(row["tech_stack_json"] or "[]"),
         sources=json.loads(row["sources_json"] or "[]"),
