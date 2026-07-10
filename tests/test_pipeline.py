@@ -22,6 +22,9 @@ class FakeProvider:
 def env(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline.config, "load_portals", lambda: PORTALS)
     monkeypatch.setattr(pipeline.config, "load_queries", lambda: QUERIES)
+    monkeypatch.setattr(pipeline.config, "load_profile", lambda: {})
+    monkeypatch.setattr(pipeline.scoring, "score_job",
+                        lambda job, profile: (50, "Test-Score", "Vielleicht"))
     yield tmp_path / "jobs.db"
     storage.close()
 
@@ -77,3 +80,18 @@ def test_nocodb_push_only_for_new_jobs(env):
     assert push.call_count == 2
     jobs = storage.list_jobs()
     assert all(j.nocodb_row_id == 77 for j in jobs)
+
+
+def test_run_scores_new_jobs(env):
+    report = _run(env, {"https://stepstone.de/job/a": RAW_A,
+                        "https://stepstone.de/job/b": RAW_B})
+    assert report["new"] == 2
+    jobs = storage.list_jobs()
+    assert all(j.score == 50 and j.category == "Vielleicht" for j in jobs)
+
+
+def test_nocodb_push_includes_score(env):
+    with patch("jobscanner.pipeline.nocodb_board.push_job", return_value=77) as push:
+        _run(env, {"https://stepstone.de/job/a": RAW_A}, push=True)
+    pushed_job = push.call_args[0][0]
+    assert pushed_job.score == 50

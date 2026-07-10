@@ -8,7 +8,7 @@ import datetime as _dt
 import json
 from pathlib import Path
 
-from jobscanner import config, dedup, extract, nocodb_board, storage
+from jobscanner import config, dedup, extract, nocodb_board, scoring, storage
 from jobscanner.search import FirecrawlSearchProvider, SearchProvider, discover_urls
 
 _DEFAULT_DB = Path(__file__).parent.parent / "data" / "jobs.db"
@@ -24,6 +24,7 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
 
     portals = config.load_portals()
     queries = config.load_queries()
+    profile = config.load_profile()
     known = dedup.known_source_urls()
 
     report: dict = {"date": today, "new": 0, "known_skipped": 0, "errors": 0,
@@ -72,6 +73,9 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                         fp = storage.upsert_job(job)
                         known[url] = fp
                         if is_new:
+                            score, reason, category = scoring.score_job(job, profile)
+                            job.score, job.score_reason, job.category = score, reason, category
+                            storage.update_job(fp, score=score, score_reason=reason, category=category)
                             report["new"] += 1
                             if push_nocodb:
                                 row_id = nocodb_board.push_job(job)
