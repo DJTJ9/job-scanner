@@ -6,18 +6,21 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+import subprocess
 from pathlib import Path
 
-from jobscanner import config, dedup, extract, nocodb_board, scoring, storage
+from jobscanner import archive, config, dedup, extract, market, nocodb_board, scoring, storage
 from jobscanner.search import FirecrawlSearchProvider, SearchProvider, discover_urls
 
 _DEFAULT_DB = Path(__file__).parent.parent / "data" / "jobs.db"
+_NOTIFY_SCRIPT = Path("/root/projekte/telegram-bot-army/scripts/telegram_notify.py")
 
 
 def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
         push_nocodb: bool = True, db_path: str | Path | None = None,
         today: str | None = None,
-        max_scrapes_per_portal: int | None = None) -> dict:
+        max_scrapes_per_portal: int | None = None,
+        send_report: bool = True) -> dict:
     provider = provider or FirecrawlSearchProvider()
     today = today or _dt.date.today().isoformat()
     storage.init_db(db_path or _DEFAULT_DB)
@@ -77,10 +80,16 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                             score, reason, category = scoring.score_job(job, profile)
                             job.score, job.score_reason, job.category = score, reason, category
                             storage.update_job(fp, score=score, score_reason=reason, category=category)
+                            if category == "Pass":
+                                job.archive_path = archive.save_snapshot(job)
+                                storage.update_job(fp, archive_path=job.archive_path)
                             report["new"] += 1
                             if push_nocodb:
                                 row_id = nocodb_board.push_job(job)
                                 storage.update_job(fp, nocodb_row_id=row_id)
+    if send_report:
+        aggregate = market.aggregate_skills(storage.list_jobs(), group_by_role=True)
+        subprocess.run(["python", str(_NOTIFY_SCRIPT), market.format_report(aggregate)], check=False)
     return report
 
 

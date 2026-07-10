@@ -103,3 +103,35 @@ def test_run_sets_role_from_query_key(env):
     assert report["new"] == 2
     jobs = storage.list_jobs()
     assert all(j.role == "unity_games" for j in jobs)
+
+
+def test_pass_category_job_gets_archived(env):
+    pipeline.scoring.score_job = lambda job, profile: (85, "Top-Fit", "Pass")
+    with patch("jobscanner.pipeline.archive.save_snapshot", return_value="/tmp/x.md") as snap:
+        _run(env, {"https://stepstone.de/job/a": RAW_A}, push=False)
+    snap.assert_called_once()
+    jobs = storage.list_jobs()
+    assert jobs[0].archive_path == "/tmp/x.md"
+
+
+def test_vielleicht_category_job_not_archived(env):
+    with patch("jobscanner.pipeline.archive.save_snapshot") as snap:
+        _run(env, {"https://stepstone.de/job/a": RAW_A}, push=False)
+    snap.assert_not_called()
+
+
+def test_run_sends_telegram_report_by_default(env):
+    with patch("jobscanner.pipeline.subprocess.run") as run:
+        _run(env, {"https://stepstone.de/job/a": RAW_A}, push=False)
+    run.assert_called_once()
+    args = run.call_args[0][0]
+    assert "telegram_notify.py" in args[1]
+
+
+def test_run_skips_report_when_disabled(env):
+    with patch("jobscanner.pipeline.subprocess.run") as run:
+        with patch("jobscanner.pipeline.extract.scrape_job",
+                   side_effect=lambda url: {"https://stepstone.de/job/a": RAW_A}.get(url)):
+            pipeline.run(provider=FakeProvider(), db_path=env, push_nocodb=False,
+                        today="2026-07-10", send_report=False)
+    run.assert_not_called()
