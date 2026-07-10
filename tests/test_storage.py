@@ -22,6 +22,28 @@ class TestFingerprint:
         job = Job(title="Unity Developer", company="ACME", location="Hamburg")
         assert job.fingerprint == make_fingerprint("ACME", "Unity Developer", "Hamburg")
 
+    def test_strips_legal_suffix_gmbh(self):
+        assert make_fingerprint("ACME GmbH", "Unity Developer", "Hamburg") == \
+            make_fingerprint("ACME", "Unity Developer", "Hamburg")
+
+    def test_strips_legal_suffix_combined_gmbh_co_kg(self):
+        assert make_fingerprint("ACME GmbH & Co. KG", "Unity Developer", "Hamburg") == \
+            make_fingerprint("ACME", "Unity Developer", "Hamburg")
+
+    @pytest.mark.parametrize("suffix", ["AG", "UG", "KG", "OHG", "GbR", "mbH", "e.V."])
+    def test_strips_various_legal_suffixes(self, suffix):
+        assert make_fingerprint(f"ACME {suffix}", "Unity Developer", "Hamburg") == \
+            make_fingerprint("ACME", "Unity Developer", "Hamburg")
+
+    def test_unmatched_suffix_still_differs(self):
+        a = make_fingerprint("ACME AG", "Unity Developer", "Hamburg")
+        b = make_fingerprint("ACME Corp", "Unity Developer", "Hamburg")
+        assert a != b
+
+    def test_company_that_is_only_suffix_word_not_emptied(self):
+        assert make_fingerprint("AG", "Unity Developer", "Hamburg") != \
+            make_fingerprint("", "Unity Developer", "Hamburg")
+
 
 from jobscanner import storage
 

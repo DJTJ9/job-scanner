@@ -12,8 +12,17 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+_LEGAL_SUFFIX_RE = re.compile(r"\s+(gmbh co kg|gmbh|mbh|ug|ag|kg|ohg|gbr|e v|ev)$")
+
+
+def _strip_legal_suffix(text: str) -> str:
+    stripped = _LEGAL_SUFFIX_RE.sub("", text)
+    return stripped if stripped else text
+
+
 def make_fingerprint(company: str, title: str, location: str) -> str:
-    return "|".join(_norm(part) for part in (company, title, location))
+    company_norm = _strip_legal_suffix(_norm(company))
+    return "|".join([company_norm, _norm(title), _norm(location)])
 
 
 @dataclass
