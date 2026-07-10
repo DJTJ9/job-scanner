@@ -35,7 +35,7 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
         stats = report["portals"][portal["name"]]
         seen_urls: set[str] = set()
         capped = False
-        for role_langs in queries.values():
+        for role, role_langs in queries.items():
             if capped:
                 break
             for terms in role_langs.values():
@@ -68,6 +68,7 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                         if job is None:
                             report["errors"] += 1
                             continue
+                        job.role = role
                         stats["scraped"] += 1
                         is_new = storage.get_job(job.fingerprint) is None
                         fp = storage.upsert_job(job)

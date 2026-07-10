@@ -95,3 +95,11 @@ def test_nocodb_push_includes_score(env):
         _run(env, {"https://stepstone.de/job/a": RAW_A}, push=True)
     pushed_job = push.call_args[0][0]
     assert pushed_job.score == 50
+
+
+def test_run_sets_role_from_query_key(env):
+    report = _run(env, {"https://stepstone.de/job/a": RAW_A,
+                        "https://stepstone.de/job/b": RAW_B})
+    assert report["new"] == 2
+    jobs = storage.list_jobs()
+    assert all(j.role == "unity_games" for j in jobs)
