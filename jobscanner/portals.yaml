@@ -1,0 +1,13 @@
+# Portal-Configs — Spike-Befunde 2026-07-09. LinkedIn: Firecrawl-Domain-Sperre. Xing: Phase 2.
+- name: stepstone
+  site: stepstone.de
+  detail_url_pattern: 'stepstone\.de/stellenangebote--'
+- name: arbeitsagentur
+  site: arbeitsagentur.de
+  detail_url_pattern: 'arbeitsagentur\.de/jobsuche/jobdetail/'
+- name: stellenanzeigen
+  site: stellenanzeigen.de
+  detail_url_pattern: 'stellenanzeigen\.de/job/'
+- name: indeed
+  site: de.indeed.com
+  detail_url_pattern: 'de\.indeed\.com/(viewjob|rc/clk)'

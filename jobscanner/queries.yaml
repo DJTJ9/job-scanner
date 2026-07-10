@@ -1,0 +1,10 @@
+# Kern-Query-Sets 2.2 — max 2 Terme pro Rolle/Sprache (Kosten-Deckel)
+unity_games:
+  de: ["Unity Entwickler Junior", "Game Programmer Junior"]
+  en: ["Junior Unity Developer", "Junior Game Programmer"]
+ai_engineer:
+  de: ["KI Entwickler Junior", "AI Engineer Junior"]
+  en: ["Junior AI Engineer", "AI Application Developer"]
+tools_workflow:
+  de: ["Tools Programmierer", "Workflow Automatisierung Entwickler"]
+  en: ["Tools Programmer", "Junior Automation Engineer"]

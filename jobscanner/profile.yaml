@@ -1,0 +1,24 @@
+# Nutzerprofil 2.1 — erhoben im Discuss-Dialog 2026-07-10
+level: junior            # Quereinstieg, keine Festanstellungs-Erfahrung
+experience_years: 2      # Unity/C# aus Ausbildung/Kursen, eigenen Projekten, Game Jams/Freelance
+experience_sources:
+  - Ausbildung/Kurse
+  - Eigene Projekte
+  - Game Jams / Freelance
+skills:
+  - Unity
+  - "C#"
+  - KI/LLM-Tooling (Coding Agents, LLM-APIs)
+  - Sportwissenschaft (Domänen-USP für SportsTech/EdTech/Serious Games)
+target_roles:
+  - Unity/Games Programmer
+  - AI Engineer (App-Entwicklung)
+  - Workflow-/Engine-Tools
+  - Web-Apps mit Coding Agents
+location: deutschlandweit + Remote, Bonus Hamburg + Umgebung
+employment: Junior/Entry Festanstellung, Teilzeit ok
+languages: [de, en]
+no_gos:
+  - Senior-Stellen (5+ Jahre)
+  - Zeitarbeit/Personaldienstleister
+portfolio: []            # noch nichts öffentlich
