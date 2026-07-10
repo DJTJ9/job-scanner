@@ -121,6 +121,27 @@ class TestStorage:
         loaded = storage.get_job(fp)
         assert loaded.role == "unity_games"
 
+    def test_init_db_migrates_pre_role_schema(self, tmp_path):
+        import sqlite3
+        db_path = tmp_path / "old.db"
+        conn = sqlite3.connect(db_path)
+        conn.execute("""
+            CREATE TABLE jobs (
+                id INTEGER PRIMARY KEY, fingerprint TEXT UNIQUE NOT NULL,
+                title TEXT NOT NULL, company TEXT NOT NULL, location TEXT,
+                remote_flag TEXT, employment_type TEXT, language TEXT, salary_text TEXT,
+                requirements_json TEXT, tech_stack_json TEXT, sources_json TEXT,
+                first_seen TEXT, last_seen TEXT, archive_path TEXT, score INTEGER,
+                score_reason TEXT, category TEXT, status TEXT DEFAULT 'neu', nocodb_row_id INTEGER
+            )
+        """)
+        conn.commit()
+        conn.close()
+        storage.init_db(db_path)
+        fp = storage.upsert_job(_job(role="unity_games"))
+        assert storage.get_job(fp).role == "unity_games"
+        storage.close()
+
     def test_list_jobs_filters(self, db):
         storage.upsert_job(_job())
         storage.upsert_job(_job(title="Unreal Developer", language="en"))

@@ -50,6 +50,9 @@ def init_db(path: str | Path) -> None:
     _conn = sqlite3.connect(path)
     _conn.row_factory = sqlite3.Row
     _conn.execute(_SCHEMA)
+    existing_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(jobs)")}
+    if "role" not in existing_cols:
+        _conn.execute("ALTER TABLE jobs ADD COLUMN role TEXT")
     _conn.commit()
 
 
