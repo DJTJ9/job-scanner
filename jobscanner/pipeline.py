@@ -16,7 +16,8 @@ _DEFAULT_DB = Path(__file__).parent.parent / "data" / "jobs.db"
 
 def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
         push_nocodb: bool = True, db_path: str | Path | None = None,
-        today: str | None = None) -> dict:
+        today: str | None = None,
+        max_scrapes_per_portal: int | None = None) -> dict:
     provider = provider or FirecrawlSearchProvider()
     today = today or _dt.date.today().isoformat()
     storage.init_db(db_path or _DEFAULT_DB)
@@ -32,10 +33,21 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
     for portal in portals:
         stats = report["portals"][portal["name"]]
         seen_urls: set[str] = set()
+        capped = False
         for role_langs in queries.values():
+            if capped:
+                break
             for terms in role_langs.values():
+                if capped:
+                    break
                 for term in terms:
+                    if capped:
+                        break
                     for url in discover_urls(portal, term, provider, limit=limit_per_query):
+                        if (max_scrapes_per_portal is not None
+                                and stats["scraped"] >= max_scrapes_per_portal):
+                            capped = True
+                            break
                         if url in seen_urls:
                             continue
                         seen_urls.add(url)

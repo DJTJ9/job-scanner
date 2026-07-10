@@ -57,6 +57,18 @@ def test_failed_scrape_counts_as_error_not_crash(env):
     assert report["errors"] == 1
 
 
+def test_max_scrapes_per_portal_caps_scraping(env):
+    scrape_map = {"https://stepstone.de/job/a": RAW_A,
+                  "https://stepstone.de/job/b": RAW_B}
+    with patch("jobscanner.pipeline.extract.scrape_job",
+               side_effect=lambda url: scrape_map.get(url)):
+        report = pipeline.run(provider=FakeProvider(), db_path=env,
+                              push_nocodb=False, today="2026-07-10",
+                              max_scrapes_per_portal=1)
+    assert report["portals"]["stepstone"]["scraped"] == 1
+    assert report["new"] == 1
+
+
 def test_nocodb_push_only_for_new_jobs(env):
     scrape_map = {"https://stepstone.de/job/a": RAW_A,
                   "https://stepstone.de/job/b": RAW_B}
