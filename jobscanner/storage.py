@@ -34,6 +34,45 @@ CREATE TABLE IF NOT EXISTS jobs (
 )
 """
 
+_SCHEMA_PROFILES = """
+CREATE TABLE IF NOT EXISTS profiles (
+    id INTEGER PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    data_json TEXT NOT NULL DEFAULT '{}',
+    queries_json TEXT,
+    active INTEGER DEFAULT 1,
+    is_default INTEGER DEFAULT 0,
+    created_at TEXT
+);
+CREATE TABLE IF NOT EXISTS criteria (
+    id INTEGER PRIMARY KEY,
+    profile_id INTEGER NOT NULL REFERENCES profiles(id),
+    key TEXT NOT NULL,
+    label TEXT NOT NULL,
+    weight INTEGER NOT NULL DEFAULT 3 CHECK (weight BETWEEN 0 AND 5),
+    sort INTEGER DEFAULT 0,
+    UNIQUE (profile_id, key)
+);
+CREATE TABLE IF NOT EXISTS feedback (
+    id INTEGER PRIMARY KEY,
+    profile_id INTEGER NOT NULL REFERENCES profiles(id),
+    fingerprint TEXT NOT NULL,
+    vote TEXT NOT NULL CHECK (vote IN ('up', 'down')),
+    created_at TEXT NOT NULL,
+    UNIQUE (profile_id, fingerprint)
+);
+CREATE TABLE IF NOT EXISTS job_scores (
+    profile_id INTEGER NOT NULL REFERENCES profiles(id),
+    fingerprint TEXT NOT NULL,
+    score INTEGER,
+    reason TEXT,
+    category TEXT,
+    breakdown_json TEXT,
+    scored_at TEXT,
+    PRIMARY KEY (profile_id, fingerprint)
+);
+"""
+
 _UPDATABLE = {
     "title", "company", "location", "remote_flag", "employment_type", "language",
     "salary_text", "first_seen", "last_seen", "archive_path", "score",
@@ -56,6 +95,7 @@ def init_db(path: str | Path) -> None:
         _conn.execute("ALTER TABLE jobs ADD COLUMN role TEXT")
     if "is_neighbor" not in existing_cols:
         _conn.execute("ALTER TABLE jobs ADD COLUMN is_neighbor INTEGER DEFAULT 0")
+    _conn.executescript(_SCHEMA_PROFILES)
     _conn.commit()
 
 
@@ -157,3 +197,121 @@ def update_job(fingerprint: str, /, **fields) -> None:
     sql = "UPDATE jobs SET " + ", ".join(f"{k} = ?" for k in fields) + " WHERE fingerprint = ?"
     conn.execute(sql, [*fields.values(), fingerprint])
     conn.commit()
+
+
+def _row_to_profile(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "data": json.loads(row["data_json"] or "{}"),
+        "queries": json.loads(row["queries_json"]) if row["queries_json"] else None,
+        "active": bool(row["active"]),
+        "is_default": bool(row["is_default"]),
+        "created_at": row["created_at"],
+    }
+
+
+def create_profile(name: str, data: dict, queries: dict | None = None,
+                   is_default: bool = False) -> int:
+    conn = _require_conn()
+    cur = conn.execute(
+        """INSERT INTO profiles (name, data_json, queries_json, active, is_default, created_at)
+           VALUES (?, ?, ?, 1, ?, date('now'))""",
+        (name, json.dumps(data, ensure_ascii=False),
+         json.dumps(queries, ensure_ascii=False) if queries else None,
+         int(is_default)),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def get_profile(profile_id: int) -> dict | None:
+    conn = _require_conn()
+    row = conn.execute("SELECT * FROM profiles WHERE id = ?", (profile_id,)).fetchone()
+    return _row_to_profile(row) if row else None
+
+
+def get_profile_by_name(name: str) -> dict | None:
+    conn = _require_conn()
+    row = conn.execute("SELECT * FROM profiles WHERE name = ?", (name,)).fetchone()
+    return _row_to_profile(row) if row else None
+
+
+def list_profiles(active_only: bool = False) -> list[dict]:
+    conn = _require_conn()
+    sql = "SELECT * FROM profiles"
+    if active_only:
+        sql += " WHERE active = 1"
+    return [_row_to_profile(r) for r in conn.execute(sql + " ORDER BY id")]
+
+
+def save_criteria(profile_id: int, criteria: list[dict]) -> None:
+    """Ersetzt den kompletten Kriteriensatz des Profils (Wizard/Settings-Save)."""
+    conn = _require_conn()
+    with conn:
+        conn.execute("DELETE FROM criteria WHERE profile_id = ?", (profile_id,))
+        conn.executemany(
+            "INSERT INTO criteria (profile_id, key, label, weight, sort) VALUES (?, ?, ?, ?, ?)",
+            [(profile_id, c["key"], c["label"], c["weight"], c.get("sort", i))
+             for i, c in enumerate(criteria)],
+        )
+
+
+def list_criteria(profile_id: int) -> list[dict]:
+    conn = _require_conn()
+    rows = conn.execute(
+        "SELECT * FROM criteria WHERE profile_id = ? ORDER BY sort, id", (profile_id,))
+    return [dict(r) for r in rows]
+
+
+def set_criterion_weight(criterion_id: int, weight: int) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE criteria SET weight = ? WHERE id = ?", (weight, criterion_id))
+    conn.commit()
+
+
+def add_feedback(profile_id: int, fingerprint: str, vote: str) -> None:
+    conn = _require_conn()
+    conn.execute(
+        """INSERT INTO feedback (profile_id, fingerprint, vote, created_at)
+           VALUES (?, ?, ?, datetime('now'))
+           ON CONFLICT (profile_id, fingerprint)
+           DO UPDATE SET vote = excluded.vote, created_at = excluded.created_at""",
+        (profile_id, fingerprint, vote),
+    )
+    conn.commit()
+
+
+def list_feedback(profile_id: int) -> list[dict]:
+    conn = _require_conn()
+    rows = conn.execute("SELECT * FROM feedback WHERE profile_id = ?", (profile_id,))
+    return [dict(r) for r in rows]
+
+
+def upsert_job_score(profile_id: int, fingerprint: str, score: int | None,
+                     reason: str, category: str | None, breakdown: dict) -> None:
+    conn = _require_conn()
+    conn.execute(
+        """INSERT INTO job_scores (profile_id, fingerprint, score, reason, category,
+                                   breakdown_json, scored_at)
+           VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT (profile_id, fingerprint)
+           DO UPDATE SET score = excluded.score, reason = excluded.reason,
+                         category = excluded.category, breakdown_json = excluded.breakdown_json,
+                         scored_at = excluded.scored_at""",
+        (profile_id, fingerprint, score, reason, category,
+         json.dumps(breakdown, ensure_ascii=False)),
+    )
+    conn.commit()
+
+
+def get_job_score(profile_id: int, fingerprint: str) -> dict | None:
+    conn = _require_conn()
+    row = conn.execute(
+        "SELECT * FROM job_scores WHERE profile_id = ? AND fingerprint = ?",
+        (profile_id, fingerprint)).fetchone()
+    if row is None:
+        return None
+    d = dict(row)
+    d["breakdown"] = json.loads(d.pop("breakdown_json") or "{}")
+    return d
