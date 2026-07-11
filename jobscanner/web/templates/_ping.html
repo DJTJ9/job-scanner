@@ -1,0 +1,17 @@
+{% macro ping(score, category) %}
+  {% set css_class = {"Pass": "ping-ring-pass", "Vielleicht": "ping-ring-vielleicht", "No-Go": "ping-ring-nogo"}.get(category, "ping-ring-none") %}
+  {% set fraction = (score / 100) if score is not none else 0 %}
+  {% set circumference = 2 * 3.14159 * 18 %}
+  {% set offset = circumference * (1 - fraction) %}
+  <svg class="ping" width="48" height="48" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="18" fill="none" stroke="#143240" stroke-width="4"></circle>
+    <circle cx="24" cy="24" r="18" fill="none" stroke-width="4"
+            class="{{ css_class }}"
+            stroke-dasharray="{{ circumference }}"
+            stroke-dashoffset="{{ offset }}"
+            transform="rotate(-90 24 24)"></circle>
+    <text x="24" y="28" text-anchor="middle" class="mono" font-size="11" fill="#E9F4F4">
+      {{ score if score is not none else "–" }}
+    </text>
+  </svg>
+{% endmacro %}

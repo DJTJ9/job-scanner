@@ -57,4 +57,42 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return templates.TemplateResponse(
             request, "profiles.html", {"profiles": storage.list_profiles(active_only=True)})
 
+    @app.get("/dashboard/{profile_id}")
+    def dashboard(request: Request, profile_id: int):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        profile = storage.get_profile(profile_id)
+        if profile is None:
+            return RedirectResponse("/", status_code=303)
+        return templates.TemplateResponse(request, "dashboard.html", {
+            "profile": profile,
+            "criteria": storage.list_criteria(profile_id),
+            "entries": storage.list_jobs_with_scores(profile_id),
+            "feedback": storage.get_feedback_map(profile_id),
+        })
+
+    @app.post("/dashboard/{profile_id}/criteria")
+    async def save_criteria_route(request: Request, profile_id: int):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        form = await request.form()
+        existing = storage.list_criteria(profile_id)
+        updated = [
+            {"key": c["key"], "label": c["label"], "sort": c["sort"],
+             "weight": int(form.get(f"weight_{c['key']}", c["weight"]))}
+            for c in existing
+        ]
+        storage.save_criteria(profile_id, updated)
+        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+
+    @app.post("/dashboard/{profile_id}/feedback/{fingerprint}")
+    async def feedback_route(request: Request, profile_id: int, fingerprint: str):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        form = await request.form()
+        vote = form.get("vote")
+        if vote in ("up", "down"):
+            storage.add_feedback(profile_id, fingerprint, vote)
+        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+
     return app
