@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Neues Profil — Job-Scanner{% endblock %}
+{% block content %}
+<h1>◈ Neues Profil</h1>
+<div class="tiefenmesser">
+  {% for s in step_order %}
+    {% set idx = loop.index0 %}
+    {% set current_idx = step_order.index(step) %}
+    <span class="mark {{ 'active' if s == step else ('done' if idx < current_idx else '') }}">
+      {{ idx * 5 }}m {{ '●' if s == step else ('✓' if idx < current_idx else '○') }} {{ s | capitalize }}
+    </span>
+  {% endfor %}
+</div>
+
+<form method="post" action="/wizard/{{ step }}" class="panel">
+  {% if step == "basis" %}
+    <label for="name">Profilname</label>
+    <input type="text" id="name" name="name" value="{{ data.get('name', '') }}" required>
+    <label for="level">Level</label>
+    <input type="text" id="level" name="level" value="{{ data.get('level', '') }}" placeholder="junior/mid/senior">
+    <label for="experience_years">Erfahrung (Jahre)</label>
+    <input type="number" id="experience_years" name="experience_years" value="{{ data.get('experience_years', 0) }}" min="0">
+  {% elif step == "skills" %}
+    <label for="skills">Skills (kommagetrennt)</label>
+    <input type="text" id="skills" name="skills" value="{{ data.get('skills', []) | join(', ') }}">
+    {% if suggestions.get("skills") %}
+      <p class="job-meta">Vorschläge aus LLM-Verfeinerung:</p>
+      {% for s in suggestions["skills"] %}
+        <label class="chip"><input type="checkbox" name="suggested_skills" value="{{ s }}" checked>{{ s }}</label>
+      {% endfor %}
+    {% endif %}
+  {% elif step == "zielrollen" %}
+    <label for="target_roles">Zielrollen (kommagetrennt)</label>
+    <input type="text" id="target_roles" name="target_roles" value="{{ data.get('target_roles', []) | join(', ') }}">
+    {% if suggestions.get("target_roles") %}
+      {% for r in suggestions["target_roles"] %}
+        <label class="chip"><input type="checkbox" name="suggested_roles" value="{{ r }}" checked>{{ r }}</label>
+      {% endfor %}
+    {% endif %}
+  {% elif step == "ort_umfang" %}
+    <label for="location">Ort</label>
+    <input type="text" id="location" name="location" value="{{ data.get('location', '') }}">
+    <label for="employment">Anstellungsart/Umfang</label>
+    <input type="text" id="employment" name="employment" value="{{ data.get('employment', '') }}">
+    <label for="languages">Sprachen (kommagetrennt)</label>
+    <input type="text" id="languages" name="languages" value="{{ data.get('languages', ['de']) | join(', ') }}">
+  {% elif step == "no_gos" %}
+    <label for="no_gos">No-Gos (kommagetrennt)</label>
+    <input type="text" id="no_gos" name="no_gos" value="{{ data.get('no_gos', []) | join(', ') }}">
+  {% elif step == "gewichte" %}
+    {% for c in default_criteria %}
+      {% set suggested = suggestions.get("criteria_weights", {}).get(c.key) %}
+      <div class="criterion">
+        <label for="weight_{{ c.key }}">{{ c.label }}</label>
+        <input type="range" id="weight_{{ c.key }}" name="weight_{{ c.key }}" min="0" max="5"
+               value="{{ suggested if suggested is not none else c.weight }}">
+      </div>
+    {% endfor %}
+  {% endif %}
+  <button type="submit" class="btn btn-primary">{{ "Profil anlegen" if step == "gewichte" else "Weiter" }}</button>
+</form>
+
+{% if step == "skills" %}
+<form method="post" action="/wizard/llm-refine" class="panel">
+  <label for="freetext">Optional: Freitext/CV für LLM-Verfeinerung</label>
+  <textarea id="freetext" name="freetext" rows="4"></textarea>
+  <button type="submit" class="btn btn-secondary">Vorschläge holen</button>
+</form>
+{% endif %}
+{% endblock %}

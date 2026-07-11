@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from jobscanner import config, storage
+from jobscanner.web import llm_refine
 
 _DIR = Path(__file__).parent
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "data" / "jobs.db"
@@ -94,5 +95,92 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if vote in ("up", "down"):
             storage.add_feedback(profile_id, fingerprint, vote)
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+
+    STEP_ORDER = ["basis", "skills", "zielrollen", "ort_umfang", "no_gos", "gewichte"]
+
+    def _split(text: str) -> list[str]:
+        return [t.strip() for t in text.split(",") if t.strip()]
+
+    def _wizard_state(request: Request) -> dict:
+        return request.session.setdefault("wizard", {"data": {}, "suggestions": {}})
+
+    @app.get("/wizard/new")
+    def wizard_start(request: Request):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        request.session["wizard"] = {"data": {}, "suggestions": {}}
+        return RedirectResponse(f"/wizard/{STEP_ORDER[0]}", status_code=303)
+
+    @app.get("/wizard/{step}")
+    def wizard_step_form(request: Request, step: str):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        if step not in STEP_ORDER:
+            return RedirectResponse("/wizard/new", status_code=303)
+        wizard = _wizard_state(request)
+        return templates.TemplateResponse(request, "wizard.html", {
+            "step": step, "step_order": STEP_ORDER,
+            "data": wizard["data"], "suggestions": wizard.get("suggestions", {}),
+            "default_criteria": storage.DEFAULT_CRITERIA,
+        })
+
+    @app.post("/wizard/llm-refine")
+    async def wizard_llm_refine(request: Request):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        form = await request.form()
+        freetext = form.get("freetext", "")
+        wizard = _wizard_state(request)
+        if freetext.strip():
+            try:
+                wizard["suggestions"] = llm_refine.suggest_from_freetext(freetext)
+            except Exception as exc:
+                wizard["suggestions"] = {"error": str(exc)}
+        request.session["wizard"] = wizard
+        return RedirectResponse("/wizard/skills", status_code=303)
+
+    @app.post("/wizard/{step}")
+    async def wizard_step_submit(request: Request, step: str):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        if step not in STEP_ORDER:
+            return RedirectResponse("/wizard/new", status_code=303)
+        form = await request.form()
+        wizard = _wizard_state(request)
+        data = wizard["data"]
+        if step == "basis":
+            data["name"] = form.get("name", "").strip()
+            data["level"] = form.get("level", "").strip()
+            data["experience_years"] = int(form.get("experience_years") or 0)
+        elif step == "skills":
+            skills = set(_split(form.get("skills", "")))
+            skills.update(form.getlist("suggested_skills"))
+            data["skills"] = sorted(skills)
+        elif step == "zielrollen":
+            roles = set(_split(form.get("target_roles", "")))
+            roles.update(form.getlist("suggested_roles"))
+            data["target_roles"] = sorted(roles)
+        elif step == "ort_umfang":
+            data["location"] = form.get("location", "").strip()
+            data["employment"] = form.get("employment", "").strip()
+            data["languages"] = _split(form.get("languages", "de"))
+        elif step == "no_gos":
+            data["no_gos"] = _split(form.get("no_gos", ""))
+        elif step == "gewichte":
+            criteria = [
+                {"key": c["key"], "label": c["label"], "sort": i,
+                 "weight": int(form.get(f"weight_{c['key']}", c["weight"]))}
+                for i, c in enumerate(storage.DEFAULT_CRITERIA)
+            ]
+            data.setdefault("experience_sources", [])
+            data.setdefault("portfolio", [])
+            name = data.pop("name", "") or f"Profil {len(storage.list_profiles()) + 1}"
+            pid = storage.create_profile(name, data, queries=None)
+            storage.save_criteria(pid, criteria)
+            request.session.pop("wizard", None)
+            return RedirectResponse(f"/dashboard/{pid}", status_code=303)
+        request.session["wizard"] = wizard
+        next_step = STEP_ORDER[STEP_ORDER.index(step) + 1]
+        return RedirectResponse(f"/wizard/{next_step}", status_code=303)
 
     return app
