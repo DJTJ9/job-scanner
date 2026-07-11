@@ -1,9 +1,10 @@
 """Tests für Pipeline-Kern — Fake-Provider, Extract + Board gemockt."""
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from jobscanner import pipeline, storage
+from jobscanner.pipeline import run
 
 PORTALS = [{"name": "stepstone", "site": "stepstone.de",
             "detail_url_pattern": r"stepstone\.de/job/"}]
@@ -25,13 +26,16 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline.config, "load_profile", lambda: {})
     monkeypatch.setattr(pipeline.scoring, "score_job",
                         lambda job, profile: (50, "Test-Score", "Vielleicht"))
+    # Zentral gemockt: Report-Init ruft browser.firecrawl_credits_ok() —
+    # ohne Patch würde jeder Test einen echten Subprocess-Call machen.
+    monkeypatch.setattr("jobscanner.browser.firecrawl_credits_ok", lambda: True)
     yield tmp_path / "jobs.db"
     storage.close()
 
 
 def _run(db_path, scrape_map, push=False):
     with patch("jobscanner.pipeline.extract.scrape_job",
-               side_effect=lambda url: scrape_map.get(url)):
+               side_effect=lambda url, **kwargs: scrape_map.get(url)):
         return pipeline.run(provider=FakeProvider(), db_path=db_path,
                             push_nocodb=push, today="2026-07-10")
 
@@ -64,7 +68,7 @@ def test_max_scrapes_per_portal_caps_scraping(env):
     scrape_map = {"https://stepstone.de/job/a": RAW_A,
                   "https://stepstone.de/job/b": RAW_B}
     with patch("jobscanner.pipeline.extract.scrape_job",
-               side_effect=lambda url: scrape_map.get(url)):
+               side_effect=lambda url, **kwargs: scrape_map.get(url)):
         report = pipeline.run(provider=FakeProvider(), db_path=env,
                               push_nocodb=False, today="2026-07-10",
                               max_scrapes_per_portal=1)
@@ -131,7 +135,7 @@ def test_run_sends_telegram_report_by_default(env):
 def test_run_skips_report_when_disabled(env):
     with patch("jobscanner.pipeline.subprocess.run") as run:
         with patch("jobscanner.pipeline.extract.scrape_job",
-                   side_effect=lambda url: {"https://stepstone.de/job/a": RAW_A}.get(url)):
+                   side_effect=lambda url, **kwargs: {"https://stepstone.de/job/a": RAW_A}.get(url)):
             pipeline.run(provider=FakeProvider(), db_path=env, push_nocodb=False,
                         today="2026-07-10", send_report=False)
     run.assert_not_called()
@@ -147,6 +151,57 @@ def test_uses_portal_specific_provider_when_none_passed(env, monkeypatch):
 
     monkeypatch.setattr(pipeline.search, "provider_for", lambda portal: SpyProvider())
     with patch("jobscanner.pipeline.extract.scrape_job",
-               side_effect=lambda url: RAW_A):
+               side_effect=lambda url, **kwargs: RAW_A):
         pipeline.run(provider=None, db_path=env, push_nocodb=False, today="2026-07-10")
     assert calls  # provider_for wurde tatsächlich benutzt
+
+
+class TestHybridRouting:
+    def test_api_portal_extracts_from_cached_description(self, tmp_path):
+        portal = {"name": "adzuna", "site": "adzuna.de",
+                  "detail_url_pattern": r"adzuna\.de/land/ad/",
+                  "search_type": "adzuna", "detail_fetch": "api"}
+        provider = MagicMock()
+        provider.search.return_value = ["https://www.adzuna.de/land/ad/1"]
+        provider.descriptions = {"https://www.adzuna.de/land/ad/1": "Junior Unity Dev\nACME\nHamburg"}
+        raw = {"title": "Junior Unity Dev", "company": "ACME", "location": "Hamburg"}
+        with patch("jobscanner.pipeline.config.load_portals", return_value=[portal]), \
+             patch("jobscanner.pipeline.config.load_queries",
+                   return_value={"unity_games": {"de": ["Unity"]}}), \
+             patch("jobscanner.pipeline.config.load_profile", return_value={}), \
+             patch("jobscanner.pipeline.extract.extract_from_text", return_value=raw) as eft, \
+             patch("jobscanner.pipeline.extract.scrape_job") as scrape, \
+             patch("jobscanner.pipeline.scoring.score_job", return_value=(50, "ok", "Vielleicht")), \
+             patch("jobscanner.pipeline.browser.firecrawl_credits_ok", return_value=True):
+            report = run(provider=provider, db_path=tmp_path / "t.db",
+                         push_nocodb=False, send_report=False)
+        eft.assert_called_once_with("Junior Unity Dev\nACME\nHamburg")
+        scrape.assert_not_called()
+        assert report["new"] == 1
+
+    def test_scrape_portal_passes_fetch_method_and_failover(self, tmp_path):
+        portal = {"name": "stellenanzeigen", "site": "stellenanzeigen.de",
+                  "detail_url_pattern": r"stellenanzeigen\.de/job/",
+                  "search_type": "html",
+                  "search_url_template": "https://www.stellenanzeigen.de/suche/?fulltext={query}",
+                  "firecrawl_failover": True}
+        provider = MagicMock()
+        provider.search.return_value = ["https://www.stellenanzeigen.de/job/1"]
+        with patch("jobscanner.pipeline.config.load_portals", return_value=[portal]), \
+             patch("jobscanner.pipeline.config.load_queries",
+                   return_value={"unity_games": {"de": ["Unity"]}}), \
+             patch("jobscanner.pipeline.config.load_profile", return_value={}), \
+             patch("jobscanner.pipeline.extract.scrape_job", return_value=None) as scrape, \
+             patch("jobscanner.pipeline.browser.firecrawl_credits_ok", return_value=True):
+            run(provider=provider, db_path=tmp_path / "t.db",
+                push_nocodb=False, send_report=False)
+        assert scrape.call_args.kwargs["fetch_method"] == "playwright"
+        assert scrape.call_args.kwargs["failover"] is True
+
+    def test_report_contains_firecrawl_status(self, tmp_path):
+        with patch("jobscanner.pipeline.config.load_portals", return_value=[]), \
+             patch("jobscanner.pipeline.config.load_queries", return_value={}), \
+             patch("jobscanner.pipeline.config.load_profile", return_value={}), \
+             patch("jobscanner.pipeline.browser.firecrawl_credits_ok", return_value=False):
+            report = run(db_path=tmp_path / "t.db", push_nocodb=False, send_report=False)
+        assert report["firecrawl_ok"] is False

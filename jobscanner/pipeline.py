@@ -9,7 +9,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from jobscanner import archive, config, dedup, extract, market, nocodb_board, scoring, search, storage
+from jobscanner import archive, browser, config, dedup, extract, market, nocodb_board, scoring, search, storage
 from jobscanner.search import SearchProvider
 
 _DEFAULT_DB = Path(__file__).parent.parent / "data" / "jobs.db"
@@ -30,11 +30,13 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
     known = dedup.known_source_urls()
 
     report: dict = {"date": today, "new": 0, "known_skipped": 0, "errors": 0,
+                    "firecrawl_ok": browser.firecrawl_credits_ok(),
                     "portals": {p["name"]: {"urls": 0, "scraped": 0} for p in portals}}
     touched: set[str] = set()
 
     for portal in portals:
         stats = report["portals"][portal["name"]]
+        portal_provider = provider or search.provider_for(portal)
         seen_urls: set[str] = set()
         capped = False
         for role, role_langs in queries.items():
@@ -46,7 +48,7 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                 for term in terms:
                     if capped:
                         break
-                    for url in search.discover_urls(portal, term, provider or search.provider_for(portal),
+                    for url in search.discover_urls(portal, term, portal_provider,
                                                     limit=limit_per_query):
                         if (max_scrapes_per_portal is not None
                                 and stats["scraped"] >= max_scrapes_per_portal):
@@ -63,7 +65,14 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                                 touched.add(fp)
                             report["known_skipped"] += 1
                             continue
-                        raw = extract.scrape_job(url)
+                        if portal.get("detail_fetch") == "api":
+                            text = getattr(portal_provider, "descriptions", {}).get(url)
+                            raw = extract.extract_from_text(text) if text else None
+                        else:
+                            raw = extract.scrape_job(
+                                url,
+                                fetch_method=portal.get("detail_fetch", "playwright"),
+                                failover=portal.get("firecrawl_failover", False))
                         if raw is None:
                             report["errors"] += 1
                             continue
