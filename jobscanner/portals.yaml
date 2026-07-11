@@ -1,20 +1,36 @@
-# Portal-Configs — Spike-Befunde 2026-07-09, Firecrawl-Ersatz 2026-07-11. LinkedIn: gesperrt. Xing: Phase 2.
+# Portal-Configs — Spike 2026-07-09, Firecrawl-Ersatz + Hybrid-Ingestion 2026-07-11.
+# search_fetch/detail_fetch: playwright (Default) | firecrawl | api. LinkedIn: gesperrt. Xing: Phase 2.
 - name: stepstone
   site: stepstone.de
   detail_url_pattern: 'stepstone\.de/stellenangebote--'
   search_type: html
   search_url_template: 'https://www.stepstone.de/jobs/{query}'
+  detail_fetch: firecrawl        # Detailseiten blocken Playwright+requests (Live-E2E 2026-07-11)
 - name: arbeitsagentur
   site: arbeitsagentur.de
   detail_url_pattern: 'arbeitsagentur\.de/jobsuche/jobdetail/'
   search_type: api
+  firecrawl_failover: true
 - name: stellenanzeigen
   site: stellenanzeigen.de
   detail_url_pattern: 'stellenanzeigen\.de/job/'
   search_type: html
   search_url_template: 'https://www.stellenanzeigen.de/suche/?fulltext={query}'
+  firecrawl_failover: true
 - name: indeed
   site: de.indeed.com
   detail_url_pattern: 'de\.indeed\.com/(viewjob|rc/clk)'
   search_type: html
   search_url_template: 'https://de.indeed.com/jobs?q={query}'
+  search_fetch: firecrawl        # Suche blockt via Cloudflare (Live-E2E 2026-07-11)
+  detail_fetch: firecrawl
+- name: adzuna
+  site: adzuna.de
+  detail_url_pattern: 'adzuna\.(de|com)/(land/ad|details)/'
+  search_type: adzuna
+  detail_fetch: api              # Description kommt aus API-Response, 0 Scrapes
+- name: jooble
+  site: jooble.org
+  detail_url_pattern: 'jooble\.org/desc/'
+  search_type: jooble
+  detail_fetch: api

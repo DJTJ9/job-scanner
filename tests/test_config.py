@@ -21,10 +21,11 @@ def test_queries_cover_three_roles_two_languages():
             assert 1 <= len(terms) <= 2, f"{role}/{lang}: max 2 Queries (Kosten-Deckel)"
 
 
-def test_portals_are_the_four_scrapable():
+def test_portals_are_the_six_sources():
     portals = config.load_portals()
     names = [p["name"] for p in portals]
-    assert names == ["stepstone", "arbeitsagentur", "stellenanzeigen", "indeed"]
+    assert names == ["stepstone", "arbeitsagentur", "stellenanzeigen", "indeed",
+                     "adzuna", "jooble"]
     for p in portals:
         assert p["site"], p
         assert p["detail_url_pattern"], p
@@ -41,7 +42,7 @@ def test_load_portals_rejects_missing_field(tmp_path, monkeypatch):
 def test_html_portals_have_search_url_template():
     portals = config.load_portals()
     for p in portals:
-        assert p["search_type"] in ("html", "api")
+        assert p["search_type"] in ("html", "api", "adzuna", "jooble")
         if p["search_type"] == "html":
             assert "{query}" in p["search_url_template"]
 
@@ -54,3 +55,22 @@ def test_load_portals_rejects_missing_search_type(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "_PORTALS_FILE", bad)
     with pytest.raises(ValueError, match="search_type"):
         config.load_portals()
+
+
+class TestHybridPortalConfig:
+    def test_fetch_routing_fields(self):
+        from jobscanner.config import load_portals
+        by_name = {p["name"]: p for p in load_portals()}
+        assert by_name["stepstone"]["detail_fetch"] == "firecrawl"
+        assert by_name["indeed"]["search_fetch"] == "firecrawl"
+        assert by_name["indeed"]["detail_fetch"] == "firecrawl"
+        assert by_name["arbeitsagentur"]["firecrawl_failover"] is True
+        assert by_name["stellenanzeigen"]["firecrawl_failover"] is True
+
+    def test_aggregator_portals_present(self):
+        from jobscanner.config import load_portals
+        by_name = {p["name"]: p for p in load_portals()}
+        assert by_name["adzuna"]["search_type"] == "adzuna"
+        assert by_name["adzuna"]["detail_fetch"] == "api"
+        assert by_name["jooble"]["search_type"] == "jooble"
+        assert by_name["jooble"]["detail_fetch"] == "api"
