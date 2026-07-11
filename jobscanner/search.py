@@ -8,7 +8,9 @@ hrefs, deshalb werden Links per urljoin gegen die gerenderte Seiten-URL aufgelö
 """
 from __future__ import annotations
 
+import os
 import re
+from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote_plus, urljoin
 
@@ -20,6 +22,18 @@ from jobscanner import browser
 _TIMEOUT = 30
 _ARBEITSAGENTUR_API = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4/jobs"
 _ARBEITSAGENTUR_HEADERS = {"X-API-Key": "jobboerse-jobsuche"}
+_ADZUNA_API = "https://api.adzuna.com/v1/api/jobs/de/search/1"
+_JOOBLE_API = "https://jooble.org/api/"
+ENV_FILE = Path("/root/projekte/telegram-bot-army/.env")
+
+
+def _load_env() -> None:
+    if ENV_FILE.exists():
+        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip())
 
 
 class SearchProvider(Protocol):
@@ -38,7 +52,8 @@ class PortalSearchProvider:
 
     def search(self, query: str, limit: int = 10) -> list[str]:
         url = self.portal["search_url_template"].format(query=quote_plus(query))
-        html = browser.render(url)
+        html = browser.fetch(url, method=self.portal.get("search_fetch", "playwright"),
+                             failover=self.portal.get("firecrawl_failover", False))
         if html is None:
             return []
         pattern = re.compile(self.portal["detail_url_pattern"])
@@ -62,9 +77,77 @@ class ArbeitsagenturSearchProvider:
                 for s in stellen if s.get("refnr")][:limit]
 
 
+class AdzunaSearchProvider:
+    """Adzuna-Aggregator-API — Description je URL gecacht, Detail-Phase braucht keinen Scrape."""
+
+    def __init__(self):
+        self.descriptions: dict[str, str] = {}
+
+    def search(self, query: str, limit: int = 10) -> list[str]:
+        _load_env()
+        app_id = os.environ.get("ADZUNA_APP_ID", "")
+        app_key = os.environ.get("ADZUNA_APP_KEY", "")
+        if not app_id or not app_key:
+            return []
+        try:
+            resp = requests.get(_ADZUNA_API, params={
+                "app_id": app_id, "app_key": app_key,
+                "what": query, "results_per_page": limit}, timeout=_TIMEOUT)
+            resp.raise_for_status()
+        except requests.RequestException:
+            return []
+        urls = []
+        for r in resp.json().get("results", []):
+            url = r.get("redirect_url")
+            if not url:
+                continue
+            self.descriptions[url] = "\n".join(filter(None, [
+                r.get("title", ""),
+                (r.get("company") or {}).get("display_name", ""),
+                (r.get("location") or {}).get("display_name", ""),
+                r.get("description", "")]))
+            urls.append(url)
+        return urls[:limit]
+
+
+class JoobleSearchProvider:
+    """Jooble-Aggregator-API — POST mit Key in URL, Description-Cache wie Adzuna."""
+
+    def __init__(self):
+        self.descriptions: dict[str, str] = {}
+
+    def search(self, query: str, limit: int = 10) -> list[str]:
+        _load_env()
+        key = os.environ.get("JOOBLE_API_KEY", "")
+        if not key:
+            return []
+        try:
+            resp = requests.post(_JOOBLE_API + key,
+                                 json={"keywords": query, "location": ""},
+                                 timeout=_TIMEOUT)
+            resp.raise_for_status()
+        except requests.RequestException:
+            return []
+        urls = []
+        for j in resp.json().get("jobs", []):
+            url = j.get("link")
+            if not url:
+                continue
+            self.descriptions[url] = "\n".join(filter(None, [
+                j.get("title", ""), j.get("company", ""),
+                j.get("location", ""), j.get("snippet", "")]))
+            urls.append(url)
+        return urls[:limit]
+
+
 def provider_for(portal: dict) -> SearchProvider:
-    if portal.get("search_type") == "api":
+    search_type = portal.get("search_type")
+    if search_type == "api":
         return ArbeitsagenturSearchProvider()
+    if search_type == "adzuna":
+        return AdzunaSearchProvider()
+    if search_type == "jooble":
+        return JoobleSearchProvider()
     return PortalSearchProvider(portal)
 
 
@@ -80,11 +163,12 @@ def _extract_links(html: str, base_url: str) -> list[str]:
     return urls
 
 
-def _links_from_page(url: str, detail_url_pattern: str) -> list[str]:
-    html = browser.render(url)
+def _links_from_page(url: str, portal: dict) -> list[str]:
+    html = browser.fetch(url, method=portal.get("search_fetch", "playwright"),
+                         failover=portal.get("firecrawl_failover", False))
     if html is None:
         return []
-    pattern = re.compile(detail_url_pattern)
+    pattern = re.compile(portal["detail_url_pattern"])
     return [u for u in _extract_links(html, url) if pattern.search(u)]
 
 
@@ -99,7 +183,7 @@ def discover_urls(portal: dict, term: str, provider: SearchProvider,
     for listing in listings:
         if len(detail) >= min_detail:
             break
-        detail += [u for u in _links_from_page(listing, portal["detail_url_pattern"])
+        detail += [u for u in _links_from_page(listing, portal)
                    if u not in detail]
     seen: set[str] = set()
     return [u for u in detail if not (u in seen or seen.add(u))][:limit]

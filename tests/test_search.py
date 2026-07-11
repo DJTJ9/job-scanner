@@ -93,3 +93,107 @@ class TestDiscoverUrls:
                                  limit=10, min_detail=2)
         assert "https://www.stepstone.de/stellenangebote--Dev-Foo--1-inline.html" in urls
         assert "https://www.stepstone.de/stellenangebote--Dev-Bar--2-inline.html" in urls
+
+
+ADZUNA_PORTAL = {"name": "adzuna", "site": "adzuna.de",
+                 "detail_url_pattern": r"adzuna\.(de|com)/(land/ad|details)/",
+                 "search_type": "adzuna", "detail_fetch": "api"}
+
+JOOBLE_PORTAL = {"name": "jooble", "site": "jooble.org",
+                 "detail_url_pattern": r"jooble\.org/desc/",
+                 "search_type": "jooble", "detail_fetch": "api"}
+
+INDEED_FC_PORTAL = {"name": "indeed", "site": "de.indeed.com",
+                    "detail_url_pattern": r"de\.indeed\.com/(viewjob|rc/clk)",
+                    "search_type": "html",
+                    "search_url_template": "https://de.indeed.com/jobs?q={query}",
+                    "search_fetch": "firecrawl", "detail_fetch": "firecrawl"}
+
+
+class TestAdzunaSearchProvider:
+    def _resp(self):
+        r = MagicMock()
+        r.json.return_value = {"results": [{
+            "title": "Junior Unity Developer",
+            "company": {"display_name": "ACME GmbH"},
+            "location": {"display_name": "Hamburg"},
+            "description": "Unity, C#, 2 Jahre Erfahrung",
+            "redirect_url": "https://www.adzuna.de/land/ad/123"}]}
+        return r
+
+    def test_returns_urls_and_caches_description(self, monkeypatch):
+        from jobscanner.search import AdzunaSearchProvider
+        monkeypatch.setenv("ADZUNA_APP_ID", "id123")
+        monkeypatch.setenv("ADZUNA_APP_KEY", "key456")
+        provider = AdzunaSearchProvider()
+        with patch("jobscanner.search.requests.get", return_value=self._resp()):
+            urls = provider.search("Unity Entwickler", limit=5)
+        assert urls == ["https://www.adzuna.de/land/ad/123"]
+        cached = provider.descriptions["https://www.adzuna.de/land/ad/123"]
+        assert "Junior Unity Developer" in cached
+        assert "ACME GmbH" in cached
+        assert "Unity, C#" in cached
+
+    def test_empty_without_keys(self, monkeypatch):
+        from jobscanner.search import AdzunaSearchProvider
+        monkeypatch.delenv("ADZUNA_APP_ID", raising=False)
+        monkeypatch.delenv("ADZUNA_APP_KEY", raising=False)
+        with patch("jobscanner.search._load_env"), \
+             patch("jobscanner.search.requests.get") as get:
+            assert AdzunaSearchProvider().search("x") == []
+        get.assert_not_called()
+
+    def test_empty_on_request_error(self, monkeypatch):
+        from jobscanner.search import AdzunaSearchProvider
+        monkeypatch.setenv("ADZUNA_APP_ID", "id123")
+        monkeypatch.setenv("ADZUNA_APP_KEY", "key456")
+        with patch("jobscanner.search.requests.get",
+                   side_effect=requests.ConnectionError("boom")):
+            assert AdzunaSearchProvider().search("x") == []
+
+
+class TestJoobleSearchProvider:
+    def _resp(self):
+        r = MagicMock()
+        r.json.return_value = {"jobs": [{
+            "title": "Junior AI Engineer", "company": "Beta UG",
+            "location": "Berlin", "snippet": "Python, LLM-Tooling",
+            "link": "https://jooble.org/desc/456"}]}
+        return r
+
+    def test_returns_urls_and_caches_description(self, monkeypatch):
+        from jobscanner.search import JoobleSearchProvider
+        monkeypatch.setenv("JOOBLE_API_KEY", "guid789")
+        provider = JoobleSearchProvider()
+        with patch("jobscanner.search.requests.post", return_value=self._resp()) as post:
+            urls = provider.search("AI Engineer", limit=5)
+        assert urls == ["https://jooble.org/desc/456"]
+        assert "Junior AI Engineer" in provider.descriptions["https://jooble.org/desc/456"]
+        assert post.call_args[0][0].endswith("guid789")
+
+    def test_empty_without_key(self, monkeypatch):
+        from jobscanner.search import JoobleSearchProvider
+        monkeypatch.delenv("JOOBLE_API_KEY", raising=False)
+        with patch("jobscanner.search._load_env"), \
+             patch("jobscanner.search.requests.post") as post:
+            assert JoobleSearchProvider().search("x") == []
+        post.assert_not_called()
+
+
+class TestProviderRouting:
+    def test_provider_for_dispatch(self):
+        from jobscanner.search import (AdzunaSearchProvider, JoobleSearchProvider)
+        assert isinstance(provider_for(ADZUNA_PORTAL), AdzunaSearchProvider)
+        assert isinstance(provider_for(JOOBLE_PORTAL), JoobleSearchProvider)
+        assert isinstance(provider_for(ARBEITSAGENTUR), ArbeitsagenturSearchProvider)
+        assert isinstance(provider_for(PORTAL), PortalSearchProvider)
+
+    def test_portal_search_uses_fetch_with_method(self):
+        with patch("jobscanner.search.browser.fetch", return_value=HTML) as fetch:
+            PortalSearchProvider(INDEED_FC_PORTAL).search("Unity", limit=5)
+        assert fetch.call_args.kwargs["method"] == "firecrawl"
+
+    def test_portal_search_default_method_playwright(self):
+        with patch("jobscanner.search.browser.fetch", return_value=HTML) as fetch:
+            PortalSearchProvider(PORTAL).search("Unity", limit=5)
+        assert fetch.call_args.kwargs["method"] == "playwright"
