@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 _DIR = Path(__file__).parent
-_PROFILE_FILE = _DIR / "profile.yaml"
+_PROFILES_DIR = _DIR / "profiles"
 _QUERIES_FILE = _DIR / "queries.yaml"
 _PORTALS_FILE = _DIR / "portals.yaml"
 
@@ -17,8 +17,11 @@ def _load(path: Path):
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def load_profile() -> dict:
-    return _load(_PROFILE_FILE)
+def load_profile(name: str = "default") -> dict:
+    path = _PROFILES_DIR / f"{name}.yaml"
+    if not path.exists():
+        raise FileNotFoundError(f"Profil '{name}' nicht gefunden: {path}")
+    return _load(path)
 
 
 def load_queries() -> dict:
