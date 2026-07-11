@@ -135,3 +135,18 @@ def test_run_skips_report_when_disabled(env):
             pipeline.run(provider=FakeProvider(), db_path=env, push_nocodb=False,
                         today="2026-07-10", send_report=False)
     run.assert_not_called()
+
+
+def test_uses_portal_specific_provider_when_none_passed(env, monkeypatch):
+    calls = []
+
+    class SpyProvider:
+        def search(self, query, limit=10):
+            calls.append(query)
+            return ["https://stepstone.de/job/a"]
+
+    monkeypatch.setattr(pipeline.search, "provider_for", lambda portal: SpyProvider())
+    with patch("jobscanner.pipeline.extract.scrape_job",
+               side_effect=lambda url: RAW_A):
+        pipeline.run(provider=None, db_path=env, push_nocodb=False, today="2026-07-10")
+    assert calls  # provider_for wurde tatsächlich benutzt

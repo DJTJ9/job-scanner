@@ -9,8 +9,8 @@ import json
 import subprocess
 from pathlib import Path
 
-from jobscanner import archive, config, dedup, extract, market, nocodb_board, scoring, storage
-from jobscanner.search import FirecrawlSearchProvider, SearchProvider, discover_urls
+from jobscanner import archive, config, dedup, extract, market, nocodb_board, scoring, search, storage
+from jobscanner.search import SearchProvider
 
 _DEFAULT_DB = Path(__file__).parent.parent / "data" / "jobs.db"
 _NOTIFY_SCRIPT = Path("/root/projekte/telegram-bot-army/scripts/telegram_notify.py")
@@ -21,7 +21,6 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
         today: str | None = None,
         max_scrapes_per_portal: int | None = None,
         send_report: bool = True) -> dict:
-    provider = provider or FirecrawlSearchProvider()
     today = today or _dt.date.today().isoformat()
     storage.init_db(db_path or _DEFAULT_DB)
 
@@ -47,7 +46,8 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                 for term in terms:
                     if capped:
                         break
-                    for url in discover_urls(portal, term, provider, limit=limit_per_query):
+                    for url in search.discover_urls(portal, term, provider or search.provider_for(portal),
+                                                    limit=limit_per_query):
                         if (max_scrapes_per_portal is not None
                                 and stats["scraped"] >= max_scrapes_per_portal):
                             capped = True
