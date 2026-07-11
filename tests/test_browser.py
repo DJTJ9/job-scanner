@@ -31,3 +31,87 @@ class TestRender:
         cm = _mock_playwright(raise_error=True)
         with patch("jobscanner.browser.sync_playwright", return_value=cm):
             assert render("https://example.com/x") is None
+
+
+class TestFirecrawlScrape:
+    def test_returns_stdout_html(self):
+        res = MagicMock(returncode=0, stdout="<html>fc</html>\n")
+        with patch("jobscanner.browser.subprocess.run", return_value=res):
+            from jobscanner.browser import _firecrawl_scrape
+            assert _firecrawl_scrape("https://example.com/x") == "<html>fc</html>"
+
+    def test_returns_none_on_nonzero_exit(self):
+        res = MagicMock(returncode=1, stdout="")
+        with patch("jobscanner.browser.subprocess.run", return_value=res):
+            from jobscanner.browser import _firecrawl_scrape
+            assert _firecrawl_scrape("https://example.com/x") is None
+
+    def test_returns_none_on_timeout(self):
+        import subprocess as sp
+        with patch("jobscanner.browser.subprocess.run", side_effect=sp.TimeoutExpired("firecrawl", 60)):
+            from jobscanner.browser import _firecrawl_scrape
+            assert _firecrawl_scrape("https://example.com/x") is None
+
+
+class TestCreditsOk:
+    def _status(self, text):
+        return MagicMock(returncode=0, stdout=text)
+
+    def test_true_when_credits_left(self):
+        import jobscanner.browser as b
+        b._credits_ok = None
+        with patch("jobscanner.browser.subprocess.run", return_value=self._status("Credits: 2,847 / 3,000")):
+            assert b.firecrawl_credits_ok() is True
+
+    def test_false_when_zero(self):
+        import jobscanner.browser as b
+        b._credits_ok = None
+        with patch("jobscanner.browser.subprocess.run", return_value=self._status("Credits: 0 / 1,000")):
+            assert b.firecrawl_credits_ok() is False
+
+    def test_cached_after_first_call(self):
+        import jobscanner.browser as b
+        b._credits_ok = None
+        with patch("jobscanner.browser.subprocess.run", return_value=self._status("Credits: 5 / 1,000")) as run:
+            b.firecrawl_credits_ok()
+            b.firecrawl_credits_ok()
+        assert run.call_count == 1
+
+
+class TestFetch:
+    def test_playwright_default(self):
+        import jobscanner.browser as b
+        with patch("jobscanner.browser.render", return_value="<html>pw</html>") as render:
+            assert b.fetch("https://example.com/x") == "<html>pw</html>"
+        render.assert_called_once()
+
+    def test_firecrawl_method_uses_subprocess(self):
+        import jobscanner.browser as b
+        b._credits_ok = True
+        with patch("jobscanner.browser._firecrawl_scrape", return_value="<html>fc</html>") as fc, \
+             patch("jobscanner.browser.render") as render:
+            assert b.fetch("https://example.com/x", method="firecrawl") == "<html>fc</html>"
+        render.assert_not_called()
+        fc.assert_called_once()
+
+    def test_firecrawl_method_skipped_without_credits(self):
+        import jobscanner.browser as b
+        b._credits_ok = False
+        with patch("jobscanner.browser._firecrawl_scrape") as fc:
+            assert b.fetch("https://example.com/x", method="firecrawl") is None
+        fc.assert_not_called()
+
+    def test_failover_on_playwright_failure(self):
+        import jobscanner.browser as b
+        b._credits_ok = True
+        with patch("jobscanner.browser.render", return_value=None), \
+             patch("jobscanner.browser._firecrawl_scrape", return_value="<html>fc</html>") as fc:
+            assert b.fetch("https://example.com/x", failover=True) == "<html>fc</html>"
+        fc.assert_called_once()
+
+    def test_no_failover_by_default(self):
+        import jobscanner.browser as b
+        with patch("jobscanner.browser.render", return_value=None), \
+             patch("jobscanner.browser._firecrawl_scrape") as fc:
+            assert b.fetch("https://example.com/x") is None
+        fc.assert_not_called()
