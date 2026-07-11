@@ -48,6 +48,12 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                 for term in terms:
                     if capped:
                         break
+                    # Cap VOR der Suche prüfen — sonst feuert ein gecapptes Portal
+                    # noch eine (bei Firecrawl teure) Such-Anfrage ab (Live-E2E 2026-07-11).
+                    if (max_scrapes_per_portal is not None
+                            and stats["scraped"] >= max_scrapes_per_portal):
+                        capped = True
+                        break
                     for url in search.discover_urls(portal, term, portal_provider,
                                                     limit=limit_per_query):
                         if (max_scrapes_per_portal is not None

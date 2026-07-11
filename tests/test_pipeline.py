@@ -198,6 +198,31 @@ class TestHybridRouting:
         assert scrape.call_args.kwargs["fetch_method"] == "playwright"
         assert scrape.call_args.kwargs["failover"] is True
 
+    def test_capped_portal_fires_no_further_search(self, tmp_path):
+        """Live-E2E 2026-07-11: gecapptes Portal löste noch eine Firecrawl-Suche aus
+        (Cap-Check erst nach discover_urls) — kostete 5 Credits pro Lauf bei Indeed."""
+        portal = {"name": "indeed", "site": "de.indeed.com",
+                  "detail_url_pattern": r"de\.indeed\.com/viewjob",
+                  "search_type": "html",
+                  "search_url_template": "https://de.indeed.com/jobs?q={query}",
+                  "search_fetch": "firecrawl", "detail_fetch": "firecrawl"}
+        provider = MagicMock()
+        provider.search.side_effect = [["https://de.indeed.com/viewjob?jk=1"],
+                                       ["https://de.indeed.com/viewjob?jk=2"]]
+        raw = {"title": "Dev", "company": "ACME", "location": "Essen"}
+        with patch("jobscanner.pipeline.config.load_portals", return_value=[portal]), \
+             patch("jobscanner.pipeline.config.load_queries",
+                   return_value={"unity_games": {"de": ["Q1", "Q2"]}}), \
+             patch("jobscanner.pipeline.config.load_profile", return_value={}), \
+             patch("jobscanner.pipeline.extract.scrape_job", return_value=raw), \
+             patch("jobscanner.pipeline.scoring.score_job", return_value=(50, "ok", "Vielleicht")), \
+             patch("jobscanner.pipeline.browser.firecrawl_credits_ok", return_value=True):
+            report = run(provider=provider, db_path=tmp_path / "t.db",
+                         push_nocodb=False, send_report=False,
+                         max_scrapes_per_portal=1)
+        assert report["portals"]["indeed"]["scraped"] == 1
+        assert provider.search.call_count == 1
+
     def test_report_contains_firecrawl_status(self, tmp_path):
         with patch("jobscanner.pipeline.config.load_portals", return_value=[]), \
              patch("jobscanner.pipeline.config.load_queries", return_value={}), \
