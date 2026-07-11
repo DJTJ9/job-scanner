@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     language TEXT,
     salary_text TEXT,
     role TEXT,
+    is_neighbor INTEGER DEFAULT 0,
     requirements_json TEXT,
     tech_stack_json TEXT,
     sources_json TEXT,
@@ -53,6 +54,8 @@ def init_db(path: str | Path) -> None:
     existing_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(jobs)")}
     if "role" not in existing_cols:
         _conn.execute("ALTER TABLE jobs ADD COLUMN role TEXT")
+    if "is_neighbor" not in existing_cols:
+        _conn.execute("ALTER TABLE jobs ADD COLUMN is_neighbor INTEGER DEFAULT 0")
     _conn.commit()
 
 
@@ -76,12 +79,12 @@ def upsert_job(job: Job) -> str:
     if row is None:
         conn.execute(
             """INSERT INTO jobs (fingerprint, title, company, location, remote_flag,
-                   employment_type, language, salary_text, role, requirements_json,
+                   employment_type, language, salary_text, role, is_neighbor, requirements_json,
                    tech_stack_json, sources_json, first_seen, last_seen, archive_path,
                    score, score_reason, category, status, nocodb_row_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (fp, job.title, job.company, job.location, job.remote_flag,
-             job.employment_type, job.language, job.salary_text, job.role,
+             job.employment_type, job.language, job.salary_text, job.role, int(job.is_neighbor),
              json.dumps(job.requirements, ensure_ascii=False),
              json.dumps(job.tech_stack, ensure_ascii=False),
              json.dumps(job.sources, ensure_ascii=False),
@@ -110,6 +113,7 @@ def _row_to_job(row: sqlite3.Row) -> Job:
         language=row["language"] or "",
         salary_text=row["salary_text"] or "",
         role=row["role"] or "",
+        is_neighbor=bool(row["is_neighbor"]),
         requirements=json.loads(row["requirements_json"] or "[]"),
         tech_stack=json.loads(row["tech_stack_json"] or "[]"),
         sources=json.loads(row["sources_json"] or "[]"),

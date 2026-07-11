@@ -9,7 +9,8 @@ import json
 import subprocess
 from pathlib import Path
 
-from jobscanner import archive, browser, config, dedup, extract, market, nocodb_board, scoring, search, storage
+from jobscanner import (archive, browser, config, dedup, extract, market, neighbors,
+                        nocodb_board, scoring, search, storage)
 from jobscanner.search import SearchProvider
 
 _DEFAULT_DB = Path(__file__).parent.parent / "data" / "jobs.db"
@@ -20,13 +21,18 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
         push_nocodb: bool = True, db_path: str | Path | None = None,
         today: str | None = None,
         max_scrapes_per_portal: int | None = None,
-        send_report: bool = True) -> dict:
+        send_report: bool = True,
+        profile_name: str = "default") -> dict:
     today = today or _dt.date.today().isoformat()
     storage.init_db(db_path or _DEFAULT_DB)
 
     portals = config.load_portals()
-    queries = config.load_queries()
-    profile = config.load_profile()
+    core_queries = config.load_queries()
+    profile = config.load_profile(profile_name)
+    neighbor_roles = neighbors.get_neighbor_roles(
+        profile, profile_name, set(core_queries), today=today)
+    queries = {**core_queries, **{name: r["terms"] for name, r in neighbor_roles.items()}}
+    neighbor_role_names = set(neighbor_roles)
     known = dedup.known_source_urls()
 
     report: dict = {"date": today, "new": 0, "known_skipped": 0, "errors": 0,
@@ -87,6 +93,7 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                             report["errors"] += 1
                             continue
                         job.role = role
+                        job.is_neighbor = role in neighbor_role_names
                         stats["scraped"] += 1
                         is_new = storage.get_job(job.fingerprint) is None
                         fp = storage.upsert_job(job)
@@ -103,8 +110,11 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                                 row_id = nocodb_board.push_job(job)
                                 storage.update_job(fp, nocodb_row_id=row_id)
     if send_report:
-        aggregate = market.aggregate_skills(storage.list_jobs(), group_by_role=True)
-        subprocess.run(["python", str(_NOTIFY_SCRIPT), market.format_report(aggregate)], check=False)
+        jobs = storage.list_jobs()
+        aggregate = market.aggregate_skills(jobs, group_by_role=True)
+        stats = market.neighbor_stats(jobs)
+        subprocess.run(["python", str(_NOTIFY_SCRIPT), market.format_report(aggregate, stats)],
+                       check=False)
     return report
 
 

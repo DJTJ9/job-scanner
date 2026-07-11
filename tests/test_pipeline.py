@@ -23,7 +23,9 @@ class FakeProvider:
 def env(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline.config, "load_portals", lambda: PORTALS)
     monkeypatch.setattr(pipeline.config, "load_queries", lambda: QUERIES)
-    monkeypatch.setattr(pipeline.config, "load_profile", lambda: {})
+    monkeypatch.setattr(pipeline.config, "load_profile", lambda name="default": {})
+    monkeypatch.setattr(pipeline.neighbors, "get_neighbor_roles",
+                        lambda profile, name, core, today=None: {})
     monkeypatch.setattr(pipeline.scoring, "score_job",
                         lambda job, profile: (50, "Test-Score", "Vielleicht"))
     # Zentral gemockt: Report-Init ruft browser.firecrawl_credits_ok() —
@@ -169,6 +171,7 @@ class TestHybridRouting:
              patch("jobscanner.pipeline.config.load_queries",
                    return_value={"unity_games": {"de": ["Unity"]}}), \
              patch("jobscanner.pipeline.config.load_profile", return_value={}), \
+             patch("jobscanner.pipeline.neighbors.get_neighbor_roles", return_value={}), \
              patch("jobscanner.pipeline.extract.extract_from_text", return_value=raw) as eft, \
              patch("jobscanner.pipeline.extract.scrape_job") as scrape, \
              patch("jobscanner.pipeline.scoring.score_job", return_value=(50, "ok", "Vielleicht")), \
@@ -191,6 +194,7 @@ class TestHybridRouting:
              patch("jobscanner.pipeline.config.load_queries",
                    return_value={"unity_games": {"de": ["Unity"]}}), \
              patch("jobscanner.pipeline.config.load_profile", return_value={}), \
+             patch("jobscanner.pipeline.neighbors.get_neighbor_roles", return_value={}), \
              patch("jobscanner.pipeline.extract.scrape_job", return_value=None) as scrape, \
              patch("jobscanner.pipeline.browser.firecrawl_credits_ok", return_value=True):
             run(provider=provider, db_path=tmp_path / "t.db",
@@ -214,6 +218,7 @@ class TestHybridRouting:
              patch("jobscanner.pipeline.config.load_queries",
                    return_value={"unity_games": {"de": ["Q1", "Q2"]}}), \
              patch("jobscanner.pipeline.config.load_profile", return_value={}), \
+             patch("jobscanner.pipeline.neighbors.get_neighbor_roles", return_value={}), \
              patch("jobscanner.pipeline.extract.scrape_job", return_value=raw), \
              patch("jobscanner.pipeline.scoring.score_job", return_value=(50, "ok", "Vielleicht")), \
              patch("jobscanner.pipeline.browser.firecrawl_credits_ok", return_value=True):
@@ -227,6 +232,52 @@ class TestHybridRouting:
         with patch("jobscanner.pipeline.config.load_portals", return_value=[]), \
              patch("jobscanner.pipeline.config.load_queries", return_value={}), \
              patch("jobscanner.pipeline.config.load_profile", return_value={}), \
+             patch("jobscanner.pipeline.neighbors.get_neighbor_roles", return_value={}), \
              patch("jobscanner.pipeline.browser.firecrawl_credits_ok", return_value=False):
             report = run(db_path=tmp_path / "t.db", push_nocodb=False, send_report=False)
         assert report["firecrawl_ok"] is False
+
+
+def test_neighbor_role_jobs_get_is_neighbor_flag(env, monkeypatch):
+    monkeypatch.setattr(pipeline.neighbors, "get_neighbor_roles",
+                        lambda profile, name, core, today=None: {
+                            "gameplay_engineer": {"terms": {"de": ["Gameplay Programmierer"], "en": []}}
+                        })
+    scrape_map = {
+        "https://stepstone.de/job/a": RAW_A,
+        "https://stepstone.de/job/b": RAW_B,
+        "https://stepstone.de/job/neighbor": {"title": "Gameplay Coder", "company": "Gamma",
+                                              "location": "Köln"},
+    }
+
+    class RoleAwareProvider:
+        def search(self, query, limit=10):
+            if "Gameplay" in query:
+                return ["https://stepstone.de/job/neighbor"]
+            return ["https://stepstone.de/job/a", "https://stepstone.de/job/b"]
+
+    with patch("jobscanner.pipeline.extract.scrape_job",
+               side_effect=lambda url, **kwargs: scrape_map.get(url)):
+        pipeline.run(provider=RoleAwareProvider(), db_path=env, push_nocodb=False,
+                    today="2026-07-10")
+    jobs = storage.list_jobs()
+    neighbor_job = next(j for j in jobs if j.role == "gameplay_engineer")
+    assert neighbor_job.is_neighbor is True
+    core_job = next(j for j in jobs if j.role == "unity_games")
+    assert core_job.is_neighbor is False
+
+
+def test_neighbor_roles_excluded_when_cache_empty(env):
+    report = _run(env, {"https://stepstone.de/job/a": RAW_A})
+    assert report["new"] == 1
+    assert storage.list_jobs()[0].is_neighbor is False
+
+
+def test_profile_name_passed_to_load_profile_and_neighbors(env, monkeypatch):
+    calls = []
+    monkeypatch.setattr(pipeline.config, "load_profile", lambda name="default": calls.append(("profile", name)) or {})
+    monkeypatch.setattr(pipeline.neighbors, "get_neighbor_roles",
+                        lambda profile, name, core, today=None: calls.append(("neighbors", name)) or {})
+    _run(env, {"https://stepstone.de/job/a": RAW_A})
+    assert ("profile", "default") in calls
+    assert ("neighbors", "default") in calls

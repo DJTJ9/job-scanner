@@ -12,6 +12,20 @@ def test_profile_has_required_sections():
     assert p["portfolio"] == []
 
 
+def test_load_profile_reads_named_profile_from_profiles_dir():
+    p = config.load_profile("default")
+    assert "Unity" in p["skills"]
+
+
+def test_load_profile_defaults_to_default_profile():
+    assert config.load_profile() == config.load_profile("default")
+
+
+def test_load_profile_missing_name_raises():
+    with pytest.raises(FileNotFoundError, match="ghost"):
+        config.load_profile("ghost")
+
+
 def test_queries_cover_three_roles_two_languages():
     q = config.load_queries()
     assert set(q) == {"unity_games", "ai_engineer", "tools_workflow"}

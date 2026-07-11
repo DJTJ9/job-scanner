@@ -37,6 +37,7 @@ class Job:
     requirements: list = field(default_factory=list)
     tech_stack: list = field(default_factory=list)
     role: str = ""                      # Zielrolle aus queries.yaml (z.B. "unity_games")
+    is_neighbor: bool = False           # True: Job über Groq-generierte Nachbarrolle gefunden
     sources: list = field(default_factory=list)  # [{portal, url, found_at}]
     first_seen: str = ""                # ISO YYYY-MM-DD
     last_seen: str = ""
