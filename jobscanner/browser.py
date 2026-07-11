@@ -12,6 +12,7 @@ from playwright.sync_api import sync_playwright
 
 _TIMEOUT_MS = 30000
 _FC_TIMEOUT_S = 60
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")  # CLI färbt auch ohne TTY (live verifiziert 2026-07-11)
 _credits_ok: bool | None = None  # Prozess-Cache — 1 Status-Call pro Lauf
 
 
@@ -45,7 +46,7 @@ def firecrawl_credits_ok() -> bool:
         try:
             res = subprocess.run(["firecrawl", "--status"],
                                  capture_output=True, text=True, timeout=30)
-            m = re.search(r"Credits:\s*([\d,.]+)\s*/", res.stdout)
+            m = re.search(r"Credits:\s*([\d,.]+)\s*/", _ANSI_RE.sub("", res.stdout))
             _credits_ok = bool(m and int(re.sub(r"[,.]", "", m.group(1))) > 0)
         except (subprocess.TimeoutExpired, OSError):
             _credits_ok = False

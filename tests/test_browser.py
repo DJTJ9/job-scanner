@@ -63,6 +63,17 @@ class TestCreditsOk:
         with patch("jobscanner.browser.subprocess.run", return_value=self._status("Credits: 2,847 / 3,000")):
             assert b.firecrawl_credits_ok() is True
 
+    def test_true_on_live_ansi_output(self):
+        # Echtes CLI-Format v1.16.2 (live verifiziert 2026-07-11): ANSI-Codes auch bei Pipe-Capture.
+        live = ("  \x1b[38;5;208m\U0001f525 \x1b[1mfirecrawl\x1b[0m \x1b[2mcli\x1b[0m \x1b[2mv1.16.2\x1b[0m\n\n"
+                "  \x1b[32m●\x1b[0m Authenticated \x1b[2mvia stored credentials\x1b[0m\n"
+                "  \x1b[2mConcurrency:\x1b[0m 0/5 jobs \x1b[2m(parallel scrape limit)\x1b[0m\n"
+                "  \x1b[2mCredits:\x1b[0m 5,000 / 5,000 \x1b[2m(100% left this cycle)\x1b[0m\n")
+        import jobscanner.browser as b
+        b._credits_ok = None
+        with patch("jobscanner.browser.subprocess.run", return_value=self._status(live)):
+            assert b.firecrawl_credits_ok() is True
+
     def test_false_when_zero(self):
         import jobscanner.browser as b
         b._credits_ok = None
