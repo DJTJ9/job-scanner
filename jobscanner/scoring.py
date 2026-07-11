@@ -1,6 +1,7 @@
 """Matching & Scoring: Regel-Filter (No-Gos) + Groq-LLM-Bewertung gegen Nutzerprofil."""
 from __future__ import annotations
 
+import json
 import os
 import re
 from pathlib import Path
@@ -97,3 +98,83 @@ def score_job(job: Job, profile: dict) -> tuple[int | None, str, str | None]:
     except Exception as exc:
         return None, f"Scoring-Fehler: {exc}", None
     return score, reason, _category(score)
+
+
+def compute_weighted_score(breakdown: dict, criteria: list[dict]) -> int | None:
+    """Normalisierte gewichtete Summe: Σ(p×w)/Σ(10×w)×100 über bewertbare Kriterien."""
+    numerator = 0
+    denominator = 0
+    for crit in criteria:
+        if crit["weight"] <= 0:
+            continue
+        entry = breakdown.get(crit["key"])
+        if entry is None or entry.get("punkte") is None:
+            continue
+        punkte = max(0, min(10, int(entry["punkte"])))
+        numerator += punkte * crit["weight"]
+        denominator += 10 * crit["weight"]
+    if denominator == 0:
+        return None
+    return round(numerator / denominator * 100)
+
+
+def llm_criteria_eval(job: Job, profile_data: dict, criteria: list[dict]) -> dict:
+    """Ein Groq-JSON-Call: bewertet alle Kriterien 0-10 (oder null) + Veto-Check."""
+    _load_env()
+    client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+    job_text = (
+        f"Titel: {job.title}\nFirma: {job.company}\nOrt: {job.location}\n"
+        f"Remote: {job.remote_flag}\nAnstellung: {job.employment_type}\n"
+        f"Sprache: {job.language}\nGehalt: {job.salary_text or 'keine Angabe'}\n"
+        f"Anforderungen: {', '.join(job.requirements)}\nTech-Stack: {', '.join(job.tech_stack)}"
+    )
+    profile_text = "\n".join(f"{k}: {v}" for k, v in profile_data.items())
+    criteria_text = "\n".join(
+        f"- {c['key']}: {c['label']}" for c in criteria if c["weight"] > 0)
+    no_gos = profile_data.get("no_gos", [])
+    resp = client.chat.completions.create(
+        model=_MODEL,
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": (
+                "Du bewertest eine Stellenanzeige gegen ein Bewerberprofil, Kriterium für "
+                "Kriterium. Antworte NUR als JSON:\n"
+                '{"veto": null | "<No-go-Text falls die Anzeige einem No-go des Profils '
+                'entspricht>", "kriterien": {"<key>": {"punkte": 0-10 | null, '
+                '"grund": "<max 1 Satz>"}}}\n'
+                "punkte: 10 = perfekte Passung, 0 = klare Nichtpassung. "
+                "null NUR wenn die Anzeige zu diesem Kriterium keine Information enthält. "
+                "Bewerte JEDES gelistete Kriterium."
+            )},
+            {"role": "user", "content": (
+                f"PROFIL:\n{profile_text}\n\nNO-GOS (Veto-Check):\n{', '.join(no_gos) or 'keine'}"
+                f"\n\nKRITERIEN:\n{criteria_text}\n\nJOB:\n{job_text}")},
+        ],
+        max_tokens=1024,
+    )
+    return json.loads(resp.choices[0].message.content)
+
+
+def criteria_score(job: Job, profile_data: dict,
+                   criteria: list[dict]) -> tuple[int | None, str, str | None, dict]:
+    """Veto-Check (Regex-Fastpath + LLM) → gewichteter Score. Rückgabe:
+    (score 0-100 | None, reason, category | None, breakdown)."""
+    no_go = rule_filter(job)
+    if no_go:
+        return 0, f"No-Go: {no_go}", "No-Go", {}
+    try:
+        result = llm_criteria_eval(job, profile_data, criteria)
+    except Exception as exc:
+        return None, f"Scoring-Fehler: {exc}", None, {}
+    if result.get("veto"):
+        return 0, f"No-Go: {result['veto']}", "No-Go", {}
+    breakdown = result.get("kriterien", {})
+    score = compute_weighted_score(breakdown, criteria)
+    if score is None:
+        return None, "Keine bewertbaren Kriterien in der Anzeige", None, breakdown
+    top = sorted(
+        ((c["key"], breakdown.get(c["key"], {})) for c in criteria
+         if breakdown.get(c["key"], {}).get("punkte") is not None),
+        key=lambda kv: kv[1]["punkte"], reverse=True)[:2]
+    reason = "; ".join(f"{k}: {v.get('grund', '')}" for k, v in top) or "bewertet"
+    return score, reason, _category(score), breakdown
