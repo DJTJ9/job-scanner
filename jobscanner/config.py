@@ -10,7 +10,7 @@ _PROFILE_FILE = _DIR / "profile.yaml"
 _QUERIES_FILE = _DIR / "queries.yaml"
 _PORTALS_FILE = _DIR / "portals.yaml"
 
-_PORTAL_REQUIRED = ("name", "site", "detail_url_pattern")
+_PORTAL_REQUIRED = ("name", "site", "detail_url_pattern", "search_type")
 
 
 def _load(path: Path):
@@ -29,6 +29,8 @@ def load_portals() -> list[dict]:
     portals = _load(_PORTALS_FILE)
     for p in portals:
         missing = [k for k in _PORTAL_REQUIRED if not p.get(k)]
+        if p.get("search_type") == "html" and not p.get("search_url_template"):
+            missing.append("search_url_template")
         if missing:
             raise ValueError(f"Portal {p.get('name', '?')}: Pflichtfelder fehlen: {missing}")
     return portals

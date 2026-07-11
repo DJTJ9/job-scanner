@@ -36,3 +36,21 @@ def test_load_portals_rejects_missing_field(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "_PORTALS_FILE", bad)
     with pytest.raises(ValueError, match="detail_url_pattern"):
         config.load_portals()
+
+
+def test_html_portals_have_search_url_template():
+    portals = config.load_portals()
+    for p in portals:
+        assert p["search_type"] in ("html", "api")
+        if p["search_type"] == "html":
+            assert "{query}" in p["search_url_template"]
+
+
+def test_load_portals_rejects_missing_search_type(tmp_path, monkeypatch):
+    bad = tmp_path / "portals.yaml"
+    bad.write_text(
+        "- name: kaputt\n  site: example.com\n  detail_url_pattern: 'x'\n",
+        encoding="utf-8")
+    monkeypatch.setattr(config, "_PORTALS_FILE", bad)
+    with pytest.raises(ValueError, match="search_type"):
+        config.load_portals()
