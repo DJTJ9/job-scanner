@@ -48,6 +48,42 @@ class TestScrapeJob:
             assert scrape_job("https://example.com/x") is None
 
 
+class TestExtractFromText:
+    def _groq_resp(self, payload: str):
+        resp = MagicMock()
+        resp.choices = [MagicMock(message=MagicMock(content=payload))]
+        return resp
+
+    def test_extracts_dict_from_plain_text(self):
+        from jobscanner.extract import extract_from_text
+        with patch("jobscanner.extract.Groq") as groq_cls:
+            groq_cls.return_value.chat.completions.create.return_value = \
+                self._groq_resp('{"title": "Junior Unity Developer", "company": "ACME"}')
+            raw = extract_from_text("Junior Unity Developer\nACME GmbH\nHamburg\nUnity, C#")
+        assert raw == {"title": "Junior Unity Developer", "company": "ACME"}
+
+    def test_empty_text_returns_none(self):
+        from jobscanner.extract import extract_from_text
+        with patch("jobscanner.extract.Groq") as groq_cls:
+            assert extract_from_text("   ") is None
+        groq_cls.assert_not_called()
+
+
+class TestScrapeJobRouting:
+    def test_passes_fetch_method_and_failover(self):
+        from jobscanner.extract import scrape_job
+        with patch("jobscanner.extract.browser.fetch", return_value=None) as fetch:
+            assert scrape_job("https://x.de/j/1", fetch_method="firecrawl", failover=True) is None
+        assert fetch.call_args.kwargs["method"] == "firecrawl"
+        assert fetch.call_args.kwargs["failover"] is True
+
+    def test_default_method_playwright(self):
+        from jobscanner.extract import scrape_job
+        with patch("jobscanner.extract.browser.fetch", return_value=None) as fetch:
+            scrape_job("https://x.de/j/1")
+        assert fetch.call_args.kwargs["method"] == "playwright"
+
+
 class TestToJob:
     def test_builds_valid_job(self):
         job = to_job(RAW, portal="stepstone",

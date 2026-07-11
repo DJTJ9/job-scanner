@@ -44,12 +44,9 @@ def _clean_text(html: str) -> str:
     return "\n".join(lines)[:_MAX_CHARS]
 
 
-def scrape_job(url: str) -> dict | None:
-    html = browser.render(url)
-    if html is None:
-        return None
-    text = _clean_text(html)
-    if not text:
+def extract_from_text(text: str) -> dict | None:
+    text = text[:_MAX_CHARS]
+    if not text.strip():
         return None
     _load_env()
     client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
@@ -66,6 +63,14 @@ def scrape_job(url: str) -> dict | None:
     except (json.JSONDecodeError, IndexError, AttributeError, TypeError):
         return None
     return data if isinstance(data, dict) else None
+
+
+def scrape_job(url: str, fetch_method: str = "playwright",
+               failover: bool = False) -> dict | None:
+    html = browser.fetch(url, method=fetch_method, failover=failover)
+    if html is None:
+        return None
+    return extract_from_text(_clean_text(html))
 
 
 def to_job(raw: dict, portal: str, url: str, today: str) -> Job | None:
