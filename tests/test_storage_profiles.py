@@ -110,3 +110,25 @@ def test_job_score_upsert_and_get():
     storage.upsert_job_score(pid, "fp1", 42, "neu bewertet", "Vielleicht", {})
     assert storage.get_job_score(pid, "fp1")["score"] == 42
     assert storage.get_job_score(pid, "fp2") is None
+
+
+def test_migrate_yaml_profile_creates_tjark_with_seed_criteria():
+    pid = storage.migrate_yaml_profile()
+    p = storage.get_profile(pid)
+    assert p["name"] == "Tjark"
+    assert p["is_default"] is True
+    assert "Unity" in p["data"]["skills"]
+    assert p["queries"]  # queries.yaml übernommen
+    crits = storage.list_criteria(pid)
+    assert {c["key"] for c in crits} == {c["key"] for c in storage.DEFAULT_CRITERIA}
+    assert all(0 <= c["weight"] <= 5 for c in crits)
+
+
+def test_migrate_yaml_profile_is_idempotent():
+    pid1 = storage.migrate_yaml_profile()
+    storage.set_criterion_weight(storage.list_criteria(pid1)[0]["id"], 0)
+    pid2 = storage.migrate_yaml_profile()
+    assert pid1 == pid2
+    assert len(storage.list_profiles()) == 1
+    # zweiter Lauf überschreibt manuell geänderte Gewichte NICHT
+    assert storage.list_criteria(pid1)[0]["weight"] == 0

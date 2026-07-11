@@ -5,6 +5,7 @@ import json
 import sqlite3
 from pathlib import Path
 
+from jobscanner import config
 from jobscanner.models import Job
 
 _SCHEMA = """
@@ -315,3 +316,28 @@ def get_job_score(profile_id: int, fingerprint: str) -> dict | None:
     d = dict(row)
     d["breakdown"] = json.loads(d.pop("breakdown_json") or "{}")
     return d
+
+
+DEFAULT_CRITERIA = [
+    {"key": "role_fit", "label": "Passung zu Zielrollen", "weight": 5},
+    {"key": "seniority", "label": "Level passt (Junior/Entry)", "weight": 5},
+    {"key": "tech_stack", "label": "Tech-Stack-Übereinstimmung", "weight": 4},
+    {"key": "remote", "label": "Remote-Möglichkeit", "weight": 4},
+    {"key": "location", "label": "Standort (Hamburg-Bonus)", "weight": 3},
+    {"key": "employment", "label": "Anstellungsart (Festanstellung/Teilzeit)", "weight": 3},
+    {"key": "domain", "label": "Domänen-Bonus (Sport/EdTech/Serious Games)", "weight": 3},
+    {"key": "language", "label": "Sprache (de/en)", "weight": 2},
+    {"key": "salary", "label": "Gehalt", "weight": 2},
+]
+
+
+def migrate_yaml_profile() -> int:
+    """default.yaml + queries.yaml → Profil „Tjark" mit Seed-Kriterien. Idempotent."""
+    existing = get_profile_by_name("Tjark")
+    if existing is not None:
+        return existing["id"]
+    data = config.load_profile("default")
+    queries = config.load_queries()
+    pid = create_profile("Tjark", data, queries=queries, is_default=True)
+    save_criteria(pid, [dict(c, sort=i) for i, c in enumerate(DEFAULT_CRITERIA)])
+    return pid
