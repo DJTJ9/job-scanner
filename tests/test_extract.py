@@ -1,4 +1,4 @@
-"""Tests für Extraktion — subprocess gemockt."""
+"""Tests für Extraktion — Playwright-Render und Groq-Client gemockt, kein Live-Call."""
 import json
 from unittest.mock import patch, MagicMock
 
@@ -16,24 +16,35 @@ RAW = {
     "tech_stack": ["Unity", "C#"],
 }
 
+HTML = ("<html><body><nav>Menu</nav>"
+       "<h1>Unity Developer (m/w/d)</h1><p>ACME GmbH sucht dich.</p>"
+       "<footer>Impressum</footer></body></html>")
+
+
+def _groq_response(payload: dict) -> MagicMock:
+    resp = MagicMock()
+    resp.choices = [MagicMock(message=MagicMock(content=json.dumps(payload)))]
+    return resp
+
 
 class TestScrapeJob:
-    def test_calls_firecrawl_with_schema_and_parses(self):
-        # Echte Hülle (CLI 1.16.2, verifiziert 2026-07-10): "Scrape ID"-Zeile,
-        # dann JSON mit Top-Level-Keys "json" (extrahierte Felder) + "metadata".
-        payload = "Scrape ID: 019f4cab\n" + json.dumps(
-            {"json": RAW, "metadata": {"title": "..."}})
-        with patch("jobscanner.extract.subprocess.run",
-                   return_value=MagicMock(returncode=0, stdout=payload, stderr="")) as run:
+    def test_renders_cleans_and_extracts(self):
+        with patch("jobscanner.extract.browser.render", return_value=HTML), \
+             patch("jobscanner.extract.Groq") as MockGroq:
+            MockGroq.return_value.chat.completions.create.return_value = _groq_response(RAW)
             raw = scrape_job("https://example.com/job/1")
         assert raw == RAW
-        cmd = run.call_args[0][0]
-        assert cmd[:2] == ["firecrawl", "scrape"]
-        assert "--schema-file" in cmd and "json" in cmd
 
-    def test_failed_scrape_returns_none(self):
-        with patch("jobscanner.extract.subprocess.run",
-                   return_value=MagicMock(returncode=1, stdout="", stderr="blocked")):
+    def test_render_failure_returns_none(self):
+        with patch("jobscanner.extract.browser.render", return_value=None):
+            assert scrape_job("https://example.com/x") is None
+
+    def test_groq_bad_json_returns_none(self):
+        with patch("jobscanner.extract.browser.render", return_value=HTML), \
+             patch("jobscanner.extract.Groq") as MockGroq:
+            resp = MagicMock()
+            resp.choices = [MagicMock(message=MagicMock(content="not json"))]
+            MockGroq.return_value.chat.completions.create.return_value = resp
             assert scrape_job("https://example.com/x") is None
 
 

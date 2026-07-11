@@ -1,69 +1,71 @@
-"""Firecrawl-Extraktion + Normalisierung — Validierung lebt hier, nicht in storage."""
+"""Playwright-Render + Groq-Extraktion + Normalisierung — Validierung lebt hier, nicht in storage."""
 from __future__ import annotations
 
 import json
-import subprocess
-import tempfile
+import os
 from pathlib import Path
 
+from bs4 import BeautifulSoup
+from groq import Groq
+
+from jobscanner import browser
 from jobscanner.models import Job
 
-_TIMEOUT = 180
+ENV_FILE = Path("/root/projekte/telegram-bot-army/.env")
+_MODEL = "llama-3.1-8b-instant"
+_MAX_CHARS = 8000  # Groq-TPM-Deckel (6.000 TPM auf llama-3.1-8b-instant) — Prompt klein halten
 
-# Einheitliches Extraktions-Schema — Felder aus models.Job abgeleitet.
-# Gehalt ist optional (portalabhängig, Spike-Report 2026-07-09).
-SCHEMA = {
-    "type": "object",
-    "properties": {
-        "title": {"type": "string", "description": "Jobtitel"},
-        "company": {"type": "string", "description": "Firmenname"},
-        "location": {"type": "string", "description": "Arbeitsort(e)"},
-        "remote": {"type": "string", "enum": ["onsite", "hybrid", "remote", "unknown"],
-                   "description": "Remote-Modell, unknown falls unklar"},
-        "employment_type": {"type": "string", "description": "z.B. Vollzeit, Teilzeit, Festanstellung"},
-        "language": {"type": "string", "enum": ["de", "en"], "description": "Sprache der Anzeige"},
-        "salary": {"type": "string", "description": "Gehaltsangabe falls im Posting, sonst leer"},
-        "requirements": {"type": "array", "items": {"type": "string"},
-                         "description": "Anforderungen/Profil als Liste"},
-        "tech_stack": {"type": "array", "items": {"type": "string"},
-                       "description": "Technologien/Tools/Frameworks"},
-    },
-    "required": ["title", "company"],
-}
-
-_schema_file: Path | None = None
+_SYSTEM_PROMPT = (
+    "Extrahiere Stellenanzeige-Daten aus dem folgenden Text als JSON-Objekt mit "
+    "exakt diesen Feldern: title (Jobtitel), company (Firmenname), location "
+    "(Arbeitsort), remote (onsite|hybrid|remote|unknown), employment_type "
+    "(z.B. Vollzeit/Teilzeit/Festanstellung), language (de|en), salary "
+    "(Gehaltsangabe falls vorhanden, sonst leerer String), requirements "
+    "(Liste von Anforderungen/Profil-Punkten), tech_stack (Liste von "
+    "Technologien/Tools/Frameworks). Fehlende Felder als leerer String bzw. "
+    "leere Liste. Antworte NUR mit dem JSON-Objekt."
+)
 
 
-def _get_schema_file() -> Path:
-    global _schema_file
-    if _schema_file is None or not _schema_file.exists():
-        f = tempfile.NamedTemporaryFile("w", suffix="_job_schema.json",
-                                        delete=False, encoding="utf-8")
-        json.dump(SCHEMA, f, ensure_ascii=False)
-        f.close()
-        _schema_file = Path(f.name)
-    return _schema_file
+def _load_env() -> None:
+    if ENV_FILE.exists():
+        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip())
+
+
+def _clean_text(html: str) -> str:
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style", "nav", "footer", "header", "noscript"]):
+        tag.decompose()
+    lines = [l.strip() for l in soup.get_text(separator="\n").splitlines() if l.strip()]
+    return "\n".join(lines)[:_MAX_CHARS]
 
 
 def scrape_job(url: str) -> dict | None:
-    proc = subprocess.run(
-        ["firecrawl", "scrape", url, "-f", "json",
-         "--schema-file", str(_get_schema_file()), "--json"],
-        capture_output=True, text=True, timeout=_TIMEOUT,
+    html = browser.render(url)
+    if html is None:
+        return None
+    text = _clean_text(html)
+    if not text:
+        return None
+    _load_env()
+    client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+    resp = client.chat.completions.create(
+        model=_MODEL,
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": text},
+        ],
     )
-    if proc.returncode != 0:
-        return None
-    # CLI 1.16.2 druckt eine "Scrape ID: ..."-Zeile vor dem JSON (Hüllen-Check
-    # 2026-07-10) — Präfix bis zur ersten geschweiften Klammer überspringen.
-    start = proc.stdout.find("{")
-    if start == -1:
-        return None
     try:
-        data = json.loads(proc.stdout[start:])
-    except json.JSONDecodeError:
+        data = json.loads(resp.choices[0].message.content)
+    except (json.JSONDecodeError, IndexError, AttributeError, TypeError):
         return None
-    raw = data.get("json") if isinstance(data, dict) else None
-    return raw if isinstance(raw, dict) else None
+    return data if isinstance(data, dict) else None
 
 
 def to_job(raw: dict, portal: str, url: str, today: str) -> Job | None:
