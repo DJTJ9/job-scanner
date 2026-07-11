@@ -341,3 +341,35 @@ def migrate_yaml_profile() -> int:
     pid = create_profile("Tjark", data, queries=queries, is_default=True)
     save_criteria(pid, [dict(c, sort=i) for i, c in enumerate(DEFAULT_CRITERIA)])
     return pid
+
+
+def list_jobs_with_scores(profile_id: int) -> list[dict]:
+    """Jobs mit Score/Begründung/Breakdown des gegebenen Profils, neueste zuerst."""
+    conn = _require_conn()
+    rows = conn.execute(
+        """SELECT jobs.*, job_scores.score AS profile_score,
+                  job_scores.reason AS profile_reason,
+                  job_scores.category AS profile_category,
+                  job_scores.breakdown_json AS profile_breakdown_json
+           FROM jobs
+           LEFT JOIN job_scores
+             ON job_scores.profile_id = ? AND job_scores.fingerprint = jobs.fingerprint
+           ORDER BY jobs.first_seen DESC, jobs.id DESC""",
+        (profile_id,))
+    return [
+        {
+            "job": _row_to_job(row),
+            "score": row["profile_score"],
+            "reason": row["profile_reason"],
+            "category": row["profile_category"],
+            "breakdown": json.loads(row["profile_breakdown_json"] or "{}"),
+        }
+        for row in rows
+    ]
+
+
+def get_feedback_map(profile_id: int) -> dict[str, str]:
+    conn = _require_conn()
+    rows = conn.execute(
+        "SELECT fingerprint, vote FROM feedback WHERE profile_id = ?", (profile_id,))
+    return {r["fingerprint"]: r["vote"] for r in rows}
