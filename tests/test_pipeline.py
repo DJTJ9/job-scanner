@@ -26,8 +26,9 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline.config, "load_profile", lambda name="default": {})
     monkeypatch.setattr(pipeline.neighbors, "get_neighbor_roles",
                         lambda profile, name, core, today=None: {})
-    monkeypatch.setattr(pipeline.scoring, "score_job",
-                        lambda job, profile: (50, "Test-Score", "Vielleicht"))
+    monkeypatch.setattr(pipeline.scoring, "criteria_score",
+                        lambda job, prof, crits: (50, "Test-Score", "Vielleicht",
+                                                  {"role_fit": {"punkte": 5, "grund": "mock"}}))
     # Zentral gemockt: Report-Init ruft browser.firecrawl_credits_ok() —
     # ohne Patch würde jeder Test einen echten Subprocess-Call machen.
     monkeypatch.setattr("jobscanner.browser.firecrawl_credits_ok", lambda: True)
@@ -112,7 +113,7 @@ def test_run_sets_role_from_query_key(env):
 
 
 def test_pass_category_job_gets_archived(env):
-    pipeline.scoring.score_job = lambda job, profile: (85, "Top-Fit", "Pass")
+    pipeline.scoring.criteria_score = lambda job, prof, crits: (85, "Top-Fit", "Pass", {})
     with patch("jobscanner.pipeline.archive.save_snapshot", return_value="/tmp/x.md") as snap:
         _run(env, {"https://stepstone.de/job/a": RAW_A}, push=False)
     snap.assert_called_once()
@@ -174,7 +175,8 @@ class TestHybridRouting:
              patch("jobscanner.pipeline.neighbors.get_neighbor_roles", return_value={}), \
              patch("jobscanner.pipeline.extract.extract_from_text", return_value=raw) as eft, \
              patch("jobscanner.pipeline.extract.scrape_job") as scrape, \
-             patch("jobscanner.pipeline.scoring.score_job", return_value=(50, "ok", "Vielleicht")), \
+             patch("jobscanner.pipeline.scoring.criteria_score",
+                   return_value=(50, "ok", "Vielleicht", {})), \
              patch("jobscanner.pipeline.browser.firecrawl_credits_ok", return_value=True):
             report = run(provider=provider, db_path=tmp_path / "t.db",
                          push_nocodb=False, send_report=False)
@@ -220,7 +222,8 @@ class TestHybridRouting:
              patch("jobscanner.pipeline.config.load_profile", return_value={}), \
              patch("jobscanner.pipeline.neighbors.get_neighbor_roles", return_value={}), \
              patch("jobscanner.pipeline.extract.scrape_job", return_value=raw), \
-             patch("jobscanner.pipeline.scoring.score_job", return_value=(50, "ok", "Vielleicht")), \
+             patch("jobscanner.pipeline.scoring.criteria_score",
+                   return_value=(50, "ok", "Vielleicht", {})), \
              patch("jobscanner.pipeline.browser.firecrawl_credits_ok", return_value=True):
             report = run(provider=provider, db_path=tmp_path / "t.db",
                          push_nocodb=False, send_report=False,
@@ -281,3 +284,32 @@ def test_profile_name_passed_to_load_profile_and_neighbors(env, monkeypatch):
     _run(env, {"https://stepstone.de/job/a": RAW_A})
     assert ("profile", "default") in calls
     assert ("neighbors", "default") in calls
+
+
+def test_run_scores_all_active_profiles(env):
+    """Nach run(): job_scores enthält einen Eintrag pro aktivem Profil je neuem Job."""
+    report = _run(env, {"https://stepstone.de/job/a": RAW_A})
+    profiles = storage.list_profiles(active_only=True)
+    assert len(profiles) >= 1  # Tjark aus Auto-Migration
+    jobs = storage.list_jobs()
+    assert jobs, "Pipeline muss Jobs angelegt haben"
+    for p in profiles:
+        s = storage.get_job_score(p["id"], jobs[0].fingerprint)
+        assert s is not None and s["score"] == 50
+    assert report["profiles_scored"] == len(profiles)
+
+
+def test_run_mirrors_default_profile_score_to_jobs_table(env):
+    _run(env, {"https://stepstone.de/job/a": RAW_A})
+    job = storage.list_jobs()[0]
+    assert job.score == 50
+    assert job.category == "Vielleicht"
+
+
+def test_run_scores_second_active_profile(env):
+    storage.init_db(env)
+    pid = storage.create_profile("Testi", {"skills": ["Python"]})
+    storage.save_criteria(pid, [{"key": "role_fit", "label": "Rolle", "weight": 5, "sort": 0}])
+    _run(env, {"https://stepstone.de/job/a": RAW_A})
+    job = storage.list_jobs()[0]
+    assert storage.get_job_score(pid, job.fingerprint)["score"] == 50

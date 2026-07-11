@@ -25,10 +25,15 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
         profile_name: str = "default") -> dict:
     today = today or _dt.date.today().isoformat()
     storage.init_db(db_path or _DEFAULT_DB)
+    storage.migrate_yaml_profile()
+    active_profiles = storage.list_profiles(active_only=True)
+    profile_criteria = {p["id"]: storage.list_criteria(p["id"]) for p in active_profiles}
+    default_profile = next(
+        (p for p in active_profiles if p["is_default"]), active_profiles[0])
 
     portals = config.load_portals()
     core_queries = config.load_queries()
-    profile = config.load_profile(profile_name)
+    profile = default_profile["data"]  # Neighbors laufen weiter nur fürs Default-Profil
     neighbor_roles = neighbors.get_neighbor_roles(
         profile, profile_name, set(core_queries), today=today)
     queries = {**core_queries, **{name: r["terms"] for name, r in neighbor_roles.items()}}
@@ -36,6 +41,7 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
     known = dedup.known_source_urls()
 
     report: dict = {"date": today, "new": 0, "known_skipped": 0, "errors": 0,
+                    "profiles_scored": len(active_profiles),
                     "firecrawl_ok": browser.firecrawl_credits_ok(),
                     "portals": {p["name"]: {"urls": 0, "scraped": 0} for p in portals}}
     touched: set[str] = set()
@@ -99,9 +105,16 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                         fp = storage.upsert_job(job)
                         known[url] = fp
                         if is_new:
-                            score, reason, category = scoring.score_job(job, profile)
-                            job.score, job.score_reason, job.category = score, reason, category
-                            storage.update_job(fp, score=score, score_reason=reason, category=category)
+                            for p in active_profiles:
+                                score, reason, category, breakdown = scoring.criteria_score(
+                                    job, p["data"], profile_criteria[p["id"]])
+                                storage.upsert_job_score(
+                                    p["id"], fp, score, reason, category, breakdown)
+                                if p["id"] == default_profile["id"]:
+                                    job.score, job.score_reason, job.category = (
+                                        score, reason, category)
+                                    storage.update_job(fp, score=score, score_reason=reason,
+                                                       category=category)
                             if category == "Pass":
                                 job.archive_path = archive.save_snapshot(job)
                                 storage.update_job(fp, archive_path=job.archive_path)
