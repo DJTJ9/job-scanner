@@ -88,7 +88,7 @@ def init_db(path: str | Path) -> None:
     global _conn
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    _conn = sqlite3.connect(path)
+    _conn = sqlite3.connect(path, check_same_thread=False)
     _conn.row_factory = sqlite3.Row
     _conn.execute(_SCHEMA)
     existing_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(jobs)")}

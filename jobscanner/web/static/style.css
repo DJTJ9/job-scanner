@@ -1,0 +1,97 @@
+/* Echolot-Theme */
+:root {
+  --tiefe: #0B1D26;
+  --wasser: #143240;
+  --gischt: #E9F4F4;
+  --signal: #FFB454;
+  --beute: #53DDA8;
+  --veto: #F26D6D;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--tiefe);
+  color: var(--gischt);
+  font-family: "IBM Plex Sans", sans-serif;
+}
+h1, h2, .brand {
+  font-family: "Chakra Petch", sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.mono, .score, .weight, code {
+  font-family: "IBM Plex Mono", monospace;
+}
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--wasser);
+}
+.link { color: var(--signal); text-decoration: none; }
+.page { padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
+.panel {
+  background: var(--wasser);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.panel-narrow { max-width: 360px; margin: 3rem auto; }
+.error { color: var(--veto); }
+label { display: block; margin-top: 0.75rem; font-size: 0.9rem; }
+input[type="text"], input[type="password"], input[type="number"], textarea, select {
+  width: 100%;
+  padding: 0.5rem;
+  margin-top: 0.25rem;
+  background: var(--tiefe);
+  border: 1px solid var(--wasser);
+  color: var(--gischt);
+  border-radius: 4px;
+}
+.btn {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-family: "IBM Plex Sans", sans-serif;
+}
+.btn-primary { background: var(--signal); color: var(--tiefe); font-weight: 600; }
+.btn-primary.dirty { box-shadow: 0 0 0 2px var(--signal); }
+.btn-secondary { background: transparent; border: 1px solid var(--signal); color: var(--signal); }
+.dashboard { display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; align-items: start; }
+@media (max-width: 720px) { .dashboard { grid-template-columns: 1fr; } }
+.feintuning { position: sticky; top: 1rem; }
+.criterion { margin-bottom: 0.75rem; }
+.criterion input[type="range"] { width: 100%; accent-color: var(--signal); }
+.job-card {
+  background: var(--wasser);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  gap: 1rem;
+}
+.job-meta { color: #9fb3ba; font-size: 0.85rem; }
+.breakdown-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.85rem; }
+.breakdown-table td, .breakdown-table th { padding: 0.25rem 0.5rem; text-align: left; border-bottom: 1px solid var(--tiefe); }
+.unbekannt { color: #6c8189; }
+.feedback-form { display: inline; }
+.feedback-btn { background: none; border: none; font-size: 1.1rem; cursor: pointer; }
+.feedback-btn.active-up { color: var(--beute); }
+.feedback-btn.active-down { color: var(--veto); }
+.ping-ring-pass { stroke: var(--beute); }
+.ping-ring-vielleicht { stroke: var(--signal); }
+.ping-ring-nogo { stroke: var(--veto); }
+.ping-ring-none { stroke: #6c8189; }
+.ping { animation: ping-pulse 0.5s ease-out; }
+@keyframes ping-pulse { from { opacity: 0.4; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .ping { animation: none; } }
+.tiefenmesser { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+.tiefenmesser .mark { color: #6c8189; }
+.tiefenmesser .mark.active { color: var(--signal); }
+.tiefenmesser .mark.done { color: var(--beute); }
+.chip { display: inline-block; background: var(--tiefe); border: 1px solid var(--signal); border-radius: 12px; padding: 0.2rem 0.6rem; margin: 0.2rem; font-size: 0.85rem; }
+.chip input { margin-right: 0.3rem; }
