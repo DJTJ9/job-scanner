@@ -414,3 +414,18 @@ def test_run_passes_feedback_to_scoring(env, monkeypatch):
     monkeypatch.setattr(pipeline.scoring, "criteria_score", fake_criteria_score)
     _run(env, {"https://stepstone.de/job/a": RAW_A})
     assert seen["fb"] == [{"vote": "up", "title": "Alter Treffer"}]
+
+
+def test_scoring_error_not_persisted_for_retry(env, monkeypatch):
+    """Groq-Fehler (z.B. Tages-Rate-Limit) darf keine job_scores-Zeile erzeugen —
+    sonst wird der Job nie wieder nachgescored (Learning 2026-07-12: 231 verwaiste
+    NULL-Zeilen aus einem Live-Lauf, der ohne diesen Guard lief)."""
+    monkeypatch.setattr(pipeline.scoring, "criteria_score",
+                        lambda job, prof, crits, feedback=None:
+                        (None, "Scoring-Fehler: 429 rate limit", None, {}))
+    report = _run(env, {"https://stepstone.de/job/a": RAW_A})
+    assert report["new"] == 1
+    fp = storage.list_jobs()[0].fingerprint
+    pid = storage.migrate_yaml_profile()
+    assert storage.get_job_score(pid, fp) is None
+    assert storage.get_job(fp).score is None

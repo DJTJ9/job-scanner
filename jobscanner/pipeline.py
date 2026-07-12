@@ -123,6 +123,12 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                                 score, reason, category, breakdown = scoring.criteria_score(
                                     job, p["data"], profile_criteria[p["id"]],
                                     feedback=profile_feedback[p["id"]])
+                                if score is None and category is None:
+                                    # Scoring-Fehler (z.B. Groq-Tages-Limit) nicht persistieren —
+                                    # sonst blockiert eine job_scores-Zeile jeden Retry-Versuch
+                                    # (Learning 2026-07-12).
+                                    report["errors"] += 1
+                                    continue
                                 storage.upsert_job_score(
                                     p["id"], fp, score, reason, category, breakdown)
                                 if p["id"] == default_profile["id"]:

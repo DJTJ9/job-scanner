@@ -11,7 +11,7 @@ from groq import Groq
 from jobscanner.models import Job
 
 ENV_FILE = Path("/root/projekte/telegram-bot-army/.env")
-_MODEL = "llama-3.3-70b-versatile"
+_MODEL = "llama-3.1-8b-instant"  # 70b hatte 100k-TPD-Free-Tier-Deckel gesprengt (Learning 2026-07-12)
 
 PASS_THRESHOLD = 70
 MAYBE_THRESHOLD = 40
