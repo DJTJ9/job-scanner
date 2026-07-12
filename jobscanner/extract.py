@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 
 from bs4 import BeautifulSoup
-from groq import Groq
+from groq import Groq, RateLimitError
 
 from jobscanner import browser
 from jobscanner.models import Job
@@ -14,6 +15,8 @@ from jobscanner.models import Job
 ENV_FILE = Path("/root/projekte/telegram-bot-army/.env")
 _MODEL = "llama-3.1-8b-instant"
 _MAX_CHARS = 8000  # Groq-TPM-Deckel (6.000 TPM auf llama-3.1-8b-instant) — Prompt klein halten
+_RETRY_ATTEMPTS = 3
+_RETRY_SLEEP_S = 15  # TPM-Fenster ist minütlich — 429er brauchen echte Wartezeit
 
 _SYSTEM_PROMPT = (
     "Extrahiere Stellenanzeige-Daten aus dem folgenden Text als JSON-Objekt mit "
@@ -50,14 +53,24 @@ def extract_from_text(text: str) -> dict | None:
         return None
     _load_env()
     client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
-    resp = client.chat.completions.create(
-        model=_MODEL,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": text},
-        ],
-    )
+    resp = None
+    for attempt in range(_RETRY_ATTEMPTS):
+        try:
+            resp = client.chat.completions.create(
+                model=_MODEL,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user", "content": text},
+                ],
+            )
+            break
+        except RateLimitError:
+            # 429 TPM crashte am 2026-07-12 den kompletten Volllauf —
+            # kurz warten, dann Job notfalls überspringen statt abbrechen.
+            if attempt == _RETRY_ATTEMPTS - 1:
+                return None
+            time.sleep(_RETRY_SLEEP_S)
     try:
         data = json.loads(resp.choices[0].message.content)
     except (json.JSONDecodeError, IndexError, AttributeError, TypeError):
