@@ -219,3 +219,84 @@ class TestVolllaufHelpers:
         assert storage.get_job(fp) is None
         assert storage.get_job_score(pid, fp) is None
         assert storage.list_feedback(pid) == []
+
+
+class TestRawJobs:
+    def test_insert_raw_job_creates_pending_row(self, db):
+        fp = storage.insert_raw_job("https://indeed.test/raw1", "indeed",
+                                    "Roher Anzeigentext", "2026-07-12")
+        assert fp.startswith("url:")
+        jobs = storage.list_jobs()
+        assert len(jobs) == 1
+        assert jobs[0].title == "" and jobs[0].company == ""
+        assert jobs[0].sources == [{"portal": "indeed", "url": "https://indeed.test/raw1",
+                                    "found_at": "2026-07-12"}]
+
+    def test_insert_raw_job_dedups_same_url(self, db):
+        storage.insert_raw_job("https://indeed.test/raw1", "indeed", "Text",
+                               "2026-07-12")
+        fp2 = storage.insert_raw_job("https://indeed.test/raw1", "indeed", "Text",
+                                     "2026-07-13")
+        assert len(storage.list_jobs()) == 1
+        assert storage.list_pending_extraction()[0]["fingerprint"] == fp2
+
+    def test_insert_raw_job_stores_role_and_neighbor_flag(self, db):
+        storage.insert_raw_job("https://indeed.test/raw1", "indeed", "Text",
+                               "2026-07-12", role="unity_games", is_neighbor=True)
+        job = storage.list_jobs()[0]
+        assert job.role == "unity_games"
+        assert job.is_neighbor is True
+
+    def test_list_pending_extraction_returns_pending_only(self, db):
+        storage.insert_raw_job("https://a.test/1", "indeed", "Text A", "2026-07-12")
+        storage.upsert_job(_job())  # bereits extrahiert
+        pending = storage.list_pending_extraction()
+        assert len(pending) == 1
+        assert pending[0]["raw_text"] == "Text A"
+        assert pending[0]["portal"] == "indeed"
+        assert pending[0]["url"] == "https://a.test/1"
+
+    def test_list_pending_extraction_respects_limit(self, db):
+        for i in range(3):
+            storage.insert_raw_job(f"https://a.test/{i}", "indeed", "T", "2026-07-12")
+        assert len(storage.list_pending_extraction(limit=2)) == 2
+
+    def test_apply_extraction_promotes_raw_row(self, db):
+        raw_fp = storage.insert_raw_job("https://a.test/1", "indeed", "Text",
+                                        "2026-07-12", role="unity_games")
+        job = Job(title="Unity Developer", company="ACME", location="Hamburg",
+                  first_seen="2026-07-12", last_seen="2026-07-12")
+        new_fp = storage.apply_extraction(raw_fp, job)
+        assert new_fp != raw_fp
+        assert storage.get_job(raw_fp) is None
+        loaded = storage.get_job(new_fp)
+        assert loaded.title == "Unity Developer"
+        assert loaded.role == "unity_games"  # aus Raw-Zeile erhalten
+        assert loaded.sources == [{"portal": "indeed", "url": "https://a.test/1",
+                                   "found_at": "2026-07-12"}]
+        assert storage.list_pending_extraction() == []
+
+    def test_apply_extraction_merges_into_existing_duplicate(self, db):
+        # Gleicher Job über 2 Portale gefunden, bevor einer extrahiert wurde.
+        raw_fp = storage.insert_raw_job("https://stepstone.test/1", "stepstone",
+                                        "Text", "2026-07-12")
+        existing_fp = storage.upsert_job(_job(
+            sources=[{"portal": "indeed", "url": "https://indeed.test/1",
+                     "found_at": "2026-07-11"}]))
+        job = Job(title=_job().title, company=_job().company, location=_job().location,
+                  first_seen="2026-07-12", last_seen="2026-07-12")
+        assert job.fingerprint == existing_fp
+        new_fp = storage.apply_extraction(raw_fp, job)
+        assert new_fp == existing_fp
+        assert storage.get_job(raw_fp) is None
+        merged = storage.get_job(existing_fp)
+        urls = {s["url"] for s in merged.sources}
+        assert urls == {"https://indeed.test/1", "https://stepstone.test/1"}
+
+    def test_list_jobs_with_scores_excludes_pending_extraction(self, db):
+        pid = storage.create_profile("Testi", {}, is_default=True)
+        storage.insert_raw_job("https://a.test/1", "indeed", "Text", "2026-07-12")
+        storage.upsert_job(_job())
+        entries = storage.list_jobs_with_scores(pid)
+        assert len(entries) == 1
+        assert entries[0]["job"].title != ""
