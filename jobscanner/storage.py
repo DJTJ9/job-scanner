@@ -1,6 +1,7 @@
 """SQLite-Storage — dumm und robust, Validierung gehört in die Portal-Adapter (1.2)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -31,7 +32,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     score_reason TEXT,
     category TEXT,
     status TEXT DEFAULT 'neu',
-    nocodb_row_id INTEGER
+    nocodb_row_id INTEGER,
+    raw_text TEXT,
+    extraction_status TEXT DEFAULT 'extracted'
 )
 """
 
@@ -96,6 +99,10 @@ def init_db(path: str | Path) -> None:
         _conn.execute("ALTER TABLE jobs ADD COLUMN role TEXT")
     if "is_neighbor" not in existing_cols:
         _conn.execute("ALTER TABLE jobs ADD COLUMN is_neighbor INTEGER DEFAULT 0")
+    if "raw_text" not in existing_cols:
+        _conn.execute("ALTER TABLE jobs ADD COLUMN raw_text TEXT")
+    if "extraction_status" not in existing_cols:
+        _conn.execute("ALTER TABLE jobs ADD COLUMN extraction_status TEXT DEFAULT 'extracted'")
     _conn.executescript(_SCHEMA_PROFILES)
     _conn.commit()
 
@@ -142,6 +149,102 @@ def upsert_job(job: Job) -> str:
         )
     conn.commit()
     return fp
+
+
+def _raw_fingerprint(url: str) -> str:
+    """Provisorischer Fingerprint für Raw-Jobs vor der Extraktion — URL-basiert, weil
+    company/title/location (normale Fingerprint-Basis) erst nach Extraction existieren.
+    'url:'-Präfix kann mit normalisierten Content-Fingerprints nie kollidieren (':' wird
+    von models._norm entfernt)."""
+    return f"url:{hashlib.sha1(url.encode('utf-8')).hexdigest()}"
+
+
+def insert_raw_job(url: str, portal: str, raw_text: str, today: str,
+                   role: str = "", is_neighbor: bool = False) -> str:
+    """Speichert einen unextrahierten Job aus der Discover-Phase (kein Groq mehr im Pfad)."""
+    conn = _require_conn()
+    fp = _raw_fingerprint(url)
+    row = conn.execute("SELECT sources_json FROM jobs WHERE fingerprint = ?", (fp,)).fetchone()
+    source = {"portal": portal, "url": url, "found_at": today}
+    if row is None:
+        conn.execute(
+            """INSERT INTO jobs (fingerprint, title, company, location, remote_flag,
+                   employment_type, language, salary_text, role, is_neighbor,
+                   requirements_json, tech_stack_json, sources_json, first_seen, last_seen,
+                   status, raw_text, extraction_status)
+               VALUES (?, '', '', '', 'unknown', '', '', '', ?, ?, '[]', '[]', ?, ?, ?,
+                       'neu', ?, 'pending')""",
+            (fp, role, int(is_neighbor), json.dumps([source], ensure_ascii=False),
+             today, today, raw_text),
+        )
+    else:
+        existing = json.loads(row["sources_json"] or "[]")
+        known_urls = {s.get("url") for s in existing}
+        merged = existing if url in known_urls else existing + [source]
+        conn.execute(
+            "UPDATE jobs SET last_seen = ?, sources_json = ? WHERE fingerprint = ?",
+            (today, json.dumps(merged, ensure_ascii=False), fp),
+        )
+    conn.commit()
+    return fp
+
+
+def list_pending_extraction(limit: int | None = None) -> list[dict]:
+    """Rohdaten wartender Jobs für den Agent-Batch-Lauf (llm_batch.py list-pending)."""
+    conn = _require_conn()
+    sql = ("SELECT fingerprint, sources_json, raw_text FROM jobs "
+          "WHERE extraction_status = 'pending' ORDER BY id")
+    if limit is not None:
+        sql += f" LIMIT {int(limit)}"
+    out = []
+    for r in conn.execute(sql):
+        sources = json.loads(r["sources_json"] or "[]")
+        src = sources[0] if sources else {}
+        out.append({"fingerprint": r["fingerprint"], "portal": src.get("portal", ""),
+                    "url": src.get("url", ""), "raw_text": r["raw_text"] or ""})
+    return out
+
+
+def apply_extraction(raw_fingerprint: str, job: Job) -> str:
+    """Schreibt das Agent-Extraktionsergebnis in die Raw-Zeile — merged in eine bestehende
+    Zeile, falls derselbe Job über 2 Portale vor der Extraktion gefunden wurde (die
+    Content-Fingerprint-Zeile existiert dann schon, unabhängig vom Extraction-Status)."""
+    conn = _require_conn()
+    new_fp = job.fingerprint
+    raw_row = conn.execute(
+        "SELECT sources_json FROM jobs WHERE fingerprint = ?", (raw_fingerprint,)).fetchone()
+    raw_sources = json.loads(raw_row["sources_json"] or "[]") if raw_row else []
+    other = conn.execute(
+        "SELECT sources_json FROM jobs WHERE fingerprint = ? AND fingerprint != ?",
+        (new_fp, raw_fingerprint)).fetchone()
+    if other is not None:
+        other_sources = json.loads(other["sources_json"] or "[]")
+        known_urls = {s.get("url") for s in other_sources}
+        merged = other_sources + [s for s in raw_sources if s.get("url") not in known_urls]
+        conn.execute(
+            """UPDATE jobs SET title = ?, company = ?, location = ?, remote_flag = ?,
+                   employment_type = ?, language = ?, salary_text = ?, requirements_json = ?,
+                   tech_stack_json = ?, sources_json = ?, last_seen = ?,
+                   extraction_status = 'extracted'
+               WHERE fingerprint = ?""",
+            (job.title, job.company, job.location, job.remote_flag, job.employment_type,
+             job.language, job.salary_text, json.dumps(job.requirements, ensure_ascii=False),
+             json.dumps(job.tech_stack, ensure_ascii=False),
+             json.dumps(merged, ensure_ascii=False), job.last_seen, new_fp))
+        if raw_fingerprint != new_fp:
+            conn.execute("DELETE FROM jobs WHERE fingerprint = ?", (raw_fingerprint,))
+    else:
+        conn.execute(
+            """UPDATE jobs SET fingerprint = ?, title = ?, company = ?, location = ?,
+                   remote_flag = ?, employment_type = ?, language = ?, salary_text = ?,
+                   requirements_json = ?, tech_stack_json = ?, extraction_status = 'extracted'
+               WHERE fingerprint = ?""",
+            (new_fp, job.title, job.company, job.location, job.remote_flag,
+             job.employment_type, job.language, job.salary_text,
+             json.dumps(job.requirements, ensure_ascii=False),
+             json.dumps(job.tech_stack, ensure_ascii=False), raw_fingerprint))
+    conn.commit()
+    return new_fp
 
 
 def _row_to_job(row: sqlite3.Row) -> Job:
@@ -354,6 +457,7 @@ def list_jobs_with_scores(profile_id: int) -> list[dict]:
            FROM jobs
            LEFT JOIN job_scores
              ON job_scores.profile_id = ? AND job_scores.fingerprint = jobs.fingerprint
+           WHERE jobs.extraction_status = 'extracted'
            ORDER BY jobs.first_seen DESC, jobs.id DESC""",
         (profile_id,))
     return [
@@ -373,17 +477,6 @@ def get_feedback_map(profile_id: int) -> dict[str, str]:
     rows = conn.execute(
         "SELECT fingerprint, vote FROM feedback WHERE profile_id = ?", (profile_id,))
     return {r["fingerprint"]: r["vote"] for r in rows}
-
-
-def list_jobs_without_score(profile_id: int) -> list[Job]:
-    """Jobs ohne job_scores-Eintrag für das Profil — Arbeitsvorrat des Backfills."""
-    conn = _require_conn()
-    rows = conn.execute(
-        """SELECT jobs.* FROM jobs
-           LEFT JOIN job_scores
-             ON job_scores.profile_id = ? AND job_scores.fingerprint = jobs.fingerprint
-           WHERE job_scores.fingerprint IS NULL""", (profile_id,))
-    return [_row_to_job(r) for r in rows]
 
 
 def list_feedback_with_titles(profile_id: int) -> list[dict]:

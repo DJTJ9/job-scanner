@@ -1,0 +1,12 @@
+[Unit]
+Description=Job Scanner Scoring-Agent (Claude-Code-Batch-Lauf, ersetzt Groq)
+After=network.target jobscanner-discover.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/projekte/job-scanner
+EnvironmentFile=/root/projekte/telegram-bot-army/.env
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.nvm/versions/node/v24.16.0/bin
+ExecStart=/root/projekte/job-scanner/deploy/run_scoring_agent.sh
+StandardOutput=journal
+StandardError=journal
