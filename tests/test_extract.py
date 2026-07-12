@@ -104,3 +104,17 @@ class TestToJob:
         job = to_job({"title": "Dev", "company": "ACME"}, "indeed", "u", "2026-07-10")
         assert job.salary_text == "" and job.remote_flag == "unknown"
         assert job.requirements == [] and job.tech_stack == []
+
+    def test_tolerates_nested_dict_fields_from_llm(self):
+        # Live-Volllauf 2026-07-12: LLM lieferte company als Objekt → .strip()-Crash
+        raw = {"title": {"name": "Unity Dev"}, "company": {"name": "ACME GmbH"},
+               "location": {"city": "Essen"}, "salary": {"min": 50000}}
+        job = to_job(raw, "indeed", "u", "2026-07-12")
+        assert job.title == "Unity Dev"
+        assert job.company == "ACME GmbH"
+        assert job.location == ""  # dict ohne name-Key → leer, kein Crash
+        assert job.salary_text == ""
+
+    def test_rejects_dict_fields_without_name(self):
+        raw = {"title": {"x": 1}, "company": "ACME"}
+        assert to_job(raw, "indeed", "u", "2026-07-12") is None

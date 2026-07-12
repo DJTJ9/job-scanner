@@ -73,9 +73,18 @@ def scrape_job(url: str, fetch_method: str = "playwright",
     return extract_from_text(_clean_text(html))
 
 
+def _str_field(value) -> str:
+    """LLM-Extraktion liefert Felder gelegentlich als Objekt statt String
+    (Live-Volllauf 2026-07-12: company als JSON-Objekt) — nur echte Strings
+    bzw. deren name-Key übernehmen."""
+    if isinstance(value, dict):
+        value = value.get("name")
+    return value.strip() if isinstance(value, str) else ""
+
+
 def to_job(raw: dict, portal: str, url: str, today: str) -> Job | None:
-    title = (raw.get("title") or "").strip()
-    company = (raw.get("company") or "").strip()
+    title = _str_field(raw.get("title"))
+    company = _str_field(raw.get("company"))
     if not title or not company:
         return None
     remote = raw.get("remote") or "unknown"
@@ -84,11 +93,11 @@ def to_job(raw: dict, portal: str, url: str, today: str) -> Job | None:
     return Job(
         title=title,
         company=company,
-        location=(raw.get("location") or "").strip(),
+        location=_str_field(raw.get("location")),
         remote_flag=remote,
-        employment_type=(raw.get("employment_type") or "").strip(),
+        employment_type=_str_field(raw.get("employment_type")),
         language=raw.get("language") or "",
-        salary_text=(raw.get("salary") or "").strip(),
+        salary_text=_str_field(raw.get("salary")),
         requirements=[r for r in (raw.get("requirements") or []) if isinstance(r, str)],
         tech_stack=[t for t in (raw.get("tech_stack") or []) if isinstance(t, str)],
         sources=[{"portal": portal, "url": url, "found_at": today}],
