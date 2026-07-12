@@ -118,7 +118,25 @@ def compute_weighted_score(breakdown: dict, criteria: list[dict]) -> int | None:
     return round(numerator / denominator * 100)
 
 
-def llm_criteria_eval(job: Job, profile_data: dict, criteria: list[dict]) -> dict:
+def _feedback_block(feedback: list[dict] | None) -> str:
+    """👍/👎-Feedback als Few-Shot-Beispiele — bis zu 5 Likes + 5 Dislikes."""
+    if not feedback:
+        return ""
+    likes = [f["title"] for f in feedback if f["vote"] == "up"][:5]
+    dislikes = [f["title"] for f in feedback if f["vote"] == "down"][:5]
+    parts = []
+    if likes:
+        parts.append("Diese Jobs mochte der Nutzer: " + "; ".join(likes))
+    if dislikes:
+        parts.append("Diese Jobs lehnte der Nutzer ab: " + "; ".join(dislikes))
+    if not parts:
+        return ""
+    return ("\n\nFEEDBACK ZU FRÜHEREN JOBS (Präferenz-Beispiele, bei der Bewertung "
+            "berücksichtigen):\n" + "\n".join(parts))
+
+
+def llm_criteria_eval(job: Job, profile_data: dict, criteria: list[dict],
+                      feedback: list[dict] | None = None) -> dict:
     """Ein Groq-JSON-Call: bewertet alle Kriterien 0-10 (oder null) + Veto-Check."""
     _load_env()
     client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
@@ -148,22 +166,23 @@ def llm_criteria_eval(job: Job, profile_data: dict, criteria: list[dict]) -> dic
             )},
             {"role": "user", "content": (
                 f"PROFIL:\n{profile_text}\n\nNO-GOS (Veto-Check):\n{', '.join(no_gos) or 'keine'}"
-                f"\n\nKRITERIEN:\n{criteria_text}\n\nJOB:\n{job_text}")},
+                f"\n\nKRITERIEN:\n{criteria_text}\n\nJOB:\n{job_text}"
+                f"{_feedback_block(feedback)}")},
         ],
         max_tokens=1024,
     )
     return json.loads(resp.choices[0].message.content)
 
 
-def criteria_score(job: Job, profile_data: dict,
-                   criteria: list[dict]) -> tuple[int | None, str, str | None, dict]:
+def criteria_score(job: Job, profile_data: dict, criteria: list[dict],
+                   feedback: list[dict] | None = None) -> tuple[int | None, str, str | None, dict]:
     """Veto-Check (Regex-Fastpath + LLM) → gewichteter Score. Rückgabe:
     (score 0-100 | None, reason, category | None, breakdown)."""
     no_go = rule_filter(job)
     if no_go:
         return 0, f"No-Go: {no_go}", "No-Go", {}
     try:
-        result = llm_criteria_eval(job, profile_data, criteria)
+        result = llm_criteria_eval(job, profile_data, criteria, feedback=feedback)
     except Exception as exc:
         return None, f"Scoring-Fehler: {exc}", None, {}
     if result.get("veto"):

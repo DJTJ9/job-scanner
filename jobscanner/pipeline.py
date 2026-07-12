@@ -28,6 +28,8 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
     storage.migrate_yaml_profile()
     active_profiles = storage.list_profiles(active_only=True)
     profile_criteria = {p["id"]: storage.list_criteria(p["id"]) for p in active_profiles}
+    profile_feedback = {p["id"]: storage.list_feedback_with_titles(p["id"])
+                        for p in active_profiles}
     default_profile = next(
         (p for p in active_profiles if p["is_default"]), active_profiles[0])
 
@@ -116,7 +118,8 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                         if is_new:
                             for p in active_profiles:
                                 score, reason, category, breakdown = scoring.criteria_score(
-                                    job, p["data"], profile_criteria[p["id"]])
+                                    job, p["data"], profile_criteria[p["id"]],
+                                    feedback=profile_feedback[p["id"]])
                                 storage.upsert_job_score(
                                     p["id"], fp, score, reason, category, breakdown)
                                 if p["id"] == default_profile["id"]:

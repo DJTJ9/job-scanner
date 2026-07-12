@@ -27,7 +27,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline.neighbors, "get_neighbor_roles",
                         lambda profile, name, core, today=None: {})
     monkeypatch.setattr(pipeline.scoring, "criteria_score",
-                        lambda job, prof, crits: (50, "Test-Score", "Vielleicht",
+                        lambda job, prof, crits, feedback=None: (50, "Test-Score", "Vielleicht",
                                                   {"role_fit": {"punkte": 5, "grund": "mock"}}))
     # Zentral gemockt: Report-Init ruft browser.firecrawl_credits_ok() —
     # ohne Patch würde jeder Test einen echten Subprocess-Call machen.
@@ -113,7 +113,7 @@ def test_run_sets_role_from_query_key(env):
 
 
 def test_pass_category_job_gets_archived(env):
-    pipeline.scoring.criteria_score = lambda job, prof, crits: (85, "Top-Fit", "Pass", {})
+    pipeline.scoring.criteria_score = lambda job, prof, crits, feedback=None: (85, "Top-Fit", "Pass", {})
     with patch("jobscanner.pipeline.archive.save_snapshot", return_value="/tmp/x.md") as snap:
         _run(env, {"https://stepstone.de/job/a": RAW_A}, push=False)
     snap.assert_called_once()
@@ -365,3 +365,23 @@ class TestIndeedThrottle:
         assert report["portals"]["indeed"]["scraped"] == 1
         job = storage.list_jobs()[0]
         assert job.sources[0]["url"] == "https://de.indeed.com/viewjob?jk=abc123"
+
+
+def test_run_passes_feedback_to_scoring(env, monkeypatch):
+    storage.init_db(env)
+    pid = storage.migrate_yaml_profile()
+    from jobscanner.models import Job
+    old = Job(title="Alter Treffer", company="ACME", location="Hamburg",
+              sources=[{"portal": "stepstone", "url": "https://stepstone.de/job/old",
+                        "found_at": "2026-07-01"}],
+              first_seen="2026-07-01", last_seen="2026-07-01")
+    storage.upsert_job(old)
+    storage.add_feedback(pid, old.fingerprint, "up")
+    seen = {}
+
+    def fake_criteria_score(job, prof, crits, feedback=None):
+        seen["fb"] = feedback
+        return (50, "ok", "Vielleicht", {})
+    monkeypatch.setattr(pipeline.scoring, "criteria_score", fake_criteria_score)
+    _run(env, {"https://stepstone.de/job/a": RAW_A})
+    assert seen["fb"] == [{"vote": "up", "title": "Alter Treffer"}]
