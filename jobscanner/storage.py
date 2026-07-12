@@ -373,3 +373,41 @@ def get_feedback_map(profile_id: int) -> dict[str, str]:
     rows = conn.execute(
         "SELECT fingerprint, vote FROM feedback WHERE profile_id = ?", (profile_id,))
     return {r["fingerprint"]: r["vote"] for r in rows}
+
+
+def list_jobs_without_score(profile_id: int) -> list[Job]:
+    """Jobs ohne job_scores-Eintrag für das Profil — Arbeitsvorrat des Backfills."""
+    conn = _require_conn()
+    rows = conn.execute(
+        """SELECT jobs.* FROM jobs
+           LEFT JOIN job_scores
+             ON job_scores.profile_id = ? AND job_scores.fingerprint = jobs.fingerprint
+           WHERE job_scores.fingerprint IS NULL""", (profile_id,))
+    return [_row_to_job(r) for r in rows]
+
+
+def list_feedback_with_titles(profile_id: int) -> list[dict]:
+    """Feedback + Job-Titel für Few-Shot-Beispiele im Scoring-Prompt, neueste zuerst."""
+    conn = _require_conn()
+    rows = conn.execute(
+        """SELECT feedback.vote AS vote, jobs.title AS title
+           FROM feedback JOIN jobs ON jobs.fingerprint = feedback.fingerprint
+           WHERE feedback.profile_id = ?
+           ORDER BY feedback.created_at DESC, feedback.id DESC""", (profile_id,))
+    return [dict(r) for r in rows]
+
+
+def set_sources(fingerprint: str, sources: list) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE jobs SET sources_json = ? WHERE fingerprint = ?",
+                 (json.dumps(sources, ensure_ascii=False), fingerprint))
+    conn.commit()
+
+
+def delete_job(fingerprint: str) -> None:
+    """Job inkl. abhängiger Scores/Feedback löschen (Indeed-Dup-Cleanup)."""
+    conn = _require_conn()
+    conn.execute("DELETE FROM job_scores WHERE fingerprint = ?", (fingerprint,))
+    conn.execute("DELETE FROM feedback WHERE fingerprint = ?", (fingerprint,))
+    conn.execute("DELETE FROM jobs WHERE fingerprint = ?", (fingerprint,))
+    conn.commit()
