@@ -89,6 +89,73 @@ class TestCreditsOk:
         assert run.call_count == 1
 
 
+class TestCreditBudget:
+    def setup_method(self):
+        import jobscanner.browser as b
+        b.reset_credits()
+
+    def test_scrape_charges_one_credit(self):
+        import jobscanner.browser as b
+        res = MagicMock(returncode=0, stdout="<html>fc</html>")
+        with patch("jobscanner.browser.subprocess.run", return_value=res):
+            b._firecrawl_scrape("https://example.com/x")
+        assert b.credits_spent() == 1
+
+    def test_search_cost_charges_five(self):
+        import jobscanner.browser as b
+        res = MagicMock(returncode=0, stdout="<html>fc</html>")
+        with patch("jobscanner.browser.subprocess.run", return_value=res):
+            b._firecrawl_scrape("https://de.indeed.com/jobs?q=x", cost=b.FC_COST_SEARCH)
+        assert b.credits_spent() == 5
+
+    def test_charge_happens_even_on_failed_call(self):
+        # Konservativ: Firecrawl kann serverseitig auch für Fehlversuche Credits ziehen.
+        import jobscanner.browser as b
+        res = MagicMock(returncode=1, stdout="")
+        with patch("jobscanner.browser.subprocess.run", return_value=res):
+            assert b._firecrawl_scrape("https://example.com/x") is None
+        assert b.credits_spent() == 1
+
+    def test_call_skipped_when_budget_exhausted(self, monkeypatch):
+        monkeypatch.setenv("JOBSCANNER_FC_BUDGET", "3")
+        import jobscanner.browser as b
+        b.reset_credits()
+        with patch("jobscanner.browser.subprocess.run") as run:
+            assert b._firecrawl_scrape("https://example.com/x", cost=5) is None
+        run.assert_not_called()
+        assert b.credits_spent() == 0
+
+    def test_fetch_passes_cost_to_firecrawl(self):
+        import jobscanner.browser as b
+        b._credits_ok = True
+        res = MagicMock(returncode=0, stdout="<html>fc</html>")
+        with patch("jobscanner.browser.subprocess.run", return_value=res):
+            b.fetch("https://de.indeed.com/jobs?q=x", method="firecrawl",
+                    cost=b.FC_COST_SEARCH)
+        assert b.credits_spent() == 5
+
+
+class TestCreditsRemaining:
+    def test_parses_absolute_value(self):
+        res = MagicMock(returncode=0, stdout="Credits: 4,980 / 5,000")
+        with patch("jobscanner.browser.subprocess.run", return_value=res):
+            from jobscanner import browser
+            assert browser.credits_remaining() == 4980
+
+    def test_none_on_timeout(self):
+        import subprocess as sp
+        with patch("jobscanner.browser.subprocess.run",
+                   side_effect=sp.TimeoutExpired("firecrawl", 30)):
+            from jobscanner import browser
+            assert browser.credits_remaining() is None
+
+    def test_none_when_no_credits_line(self):
+        res = MagicMock(returncode=0, stdout="kein Match")
+        with patch("jobscanner.browser.subprocess.run", return_value=res):
+            from jobscanner import browser
+            assert browser.credits_remaining() is None
+
+
 class TestFetch:
     def test_playwright_default(self):
         import jobscanner.browser as b

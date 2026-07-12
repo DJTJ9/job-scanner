@@ -53,7 +53,8 @@ class PortalSearchProvider:
     def search(self, query: str, limit: int = 10) -> list[str]:
         url = self.portal["search_url_template"].format(query=quote_plus(query))
         html = browser.fetch(url, method=self.portal.get("search_fetch", "playwright"),
-                             failover=self.portal.get("firecrawl_failover", False))
+                             failover=self.portal.get("firecrawl_failover", False),
+                             cost=browser.FC_COST_SEARCH)
         if html is None:
             return []
         pattern = re.compile(self.portal["detail_url_pattern"])
@@ -165,7 +166,8 @@ def _extract_links(html: str, base_url: str) -> list[str]:
 
 def _links_from_page(url: str, portal: dict) -> list[str]:
     html = browser.fetch(url, method=portal.get("search_fetch", "playwright"),
-                         failover=portal.get("firecrawl_failover", False))
+                         failover=portal.get("firecrawl_failover", False),
+                         cost=browser.FC_COST_SEARCH)
     if html is None:
         return []
     pattern = re.compile(portal["detail_url_pattern"])

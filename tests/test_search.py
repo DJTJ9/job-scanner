@@ -5,6 +5,7 @@ import requests
 
 from jobscanner.search import (PortalSearchProvider, ArbeitsagenturSearchProvider,
                                discover_urls, provider_for)
+from jobscanner import browser
 
 HTML = """
 <html><body>
@@ -197,3 +198,12 @@ class TestProviderRouting:
         with patch("jobscanner.search.browser.fetch", return_value=HTML) as fetch:
             PortalSearchProvider(PORTAL).search("Unity", limit=5)
         assert fetch.call_args.kwargs["method"] == "playwright"
+
+
+def test_portal_search_passes_search_cost_to_fetch():
+    portal = {"name": "indeed", "detail_url_pattern": r"de\.indeed\.com/viewjob",
+              "search_url_template": "https://de.indeed.com/jobs?q={query}",
+              "search_fetch": "firecrawl"}
+    with patch("jobscanner.search.browser.fetch", return_value=None) as fetch:
+        PortalSearchProvider(portal).search("Unity")
+    assert fetch.call_args.kwargs["cost"] == browser.FC_COST_SEARCH
