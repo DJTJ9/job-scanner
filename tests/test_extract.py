@@ -118,3 +118,36 @@ class TestToJob:
     def test_rejects_dict_fields_without_name(self):
         raw = {"title": {"x": 1}, "company": "ACME"}
         assert to_job(raw, "indeed", "u", "2026-07-12") is None
+
+
+class TestExtractRateLimit:
+    def _groq_resp(self, payload: str):
+        resp = MagicMock()
+        resp.choices = [MagicMock(message=MagicMock(content=payload))]
+        return resp
+
+    def _rate_limit_error(self):
+        import httpx
+        from groq import RateLimitError
+        resp = httpx.Response(429, request=httpx.Request("POST", "https://api.groq.com"),
+                              json={"error": {"message": "rate limit"}})
+        return RateLimitError("429", response=resp, body=None)
+
+    def test_retries_after_rate_limit(self, monkeypatch):
+        # Live-Volllauf 2026-07-12: 429 TPM crashte die komplette Pipeline
+        from jobscanner import extract
+        monkeypatch.setattr(extract, "_RETRY_SLEEP_S", 0)
+        with patch("jobscanner.extract.Groq") as groq_cls:
+            groq_cls.return_value.chat.completions.create.side_effect = [
+                self._rate_limit_error(),
+                self._groq_resp('{"title": "Dev", "company": "ACME"}')]
+            raw = extract.extract_from_text("Dev bei ACME")
+        assert raw == {"title": "Dev", "company": "ACME"}
+
+    def test_returns_none_when_rate_limit_persists(self, monkeypatch):
+        from jobscanner import extract
+        monkeypatch.setattr(extract, "_RETRY_SLEEP_S", 0)
+        with patch("jobscanner.extract.Groq") as groq_cls:
+            groq_cls.return_value.chat.completions.create.side_effect = \
+                self._rate_limit_error()
+            assert extract.extract_from_text("Dev bei ACME") is None
