@@ -67,3 +67,50 @@ def test_format_report_works_without_stats_argument():
     aggregate = {"gesamt": [("Unity", 3)]}
     text = market.format_report(aggregate)
     assert "Unity: 3" in text
+
+
+def _scored_job(title, score, category="Pass", reason="", portal="indeed",
+                url="https://de.indeed.com/viewjob?jk=x"):
+    return _job(title=title, score=score, category=category, score_reason=reason,
+                sources=[{"portal": portal, "url": url, "found_at": "2026-07-11"}])
+
+
+class TestTopMatchReport:
+    def test_lists_top5_new_jobs_sorted_by_score(self):
+        new_jobs = [_scored_job(f"Job {i}", score=i * 10) for i in range(1, 8)]
+        text = market.format_report({"gesamt": []}, new_jobs=new_jobs)
+        assert "Top-Treffer" in text
+        assert "Job 7" in text and "Job 2" not in text
+        assert text.index("Job 7") < text.index("Job 3")
+
+    def test_top_entry_has_score_portal_and_link(self):
+        new_jobs = [_scored_job("Unity Dev", 88)]
+        text = market.format_report({"gesamt": []}, new_jobs=new_jobs)
+        assert "88" in text and "indeed" in text
+        assert "https://de.indeed.com/viewjob?jk=x" in text
+
+    def test_vetoes_listed_with_reason(self):
+        new_jobs = [_scored_job("Senior Architekt", 0, category="No-Go",
+                                reason="No-Go: Senior-Stelle (5+ Jahre)")]
+        text = market.format_report({"gesamt": []}, new_jobs=new_jobs)
+        assert "Vetos" in text
+        assert "Senior Architekt" in text and "Senior-Stelle" in text
+
+    def test_no_go_jobs_never_in_top_list(self):
+        new_jobs = [_scored_job("Veto Job", 0, category="No-Go", reason="No-Go: x")]
+        text = market.format_report({"gesamt": []}, new_jobs=new_jobs)
+        assert "Top-Treffer" not in text
+
+    def test_credit_line_estimated_and_real(self):
+        text = market.format_report({"gesamt": []},
+                                    credits={"estimated": 17, "real": 19, "budget": 100})
+        assert "17" in text and "19" in text and "100" in text
+
+    def test_credit_line_without_real_value(self):
+        text = market.format_report({"gesamt": []},
+                                    credits={"estimated": 17, "real": None, "budget": 100})
+        assert "n/a" in text
+
+    def test_without_new_jobs_no_top_section(self):
+        text = market.format_report({"gesamt": [("Unity", 3)]})
+        assert "Top-Treffer" not in text and "Unity: 3" in text
