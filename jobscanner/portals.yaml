@@ -24,6 +24,8 @@
   search_url_template: 'https://de.indeed.com/jobs?q={query}'
   search_fetch: firecrawl        # Suche blockt via Cloudflare (Live-E2E 2026-07-11)
   detail_fetch: firecrawl
+  max_search_terms: 3            # Credit-Deckel: ~5 Credits/Suche (Auto-Stealth) — nur Kern-Terme
+  skip_neighbor_roles: true      # Neighbor-Rollen laufen über die 0-Credit-Quellen (Adzuna/Jooble)
 - name: adzuna
   site: adzuna.de
   detail_url_pattern: 'adzuna\.(de|com)/(land/ad|details)/'

@@ -51,14 +51,21 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
         portal_provider = provider or search.provider_for(portal)
         seen_urls: set[str] = set()
         capped = False
+        max_terms = portal.get("max_search_terms")
+        terms_searched = 0
         for role, role_langs in queries.items():
             if capped:
                 break
+            if portal.get("skip_neighbor_roles") and role in neighbor_role_names:
+                continue
             for terms in role_langs.values():
                 if capped:
                     break
                 for term in terms:
                     if capped:
+                        break
+                    if max_terms is not None and terms_searched >= max_terms:
+                        capped = True
                         break
                     # Cap VOR der Suche prüfen — sonst feuert ein gecapptes Portal
                     # noch eine (bei Firecrawl teure) Such-Anfrage ab (Live-E2E 2026-07-11).
@@ -66,8 +73,10 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                             and stats["scraped"] >= max_scrapes_per_portal):
                         capped = True
                         break
+                    terms_searched += 1
                     for url in search.discover_urls(portal, term, portal_provider,
                                                     limit=limit_per_query):
+                        url = dedup.canonicalize_url(url, portal["name"])
                         if (max_scrapes_per_portal is not None
                                 and stats["scraped"] >= max_scrapes_per_portal):
                             capped = True

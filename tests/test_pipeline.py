@@ -313,3 +313,55 @@ def test_run_scores_second_active_profile(env):
     _run(env, {"https://stepstone.de/job/a": RAW_A})
     job = storage.list_jobs()[0]
     assert storage.get_job_score(pid, job.fingerprint)["score"] == 50
+
+
+class TestIndeedThrottle:
+    PORTAL = {"name": "indeed", "site": "de.indeed.com",
+              "detail_url_pattern": r"de\.indeed\.com/(viewjob|rc/clk)",
+              "search_type": "html",
+              "search_url_template": "https://de.indeed.com/jobs?q={query}",
+              "search_fetch": "firecrawl", "detail_fetch": "firecrawl",
+              "max_search_terms": 2, "skip_neighbor_roles": True}
+
+    def _run(self, tmp_path, provider, queries, neighbors_map=None):
+        raw = {"title": "Dev", "company": "ACME", "location": "Essen"}
+        with patch("jobscanner.pipeline.config.load_portals", return_value=[self.PORTAL]), \
+             patch("jobscanner.pipeline.config.load_queries", return_value=queries), \
+             patch("jobscanner.pipeline.config.load_profile", return_value={}), \
+             patch("jobscanner.pipeline.neighbors.get_neighbor_roles",
+                   return_value=neighbors_map or {}), \
+             patch("jobscanner.pipeline.extract.scrape_job", return_value=raw), \
+             patch("jobscanner.pipeline.scoring.criteria_score",
+                   return_value=(50, "ok", "Vielleicht", {})), \
+             patch("jobscanner.pipeline.browser.firecrawl_credits_ok", return_value=True):
+            return run(provider=provider, db_path=tmp_path / "t.db",
+                       push_nocodb=False, send_report=False)
+
+    def test_max_search_terms_caps_searches(self, tmp_path):
+        provider = MagicMock()
+        provider.search.side_effect = [
+            [f"https://de.indeed.com/viewjob?jk=a{i}"] for i in range(9)]
+        queries = {"unity_games": {"de": ["Q1", "Q2", "Q3", "Q4"]}}
+        self._run(tmp_path, provider, queries)
+        assert provider.search.call_count == 2
+
+    def test_skip_neighbor_roles_searches_core_only(self, tmp_path):
+        provider = MagicMock()
+        provider.search.return_value = ["https://de.indeed.com/viewjob?jk=b1"]
+        queries = {"unity_games": {"de": ["Q1"]}}
+        neighbors_map = {"gameplay_engineer":
+                         {"terms": {"de": ["Gameplay Programmierer"]}}}
+        self._run(tmp_path, provider, queries, neighbors_map=neighbors_map)
+        searched = [c.args[0] for c in provider.search.call_args_list]
+        assert searched == ["Q1"]
+
+    def test_canonicalized_url_dedups_within_run(self, tmp_path):
+        provider = MagicMock()
+        provider.search.side_effect = [
+            ["https://de.indeed.com/viewjob?jk=abc123&bb=one"],
+            ["https://de.indeed.com/rc/clk?jk=abc123&bb=two"]]
+        queries = {"unity_games": {"de": ["Q1", "Q2"]}}
+        report = self._run(tmp_path, provider, queries)
+        assert report["portals"]["indeed"]["scraped"] == 1
+        job = storage.list_jobs()[0]
+        assert job.sources[0]["url"] == "https://de.indeed.com/viewjob?jk=abc123"
