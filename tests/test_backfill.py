@@ -87,6 +87,46 @@ class TestCleanup:
             "https://stepstone.de/x?id=99",
         }
 
+    def test_dropped_keeper_of_one_group_resolves_across_groups(self, db):
+        # Job1 holds both jk=aaa and jk=bbb (a merged repost row).
+        # Job2 (jk=aaa only, oldest) is keeper of the aaa-group -> Job1 gets
+        # dropped there. Job3 (jk=bbb only, newest, plus a unique stepstone
+        # source) would otherwise see Job1 as the bbb-group's keeper, but
+        # Job1 was already deleted while processing the aaa-group first —
+        # storage.set_sources on Job1's dead fingerprint is a silent no-op,
+        # so Job3's unique stepstone source must not vanish when Job3 is
+        # deleted as the bbb-group's "duplicate".
+        job1 = Job(title="Dev One", company="ACME", location="Essen",
+                   sources=[
+                       {"portal": "indeed",
+                        "url": "https://de.indeed.com/viewjob?jk=aaa&bb=x",
+                        "found_at": "2026-07-05"},
+                       {"portal": "indeed",
+                        "url": "https://de.indeed.com/viewjob?jk=bbb&bb=x",
+                        "found_at": "2026-07-05"},
+                   ],
+                   first_seen="2026-07-05", last_seen="2026-07-05")
+        job2 = _indeed_job("Dev Two", "aaa", "y", first_seen="2026-07-01")
+        job3 = _indeed_job("Dev Three", "bbb", "z", first_seen="2026-07-09")
+        job3.sources.append({"portal": "stepstone",
+                             "url": "https://stepstone.de/x?id=unique",
+                             "found_at": "2026-07-09"})
+        storage.upsert_job(job1)
+        storage.upsert_job(job2)
+        storage.upsert_job(job3)
+
+        result = backfill_scores.cleanup_indeed_duplicates()
+
+        jobs = storage.list_jobs()
+        urls = {s["url"] for j in jobs for s in j.sources}
+        assert urls == {
+            "https://de.indeed.com/viewjob?jk=aaa",
+            "https://de.indeed.com/viewjob?jk=bbb",
+            "https://stepstone.de/x?id=unique",
+        }
+        assert len(jobs) == 1
+        assert result["rows_removed"] == 2
+
 
 class TestBackfill:
     def test_scores_only_jobs_without_score(self, db, monkeypatch):

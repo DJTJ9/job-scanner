@@ -43,12 +43,28 @@ def cleanup_indeed_duplicates(dry_run: bool = False) -> dict:
         if changed and not dry_run:
             storage.set_sources(job.fingerprint, canonical)
     removed = 0
+    # Ein Job kann in mehreren jk-Gruppen auftauchen (mehrere Indeed-Quellen).
+    # Wird sein Fingerprint in Gruppe A schon gelöscht, muss Gruppe B auf den
+    # dortigen Keeper ausweichen statt set_sources/delete_job auf der toten
+    # Fingerprint-Zeile aufzurufen (sonst gehen die dort gemergten Quellen
+    # verloren — der UPDATE ist ein stiller No-Op).
+    dropped_to_keeper: dict[str, object] = {}
+
+    def resolve(j):
+        while j.fingerprint in dropped_to_keeper:
+            j = dropped_to_keeper[j.fingerprint]
+        return j
+
     for fps in by_canon.values():
         if len(fps) < 2:
             continue
         keep, *drop = sorted(fps.values(),
                              key=lambda j: (j.first_seen, j.fingerprint))
+        keep = resolve(keep)
         for d in drop:
+            d = resolve(d)
+            if d.fingerprint == keep.fingerprint:
+                continue
             keep_urls = {s.get("url") for s in keep.sources}
             extra = [s for s in d.sources if s.get("url") not in keep_urls]
             if not dry_run:
@@ -56,6 +72,7 @@ def cleanup_indeed_duplicates(dry_run: bool = False) -> dict:
                     keep.sources = keep.sources + extra
                     storage.set_sources(keep.fingerprint, keep.sources)
                 storage.delete_job(d.fingerprint)
+                dropped_to_keeper[d.fingerprint] = keep
             removed += 1
     return {"rows_removed": removed, "dry_run": dry_run}
 
