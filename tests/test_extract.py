@@ -1,8 +1,7 @@
-"""Tests für Extraktion — Playwright-Render und Groq-Client gemockt, kein Live-Call."""
-import json
-from unittest.mock import patch, MagicMock
+"""Tests für Extraktion — Playwright-Fetch gemockt, kein Groq mehr im Pfad."""
+from unittest.mock import patch
 
-from jobscanner.extract import scrape_job, to_job
+from jobscanner.extract import clean_api_text, fetch_raw_text, to_job
 
 RAW = {
     "title": "Unity Developer (m/w/d)",
@@ -21,67 +20,32 @@ HTML = ("<html><body><nav>Menu</nav>"
        "<footer>Impressum</footer></body></html>")
 
 
-def _groq_response(payload: dict) -> MagicMock:
-    resp = MagicMock()
-    resp.choices = [MagicMock(message=MagicMock(content=json.dumps(payload)))]
-    return resp
+class TestFetchRawText:
+    def test_fetches_and_cleans_html(self):
+        with patch("jobscanner.extract.browser.fetch", return_value=HTML) as fetch:
+            text = fetch_raw_text("https://example.com/job/1")
+        assert "Unity Developer (m/w/d)" in text
+        assert "Menu" not in text and "Impressum" not in text
+        assert fetch.call_args.kwargs["method"] == "playwright"
+        assert fetch.call_args.kwargs["failover"] is False
 
+    def test_fetch_failure_returns_none(self):
+        with patch("jobscanner.extract.browser.fetch", return_value=None):
+            assert fetch_raw_text("https://example.com/x") is None
 
-class TestScrapeJob:
-    def test_renders_cleans_and_extracts(self):
-        with patch("jobscanner.extract.browser.render", return_value=HTML), \
-             patch("jobscanner.extract.Groq") as MockGroq:
-            MockGroq.return_value.chat.completions.create.return_value = _groq_response(RAW)
-            raw = scrape_job("https://example.com/job/1")
-        assert raw == RAW
-
-    def test_render_failure_returns_none(self):
-        with patch("jobscanner.extract.browser.render", return_value=None):
-            assert scrape_job("https://example.com/x") is None
-
-    def test_groq_bad_json_returns_none(self):
-        with patch("jobscanner.extract.browser.render", return_value=HTML), \
-             patch("jobscanner.extract.Groq") as MockGroq:
-            resp = MagicMock()
-            resp.choices = [MagicMock(message=MagicMock(content="not json"))]
-            MockGroq.return_value.chat.completions.create.return_value = resp
-            assert scrape_job("https://example.com/x") is None
-
-
-class TestExtractFromText:
-    def _groq_resp(self, payload: str):
-        resp = MagicMock()
-        resp.choices = [MagicMock(message=MagicMock(content=payload))]
-        return resp
-
-    def test_extracts_dict_from_plain_text(self):
-        from jobscanner.extract import extract_from_text
-        with patch("jobscanner.extract.Groq") as groq_cls:
-            groq_cls.return_value.chat.completions.create.return_value = \
-                self._groq_resp('{"title": "Junior Unity Developer", "company": "ACME"}')
-            raw = extract_from_text("Junior Unity Developer\nACME GmbH\nHamburg\nUnity, C#")
-        assert raw == {"title": "Junior Unity Developer", "company": "ACME"}
-
-    def test_empty_text_returns_none(self):
-        from jobscanner.extract import extract_from_text
-        with patch("jobscanner.extract.Groq") as groq_cls:
-            assert extract_from_text("   ") is None
-        groq_cls.assert_not_called()
-
-
-class TestScrapeJobRouting:
     def test_passes_fetch_method_and_failover(self):
-        from jobscanner.extract import scrape_job
         with patch("jobscanner.extract.browser.fetch", return_value=None) as fetch:
-            assert scrape_job("https://x.de/j/1", fetch_method="firecrawl", failover=True) is None
+            fetch_raw_text("https://x.de/j/1", fetch_method="firecrawl", failover=True)
         assert fetch.call_args.kwargs["method"] == "firecrawl"
         assert fetch.call_args.kwargs["failover"] is True
 
-    def test_default_method_playwright(self):
-        from jobscanner.extract import scrape_job
-        with patch("jobscanner.extract.browser.fetch", return_value=None) as fetch:
-            scrape_job("https://x.de/j/1")
-        assert fetch.call_args.kwargs["method"] == "playwright"
+
+class TestCleanApiText:
+    def test_truncates_and_strips(self):
+        assert clean_api_text("  Hallo Welt  ") == "Hallo Welt"
+
+    def test_empty_text_stays_empty(self):
+        assert clean_api_text("") == ""
 
 
 class TestToJob:
@@ -118,36 +82,3 @@ class TestToJob:
     def test_rejects_dict_fields_without_name(self):
         raw = {"title": {"x": 1}, "company": "ACME"}
         assert to_job(raw, "indeed", "u", "2026-07-12") is None
-
-
-class TestExtractRateLimit:
-    def _groq_resp(self, payload: str):
-        resp = MagicMock()
-        resp.choices = [MagicMock(message=MagicMock(content=payload))]
-        return resp
-
-    def _rate_limit_error(self):
-        import httpx
-        from groq import RateLimitError
-        resp = httpx.Response(429, request=httpx.Request("POST", "https://api.groq.com"),
-                              json={"error": {"message": "rate limit"}})
-        return RateLimitError("429", response=resp, body=None)
-
-    def test_retries_after_rate_limit(self, monkeypatch):
-        # Live-Volllauf 2026-07-12: 429 TPM crashte die komplette Pipeline
-        from jobscanner import extract
-        monkeypatch.setattr(extract, "_RETRY_SLEEP_S", 0)
-        with patch("jobscanner.extract.Groq") as groq_cls:
-            groq_cls.return_value.chat.completions.create.side_effect = [
-                self._rate_limit_error(),
-                self._groq_resp('{"title": "Dev", "company": "ACME"}')]
-            raw = extract.extract_from_text("Dev bei ACME")
-        assert raw == {"title": "Dev", "company": "ACME"}
-
-    def test_returns_none_when_rate_limit_persists(self, monkeypatch):
-        from jobscanner import extract
-        monkeypatch.setattr(extract, "_RETRY_SLEEP_S", 0)
-        with patch("jobscanner.extract.Groq") as groq_cls:
-            groq_cls.return_value.chat.completions.create.side_effect = \
-                self._rate_limit_error()
-            assert extract.extract_from_text("Dev bei ACME") is None
