@@ -66,6 +66,27 @@ class TestCleanup:
         backfill_scores.cleanup_indeed_duplicates()
         assert storage.list_jobs()[0].sources[0]["url"] == "https://stepstone.de/x?jk=trap"
 
+    def test_extra_source_on_dropped_row_merges_into_keeper(self, db):
+        keeper = _indeed_job("Dev", "abc", "one", location="Essen",
+                             first_seen="2026-07-10")
+        dropped = _indeed_job("Dev", "abc", "two",
+                              location="Essen oder Würzburg",
+                              first_seen="2026-07-11")
+        dropped.sources.append({"portal": "stepstone",
+                                "url": "https://stepstone.de/x?id=99",
+                                "found_at": "2026-07-11"})
+        storage.upsert_job(keeper)
+        storage.upsert_job(dropped)
+        result = backfill_scores.cleanup_indeed_duplicates()
+        assert result["rows_removed"] == 1
+        jobs = storage.list_jobs()
+        assert len(jobs) == 1
+        urls = {s["url"] for s in jobs[0].sources}
+        assert urls == {
+            "https://de.indeed.com/viewjob?jk=abc",
+            "https://stepstone.de/x?id=99",
+        }
+
 
 class TestBackfill:
     def test_scores_only_jobs_without_score(self, db, monkeypatch):
