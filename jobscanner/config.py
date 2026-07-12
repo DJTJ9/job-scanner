@@ -57,3 +57,8 @@ def load_web_settings() -> dict:
         "session_secret": os.environ.get("JOBSCANNER_SESSION_SECRET", ""),
         "port": int(os.environ.get("JOBSCANNER_WEB_PORT", "8010")),
     }
+
+
+def firecrawl_budget() -> int:
+    """Firecrawl-Credit-Deckel pro Lauf (Volllauf-Vorbereitung 2026-07-11)."""
+    return int(os.environ.get("JOBSCANNER_FC_BUDGET", "100"))

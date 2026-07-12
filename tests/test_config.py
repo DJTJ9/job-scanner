@@ -88,3 +88,10 @@ class TestHybridPortalConfig:
         assert by_name["adzuna"]["detail_fetch"] == "api"
         assert by_name["jooble"]["search_type"] == "jooble"
         assert by_name["jooble"]["detail_fetch"] == "api"
+
+
+def test_firecrawl_budget_default_and_env(monkeypatch):
+    monkeypatch.delenv("JOBSCANNER_FC_BUDGET", raising=False)
+    assert config.firecrawl_budget() == 100
+    monkeypatch.setenv("JOBSCANNER_FC_BUDGET", "42")
+    assert config.firecrawl_budget() == 42

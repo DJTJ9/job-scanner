@@ -36,3 +36,29 @@ def test_touch_known_updates_last_seen_only(db):
     stored = storage.get_job(fp)
     assert stored.last_seen == "2026-07-10"
     assert stored.first_seen == "2026-07-09"  # Frische-Semantik: bleibt
+
+
+class TestCanonicalizeUrl:
+    def test_indeed_viewjob_strips_tracking_params(self):
+        url = "https://de.indeed.com/viewjob?jk=abc123&bb=volatile&from=serp"
+        assert dedup.canonicalize_url(url, "indeed") == "https://de.indeed.com/viewjob?jk=abc123"
+
+    def test_indeed_rc_clk_maps_to_viewjob(self):
+        url = "https://de.indeed.com/rc/clk?jk=deadbeef01&bb=xyz"
+        assert dedup.canonicalize_url(url, "indeed") == "https://de.indeed.com/viewjob?jk=deadbeef01"
+
+    def test_indeed_without_jk_unchanged(self):
+        url = "https://de.indeed.com/jobs?q=unity"
+        assert dedup.canonicalize_url(url, "indeed") == url
+
+    def test_other_portal_unchanged(self):
+        url = "https://www.stepstone.de/stellenangebote--x?jk=trap"
+        assert dedup.canonicalize_url(url, "stepstone") == url
+
+    def test_indeed_non_hex_jk_not_truncated(self):
+        # jk starts with hex chars but continues with a non-hex tail — the
+        # old hex-only regex truncated at the first non-hex char, which
+        # could falsely collapse two distinct job keys into one.
+        url = "https://de.indeed.com/viewjob?jk=abc123-xyz&bb=x"
+        assert dedup.canonicalize_url(url, "indeed") == \
+            "https://de.indeed.com/viewjob?jk=abc123-xyz"

@@ -25,9 +25,13 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
         profile_name: str = "default") -> dict:
     today = today or _dt.date.today().isoformat()
     storage.init_db(db_path or _DEFAULT_DB)
+    browser.reset_credits()
+    fc_before = browser.credits_remaining() if send_report else None
     storage.migrate_yaml_profile()
     active_profiles = storage.list_profiles(active_only=True)
     profile_criteria = {p["id"]: storage.list_criteria(p["id"]) for p in active_profiles}
+    profile_feedback = {p["id"]: storage.list_feedback_with_titles(p["id"])
+                        for p in active_profiles}
     default_profile = next(
         (p for p in active_profiles if p["is_default"]), active_profiles[0])
 
@@ -45,20 +49,28 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                     "firecrawl_ok": browser.firecrawl_credits_ok(),
                     "portals": {p["name"]: {"urls": 0, "scraped": 0} for p in portals}}
     touched: set[str] = set()
+    new_jobs: list = []
 
     for portal in portals:
         stats = report["portals"][portal["name"]]
         portal_provider = provider or search.provider_for(portal)
         seen_urls: set[str] = set()
         capped = False
+        max_terms = portal.get("max_search_terms")
+        terms_searched = 0
         for role, role_langs in queries.items():
             if capped:
                 break
+            if portal.get("skip_neighbor_roles") and role in neighbor_role_names:
+                continue
             for terms in role_langs.values():
                 if capped:
                     break
                 for term in terms:
                     if capped:
+                        break
+                    if max_terms is not None and terms_searched >= max_terms:
+                        capped = True
                         break
                     # Cap VOR der Suche prüfen — sonst feuert ein gecapptes Portal
                     # noch eine (bei Firecrawl teure) Such-Anfrage ab (Live-E2E 2026-07-11).
@@ -66,8 +78,10 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                             and stats["scraped"] >= max_scrapes_per_portal):
                         capped = True
                         break
+                    terms_searched += 1
                     for url in search.discover_urls(portal, term, portal_provider,
                                                     limit=limit_per_query):
+                        url = dedup.canonicalize_url(url, portal["name"])
                         if (max_scrapes_per_portal is not None
                                 and stats["scraped"] >= max_scrapes_per_portal):
                             capped = True
@@ -107,7 +121,8 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                         if is_new:
                             for p in active_profiles:
                                 score, reason, category, breakdown = scoring.criteria_score(
-                                    job, p["data"], profile_criteria[p["id"]])
+                                    job, p["data"], profile_criteria[p["id"]],
+                                    feedback=profile_feedback[p["id"]])
                                 storage.upsert_job_score(
                                     p["id"], fp, score, reason, category, breakdown)
                                 if p["id"] == default_profile["id"]:
@@ -119,14 +134,22 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                                 job.archive_path = archive.save_snapshot(job)
                                 storage.update_job(fp, archive_path=job.archive_path)
                             report["new"] += 1
+                            new_jobs.append(job)
                             if push_nocodb:
                                 row_id = nocodb_board.push_job(job)
                                 storage.update_job(fp, nocodb_row_id=row_id)
+    fc_after = browser.credits_remaining() if send_report else None
+    real = (fc_before - fc_after
+            if fc_before is not None and fc_after is not None else None)
+    report["credits"] = {"estimated": browser.credits_spent(), "real": real,
+                         "budget": config.firecrawl_budget()}
     if send_report:
         jobs = storage.list_jobs()
         aggregate = market.aggregate_skills(jobs, group_by_role=True)
         stats = market.neighbor_stats(jobs)
-        subprocess.run(["python", str(_NOTIFY_SCRIPT), market.format_report(aggregate, stats)],
+        subprocess.run(["python", str(_NOTIFY_SCRIPT),
+                        market.format_report(aggregate, stats, new_jobs=new_jobs,
+                                             credits=report["credits"])],
                        check=False)
     return report
 

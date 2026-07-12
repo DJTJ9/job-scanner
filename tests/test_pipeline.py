@@ -27,11 +27,12 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline.neighbors, "get_neighbor_roles",
                         lambda profile, name, core, today=None: {})
     monkeypatch.setattr(pipeline.scoring, "criteria_score",
-                        lambda job, prof, crits: (50, "Test-Score", "Vielleicht",
+                        lambda job, prof, crits, feedback=None: (50, "Test-Score", "Vielleicht",
                                                   {"role_fit": {"punkte": 5, "grund": "mock"}}))
     # Zentral gemockt: Report-Init ruft browser.firecrawl_credits_ok() —
     # ohne Patch würde jeder Test einen echten Subprocess-Call machen.
     monkeypatch.setattr("jobscanner.browser.firecrawl_credits_ok", lambda: True)
+    monkeypatch.setattr("jobscanner.browser.credits_remaining", lambda: None)
     yield tmp_path / "jobs.db"
     storage.close()
 
@@ -113,7 +114,7 @@ def test_run_sets_role_from_query_key(env):
 
 
 def test_pass_category_job_gets_archived(env):
-    pipeline.scoring.criteria_score = lambda job, prof, crits: (85, "Top-Fit", "Pass", {})
+    pipeline.scoring.criteria_score = lambda job, prof, crits, feedback=None: (85, "Top-Fit", "Pass", {})
     with patch("jobscanner.pipeline.archive.save_snapshot", return_value="/tmp/x.md") as snap:
         _run(env, {"https://stepstone.de/job/a": RAW_A}, push=False)
     snap.assert_called_once()
@@ -313,3 +314,103 @@ def test_run_scores_second_active_profile(env):
     _run(env, {"https://stepstone.de/job/a": RAW_A})
     job = storage.list_jobs()[0]
     assert storage.get_job_score(pid, job.fingerprint)["score"] == 50
+
+
+class TestIndeedThrottle:
+    PORTAL = {"name": "indeed", "site": "de.indeed.com",
+              "detail_url_pattern": r"de\.indeed\.com/(viewjob|rc/clk)",
+              "search_type": "html",
+              "search_url_template": "https://de.indeed.com/jobs?q={query}",
+              "search_fetch": "firecrawl", "detail_fetch": "firecrawl",
+              "max_search_terms": 2, "skip_neighbor_roles": True}
+
+    def _run(self, tmp_path, provider, queries, neighbors_map=None):
+        raw = {"title": "Dev", "company": "ACME", "location": "Essen"}
+        with patch("jobscanner.pipeline.config.load_portals", return_value=[self.PORTAL]), \
+             patch("jobscanner.pipeline.config.load_queries", return_value=queries), \
+             patch("jobscanner.pipeline.config.load_profile", return_value={}), \
+             patch("jobscanner.pipeline.neighbors.get_neighbor_roles",
+                   return_value=neighbors_map or {}), \
+             patch("jobscanner.pipeline.extract.scrape_job", return_value=raw), \
+             patch("jobscanner.pipeline.scoring.criteria_score",
+                   return_value=(50, "ok", "Vielleicht", {})), \
+             patch("jobscanner.pipeline.browser.firecrawl_credits_ok", return_value=True):
+            return run(provider=provider, db_path=tmp_path / "t.db",
+                       push_nocodb=False, send_report=False)
+
+    def test_max_search_terms_caps_searches(self, tmp_path):
+        provider = MagicMock()
+        provider.search.side_effect = [
+            [f"https://de.indeed.com/viewjob?jk=a{i}"] for i in range(9)]
+        queries = {"unity_games": {"de": ["Q1", "Q2", "Q3", "Q4"]}}
+        self._run(tmp_path, provider, queries)
+        assert provider.search.call_count == 2
+
+    def test_skip_neighbor_roles_searches_core_only(self, tmp_path):
+        provider = MagicMock()
+        provider.search.return_value = ["https://de.indeed.com/viewjob?jk=b1"]
+        queries = {"unity_games": {"de": ["Q1"]}}
+        neighbors_map = {"gameplay_engineer":
+                         {"terms": {"de": ["Gameplay Programmierer"]}}}
+        self._run(tmp_path, provider, queries, neighbors_map=neighbors_map)
+        searched = [c.args[0] for c in provider.search.call_args_list]
+        assert searched == ["Q1"]
+
+    def test_canonicalized_url_dedups_within_run(self, tmp_path):
+        provider = MagicMock()
+        provider.search.side_effect = [
+            ["https://de.indeed.com/viewjob?jk=abc123&bb=one"],
+            ["https://de.indeed.com/rc/clk?jk=abc123&bb=two"]]
+        queries = {"unity_games": {"de": ["Q1", "Q2"]}}
+        report = self._run(tmp_path, provider, queries)
+        assert report["portals"]["indeed"]["scraped"] == 1
+        job = storage.list_jobs()[0]
+        assert job.sources[0]["url"] == "https://de.indeed.com/viewjob?jk=abc123"
+
+
+def test_report_contains_credit_block(env):
+    report = _run(env, {"https://stepstone.de/job/a": RAW_A})
+    assert report["credits"] == {"estimated": 0, "real": None, "budget": 100}
+
+
+def test_report_measures_real_credit_usage(env, monkeypatch):
+    remaining = MagicMock(side_effect=[4980, 4975])
+    monkeypatch.setattr("jobscanner.browser.credits_remaining", remaining)
+    report = _run(env, {"https://stepstone.de/job/a": RAW_A})
+    assert report["credits"]["real"] == 5
+
+
+def test_report_message_contains_top_matches_and_credits(env):
+    with patch("jobscanner.pipeline.subprocess.run") as notify:
+        _run(env, {"https://stepstone.de/job/a": RAW_A})
+    msg = notify.call_args[0][0][2]
+    assert "Top-Treffer" in msg
+    assert "Unity Dev" in msg
+    assert "Firecrawl" in msg
+
+
+def test_credit_counter_reset_per_run(env, monkeypatch):
+    from jobscanner import browser
+    browser._credits_spent = 77
+    report = _run(env, {"https://stepstone.de/job/a": RAW_A})
+    assert report["credits"]["estimated"] == 0
+
+
+def test_run_passes_feedback_to_scoring(env, monkeypatch):
+    storage.init_db(env)
+    pid = storage.migrate_yaml_profile()
+    from jobscanner.models import Job
+    old = Job(title="Alter Treffer", company="ACME", location="Hamburg",
+              sources=[{"portal": "stepstone", "url": "https://stepstone.de/job/old",
+                        "found_at": "2026-07-01"}],
+              first_seen="2026-07-01", last_seen="2026-07-01")
+    storage.upsert_job(old)
+    storage.add_feedback(pid, old.fingerprint, "up")
+    seen = {}
+
+    def fake_criteria_score(job, prof, crits, feedback=None):
+        seen["fb"] = feedback
+        return (50, "ok", "Vielleicht", {})
+    monkeypatch.setattr(pipeline.scoring, "criteria_score", fake_criteria_score)
+    _run(env, {"https://stepstone.de/job/a": RAW_A})
+    assert seen["fb"] == [{"vote": "up", "title": "Alter Treffer"}]

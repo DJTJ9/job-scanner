@@ -178,3 +178,44 @@ class TestStorage:
         assert len(storage.list_jobs(language="en")) == 1
         with pytest.raises(ValueError):
             storage.list_jobs(evil="1; DROP TABLE jobs")
+
+
+class TestVolllaufHelpers:
+    def _profile(self):
+        pid = storage.create_profile("P", {"skills": ["Unity"]}, is_default=True)
+        storage.save_criteria(pid, [{"key": "role_fit", "label": "Rolle",
+                                     "weight": 5, "sort": 0}])
+        return pid
+
+    def test_list_jobs_without_score_filters_scored(self, db):
+        pid = self._profile()
+        fp1 = storage.upsert_job(_job(title="Scored Job"))
+        fp2 = storage.upsert_job(_job(title="Unscored Job"))
+        storage.upsert_job_score(pid, fp1, 80, "ok", "Pass", {})
+        todo = storage.list_jobs_without_score(pid)
+        assert [j.title for j in todo] == ["Unscored Job"]
+
+    def test_list_feedback_with_titles_joins_jobs(self, db):
+        pid = self._profile()
+        fp = storage.upsert_job(_job(title="Feedback Job"))
+        storage.add_feedback(pid, fp, "up")
+        assert storage.list_feedback_with_titles(pid) == [
+            {"vote": "up", "title": "Feedback Job"}]
+
+    def test_set_sources_replaces_sources(self, db):
+        fp = storage.upsert_job(_job())
+        new_sources = [{"portal": "indeed",
+                        "url": "https://de.indeed.com/viewjob?jk=x",
+                        "found_at": "2026-07-11"}]
+        storage.set_sources(fp, new_sources)
+        assert storage.get_job(fp).sources == new_sources
+
+    def test_delete_job_removes_scores_and_feedback(self, db):
+        pid = self._profile()
+        fp = storage.upsert_job(_job())
+        storage.upsert_job_score(pid, fp, 50, "ok", "Vielleicht", {})
+        storage.add_feedback(pid, fp, "down")
+        storage.delete_job(fp)
+        assert storage.get_job(fp) is None
+        assert storage.get_job_score(pid, fp) is None
+        assert storage.list_feedback(pid) == []
