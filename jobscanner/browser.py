@@ -83,5 +83,5 @@ def fetch(url: str, method: str = "playwright", failover: bool = False,
         return _firecrawl_scrape(url, cost=cost) if firecrawl_credits_ok() else None
     html = render(url)
     if html is None and failover and firecrawl_credits_ok():
-        return _firecrawl_scrape(url)
+        return _firecrawl_scrape(url, cost=cost)
     return html

@@ -193,3 +193,12 @@ class TestFetch:
              patch("jobscanner.browser._firecrawl_scrape") as fc:
             assert b.fetch("https://example.com/x") is None
         fc.assert_not_called()
+
+    def test_failover_forwards_caller_cost(self):
+        import jobscanner.browser as b
+        b._credits_ok = True
+        with patch("jobscanner.browser.render", return_value=None), \
+             patch("jobscanner.browser._firecrawl_scrape", return_value="<html>fc</html>") as fc:
+            assert b.fetch("https://example.com/x", failover=True,
+                           cost=b.FC_COST_SEARCH) == "<html>fc</html>"
+        fc.assert_called_once_with("https://example.com/x", cost=b.FC_COST_SEARCH)
