@@ -25,6 +25,8 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
         profile_name: str = "default") -> dict:
     today = today or _dt.date.today().isoformat()
     storage.init_db(db_path or _DEFAULT_DB)
+    browser.reset_credits()
+    fc_before = browser.credits_remaining() if send_report else None
     storage.migrate_yaml_profile()
     active_profiles = storage.list_profiles(active_only=True)
     profile_criteria = {p["id"]: storage.list_criteria(p["id"]) for p in active_profiles}
@@ -47,6 +49,7 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                     "firecrawl_ok": browser.firecrawl_credits_ok(),
                     "portals": {p["name"]: {"urls": 0, "scraped": 0} for p in portals}}
     touched: set[str] = set()
+    new_jobs: list = []
 
     for portal in portals:
         stats = report["portals"][portal["name"]]
@@ -131,14 +134,22 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                                 job.archive_path = archive.save_snapshot(job)
                                 storage.update_job(fp, archive_path=job.archive_path)
                             report["new"] += 1
+                            new_jobs.append(job)
                             if push_nocodb:
                                 row_id = nocodb_board.push_job(job)
                                 storage.update_job(fp, nocodb_row_id=row_id)
+    fc_after = browser.credits_remaining() if send_report else None
+    real = (fc_before - fc_after
+            if fc_before is not None and fc_after is not None else None)
+    report["credits"] = {"estimated": browser.credits_spent(), "real": real,
+                         "budget": config.firecrawl_budget()}
     if send_report:
         jobs = storage.list_jobs()
         aggregate = market.aggregate_skills(jobs, group_by_role=True)
         stats = market.neighbor_stats(jobs)
-        subprocess.run(["python", str(_NOTIFY_SCRIPT), market.format_report(aggregate, stats)],
+        subprocess.run(["python", str(_NOTIFY_SCRIPT),
+                        market.format_report(aggregate, stats, new_jobs=new_jobs,
+                                             credits=report["credits"])],
                        check=False)
     return report
 

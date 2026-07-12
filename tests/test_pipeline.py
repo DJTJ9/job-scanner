@@ -32,6 +32,7 @@ def env(tmp_path, monkeypatch):
     # Zentral gemockt: Report-Init ruft browser.firecrawl_credits_ok() —
     # ohne Patch würde jeder Test einen echten Subprocess-Call machen.
     monkeypatch.setattr("jobscanner.browser.firecrawl_credits_ok", lambda: True)
+    monkeypatch.setattr("jobscanner.browser.credits_remaining", lambda: None)
     yield tmp_path / "jobs.db"
     storage.close()
 
@@ -365,6 +366,34 @@ class TestIndeedThrottle:
         assert report["portals"]["indeed"]["scraped"] == 1
         job = storage.list_jobs()[0]
         assert job.sources[0]["url"] == "https://de.indeed.com/viewjob?jk=abc123"
+
+
+def test_report_contains_credit_block(env):
+    report = _run(env, {"https://stepstone.de/job/a": RAW_A})
+    assert report["credits"] == {"estimated": 0, "real": None, "budget": 100}
+
+
+def test_report_measures_real_credit_usage(env, monkeypatch):
+    remaining = MagicMock(side_effect=[4980, 4975])
+    monkeypatch.setattr("jobscanner.browser.credits_remaining", remaining)
+    report = _run(env, {"https://stepstone.de/job/a": RAW_A})
+    assert report["credits"]["real"] == 5
+
+
+def test_report_message_contains_top_matches_and_credits(env):
+    with patch("jobscanner.pipeline.subprocess.run") as notify:
+        _run(env, {"https://stepstone.de/job/a": RAW_A})
+    msg = notify.call_args[0][0][2]
+    assert "Top-Treffer" in msg
+    assert "Unity Dev" in msg
+    assert "Firecrawl" in msg
+
+
+def test_credit_counter_reset_per_run(env, monkeypatch):
+    from jobscanner import browser
+    browser._credits_spent = 77
+    report = _run(env, {"https://stepstone.de/job/a": RAW_A})
+    assert report["credits"]["estimated"] == 0
 
 
 def test_run_passes_feedback_to_scoring(env, monkeypatch):
