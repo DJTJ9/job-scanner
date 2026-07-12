@@ -54,3 +54,11 @@ class TestCanonicalizeUrl:
     def test_other_portal_unchanged(self):
         url = "https://www.stepstone.de/stellenangebote--x?jk=trap"
         assert dedup.canonicalize_url(url, "stepstone") == url
+
+    def test_indeed_non_hex_jk_not_truncated(self):
+        # jk starts with hex chars but continues with a non-hex tail — the
+        # old hex-only regex truncated at the first non-hex char, which
+        # could falsely collapse two distinct job keys into one.
+        url = "https://de.indeed.com/viewjob?jk=abc123-xyz&bb=x"
+        assert dedup.canonicalize_url(url, "indeed") == \
+            "https://de.indeed.com/viewjob?jk=abc123-xyz"

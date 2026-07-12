@@ -26,7 +26,7 @@ def touch_known(fingerprint: str, today: str) -> None:
     storage.update_job(fingerprint, last_seen=today)
 
 
-_INDEED_JK_RE = re.compile(r"[?&]jk=([0-9a-fA-F]+)")
+_INDEED_JK_RE = re.compile(r"[?&]jk=([^&#]+)")
 
 
 def canonicalize_url(url: str, portal: str) -> str:
