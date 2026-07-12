@@ -14,9 +14,10 @@ Schleife bis leer:
    - Bewerte pro Profil aus "profiles" gegen dessen Kriterien (0-10 Punkte je Kriterium,
      null falls raw_text keine Info liefert) + Veto-Check gegen no_gos. Nutze die
      Feedback-Beispiele (vote up/down) als Präferenz-Hinweis.
-   Schreibe das Ergebnis als JSON-Array (Schema unten) in eine Datei unter
-   /root/projekte/job-scanner/data/batch_<timestamp>.json, dann:
-   `python3 -m jobscanner.llm_batch write-batch <pfad>`
+   Schreibe das Ergebnis als JSON-Array (Schema unten) nach
+   /root/projekte/job-scanner/data/pending_batch.json (immer dieser feste Dateiname,
+   überschreiben ist ok), dann:
+   `python3 -m jobscanner.llm_batch write-batch`
    Wiederhole ab Schritt 1 (nächste Batch-Seite).
 
 Schema pro Job im write-batch-JSON:

@@ -13,6 +13,10 @@ from jobscanner import archive, extract, nocodb_board, scoring, storage
 
 _DEFAULT_DB = Path(__file__).parent.parent / "data" / "jobs.db"
 _DEFAULT_LIMIT = 30
+# Fester Pfad statt Datei-Arg auf der CLI — vermeidet eine `Bash(... *)`-Wildcard-Freigabe
+# im Agent-allowedTools-Scope (raw_text aus gescrapten Anzeigen ist Fremdinhalt, siehe
+# Prompt-Injection-Hinweis in deploy/scoring_agent_prompt.txt).
+_BATCH_PATH = Path(__file__).parent.parent / "data" / "pending_batch.json"
 
 
 def list_pending(db_path: str | Path | None = None, limit: int = _DEFAULT_LIMIT) -> dict:
@@ -96,7 +100,6 @@ def main() -> None:
     p_list.add_argument("--limit", type=int, default=_DEFAULT_LIMIT)
 
     p_write = sub.add_parser("write-batch")
-    p_write.add_argument("json_file")
     p_write.add_argument("--today", default=None)
     p_write.add_argument("--no-nocodb", action="store_true")
 
@@ -105,7 +108,7 @@ def main() -> None:
         print(json.dumps(list_pending(args.db, limit=args.limit),
                          ensure_ascii=False, indent=2))
     elif args.command == "write-batch":
-        entries = json.loads(Path(args.json_file).read_text(encoding="utf-8"))
+        entries = json.loads(_BATCH_PATH.read_text(encoding="utf-8"))
         result = write_batch(entries, args.db, today=args.today,
                              push_nocodb=not args.no_nocodb)
         print(json.dumps(result, ensure_ascii=False, indent=2))
