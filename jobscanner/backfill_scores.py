@@ -1,22 +1,21 @@
-"""Einmaliges Backfill: Indeed-Dup-Cleanup + Profil-Scores für Bestandsjobs.
+"""Einmaliges Cleanup: Indeed-Dup-Merge über kanonisierte jk=-URLs.
 
-0 Firecrawl-Credits — nur Groq-Calls. Nebeneffekt: validiert die Veto-Kalibrierung
-an ~100 echten Jobs, bevor Firecrawl-Credits fließen.
+Die LLM-Scoring-Backfill-Funktion wurde mit dem Groq-Bottleneck-Umbau entfernt
+(2026-07-12) — Scoring läuft jetzt ausschließlich über den Agent-Batch-Lauf
+(llm_batch.py). Ein Backfill-Äquivalent für den neuen Ablauf ist ein Folge-Ticket.
 
 Aufruf: python -m jobscanner.backfill_scores [--db PATH] [--dry-run]
---dry-run: nur Cleanup-Analyse, keine Writes, kein Scoring.
+--dry-run: nur Cleanup-Analyse, keine Writes.
 """
 from __future__ import annotations
 
 import argparse
-import time
-from collections import Counter
 from pathlib import Path
 
-from jobscanner import dedup, scoring, storage
+from jobscanner import dedup, storage
 
 _DEFAULT_DB = Path(__file__).parent.parent / "data" / "jobs.db"
-_SLEEP_S = 1.0  # Groq-Rate-Limit-Puffer zwischen Scoring-Calls
+_SLEEP_S = 1.0  # von test_backfill.py::db-Fixture per monkeypatch überschrieben
 
 
 def cleanup_indeed_duplicates(dry_run: bool = False) -> dict:
@@ -77,32 +76,6 @@ def cleanup_indeed_duplicates(dry_run: bool = False) -> dict:
     return {"rows_removed": removed, "dry_run": dry_run}
 
 
-def backfill() -> dict:
-    """Scored alle Jobs ohne job_scores-Eintrag, je aktivem Profil."""
-    storage.migrate_yaml_profile()
-    stats: Counter = Counter()
-    for p in storage.list_profiles(active_only=True):
-        criteria = storage.list_criteria(p["id"])
-        feedback = storage.list_feedback_with_titles(p["id"])
-        todo = storage.list_jobs_without_score(p["id"])
-        for i, job in enumerate(todo, 1):
-            score, reason, category, breakdown = scoring.criteria_score(
-                job, p["data"], criteria, feedback=feedback)
-            if score is None and category is None:
-                stats["errors"] += 1  # kein Upsert — Re-Run versucht es erneut
-                continue
-            storage.upsert_job_score(p["id"], job.fingerprint, score, reason,
-                                     category, breakdown)
-            if p["is_default"]:
-                storage.update_job(job.fingerprint, score=score,
-                                   score_reason=reason, category=category)
-            stats[f"{p['name']}:{category}"] += 1
-            print(f"[{p['name']}] {i}/{len(todo)}: {job.title[:50]} "
-                  f"→ {category} ({score})", flush=True)
-            time.sleep(_SLEEP_S)
-    return dict(stats)
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default=str(_DEFAULT_DB))
@@ -110,8 +83,6 @@ def main() -> None:
     args = parser.parse_args()
     storage.init_db(args.db)
     print(cleanup_indeed_duplicates(dry_run=args.dry_run))
-    if not args.dry_run:
-        print(backfill())
 
 
 if __name__ == "__main__":

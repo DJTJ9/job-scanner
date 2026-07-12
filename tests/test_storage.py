@@ -187,14 +187,6 @@ class TestVolllaufHelpers:
                                      "weight": 5, "sort": 0}])
         return pid
 
-    def test_list_jobs_without_score_filters_scored(self, db):
-        pid = self._profile()
-        fp1 = storage.upsert_job(_job(title="Scored Job"))
-        fp2 = storage.upsert_job(_job(title="Unscored Job"))
-        storage.upsert_job_score(pid, fp1, 80, "ok", "Pass", {})
-        todo = storage.list_jobs_without_score(pid)
-        assert [j.title for j in todo] == ["Unscored Job"]
-
     def test_list_feedback_with_titles_joins_jobs(self, db):
         pid = self._profile()
         fp = storage.upsert_job(_job(title="Feedback Job"))

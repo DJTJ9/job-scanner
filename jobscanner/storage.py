@@ -479,17 +479,6 @@ def get_feedback_map(profile_id: int) -> dict[str, str]:
     return {r["fingerprint"]: r["vote"] for r in rows}
 
 
-def list_jobs_without_score(profile_id: int) -> list[Job]:
-    """Jobs ohne job_scores-Eintrag für das Profil — Arbeitsvorrat des Backfills."""
-    conn = _require_conn()
-    rows = conn.execute(
-        """SELECT jobs.* FROM jobs
-           LEFT JOIN job_scores
-             ON job_scores.profile_id = ? AND job_scores.fingerprint = jobs.fingerprint
-           WHERE job_scores.fingerprint IS NULL""", (profile_id,))
-    return [_row_to_job(r) for r in rows]
-
-
 def list_feedback_with_titles(profile_id: int) -> list[dict]:
     """Feedback + Job-Titel für Few-Shot-Beispiele im Scoring-Prompt, neueste zuerst."""
     conn = _require_conn()
