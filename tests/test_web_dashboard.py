@@ -104,6 +104,39 @@ def test_panel_hidden_and_badge_styles_defined():
     assert ".feedback-badge-down { color: var(--veto); }" in css
 
 
+def test_dashboard_has_toplevel_tabs_and_panels(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    resp = client.get(f"/dashboard/{pid}")
+    assert 'data-tab-target="kontakte"' in resp.text
+    assert 'data-tab-target="feintuning"' in resp.text
+    assert 'data-tab-panel="kontakte"' in resp.text
+    assert 'data-tab-panel="feintuning"' in resp.text
+    assert 'class="panel feintuning panel-hidden"' in resp.text
+    assert '<div class="dashboard">' not in resp.text
+
+
+def test_dashboard_job_card_has_vote_hooks_and_hidden_badge(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unrated Job", company="A", location="Hamburg",
+                                first_seen="2026-07-11"))
+    resp = client.get(f"/dashboard/{pid}")
+    assert f'data-fingerprint="{fp}"' in resp.text
+    assert "data-vote-form" in resp.text
+    assert 'data-vote-btn="up"' in resp.text
+    assert 'data-vote-btn="down"' in resp.text
+    assert "feedback-badge-hidden" in resp.text
+
+
+def test_dashboard_job_card_shows_badge_when_already_voted(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Rated Job", company="A", location="Hamburg",
+                                first_seen="2026-07-11"))
+    storage.add_feedback(pid, fp, "up")
+    resp = client.get(f"/dashboard/{pid}")
+    assert "feedback-badge-up" in resp.text
+    assert "✓ bewertet 👍" in resp.text
+
+
 def test_dashboard_requires_login(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "x")
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "y")
