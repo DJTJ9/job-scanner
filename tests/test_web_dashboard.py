@@ -1,4 +1,6 @@
 """Tests für Profilwahl, Dashboard, Kriterien-Save, Feedback."""
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -135,3 +137,13 @@ def test_dashboard_shows_tab_navigation_with_counts(client):
     assert "No-Go" in resp.text
     resp_nogo = client.get(f"/dashboard/{pid}", params={"tab": "no_go"})
     assert "Bereits bewertet" in resp_nogo.text
+
+
+def test_feintuning_sticky_disabled_on_mobile():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    mobile_block_start = css.index("@media (max-width: 720px)")
+    mobile_block = css[mobile_block_start:mobile_block_start + 300]
+    assert ".feintuning" in mobile_block
+    assert "position: static" in mobile_block
+    # Desktop-Regel bleibt außerhalb der Media Query unverändert (steht nach ihr, Zeile 65→66)
+    assert css.index(".feintuning { position: sticky; top: 1rem; }") > mobile_block_start
