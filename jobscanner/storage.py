@@ -344,7 +344,8 @@ def migrate_yaml_profile() -> int:
 
 
 def list_jobs_with_scores(profile_id: int) -> list[dict]:
-    """Jobs mit Score/Begründung/Breakdown des gegebenen Profils, neueste zuerst."""
+    """Jobs mit Score/Begründung/Breakdown des gegebenen Profils, höchster Score zuerst
+    (ungescorte Jobs ans Ende)."""
     conn = _require_conn()
     rows = conn.execute(
         """SELECT jobs.*, job_scores.score AS profile_score,
@@ -354,7 +355,8 @@ def list_jobs_with_scores(profile_id: int) -> list[dict]:
            FROM jobs
            LEFT JOIN job_scores
              ON job_scores.profile_id = ? AND job_scores.fingerprint = jobs.fingerprint
-           ORDER BY jobs.first_seen DESC, jobs.id DESC""",
+           ORDER BY (profile_score IS NULL), profile_score DESC,
+                    jobs.first_seen DESC, jobs.id DESC""",
         (profile_id,))
     return [
         {

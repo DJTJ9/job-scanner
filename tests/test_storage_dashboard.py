@@ -39,12 +39,15 @@ def test_list_jobs_with_scores_none_when_unscored():
     assert entries[0]["breakdown"] == {}
 
 
-def test_list_jobs_with_scores_newest_first():
+def test_list_jobs_with_scores_sorted_by_score_desc_nulls_last():
     pid = storage.create_profile("Testi", {"skills": []})
-    storage.upsert_job(_mk_job(company="Alt", first_seen="2026-07-01"))
-    storage.upsert_job(_mk_job(company="Neu", first_seen="2026-07-11"))
+    fp_low = storage.upsert_job(_mk_job(company="Niedrig", first_seen="2026-07-01"))
+    fp_high = storage.upsert_job(_mk_job(company="Hoch", first_seen="2026-06-01"))
+    fp_unscored = storage.upsert_job(_mk_job(company="Ungescort", first_seen="2026-07-12"))
+    storage.upsert_job_score(pid, fp_low, 30, "", "No-Go", {})
+    storage.upsert_job_score(pid, fp_high, 90, "", "Pass", {})
     entries = storage.list_jobs_with_scores(pid)
-    assert [e["job"].company for e in entries] == ["Neu", "Alt"]
+    assert [e["job"].company for e in entries] == ["Hoch", "Niedrig", "Ungescort"]
 
 
 def test_get_feedback_map():
