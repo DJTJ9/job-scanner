@@ -123,3 +123,15 @@ def test_dashboard_unscored_job_appears_in_aktiv_tab(client):
                            first_seen="2026-07-11"))
     resp = client.get(f"/dashboard/{pid}")
     assert "Unscored Job" in resp.text
+
+
+def test_dashboard_shows_tab_navigation_with_counts(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp_nogo = storage.upsert_job(Job(title="NoGo Job", company="B", location="Hamburg",
+                                     first_seen="2026-07-11"))
+    storage.upsert_job_score(pid, fp_nogo, 10, "", "No-Go", {})
+    resp = client.get(f"/dashboard/{pid}")
+    assert "Aktiv" in resp.text
+    assert "No-Go" in resp.text
+    resp_nogo = client.get(f"/dashboard/{pid}", params={"tab": "no_go"})
+    assert "Bereits bewertet" in resp_nogo.text
