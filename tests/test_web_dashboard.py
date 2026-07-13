@@ -1,4 +1,6 @@
 """Tests für Profilwahl, Dashboard, Kriterien-Save, Feedback."""
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -64,6 +66,21 @@ def test_feedback_records_vote(client):
                        follow_redirects=False)
     assert resp.status_code == 303
     assert storage.get_feedback_map(pid)[fp] == "up"
+
+
+def test_dashboard_grid_and_sticky_rules_removed():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert ".dashboard { display: grid" not in css
+    assert "position: sticky; top: 1rem;" not in css
+    assert "@media (max-width: 720px)" not in css
+
+
+def test_panel_hidden_and_badge_styles_defined():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert ".panel-hidden { display: none; }" in css
+    assert ".feedback-badge-hidden { display: none; }" in css
+    assert ".feedback-badge-up { color: var(--beute); }" in css
+    assert ".feedback-badge-down { color: var(--veto); }" in css
 
 
 def test_dashboard_requires_login(tmp_path, monkeypatch):
