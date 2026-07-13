@@ -18,8 +18,18 @@
   </div>
   <div class="panel">
     <h2>Kontakte</h2>
+    <nav class="tabs">
+      <a class="tab {{ 'active' if tab == 'aktiv' else '' }}" href="?tab=aktiv">Aktiv <span class="mono">({{ counts.aktiv }})</span></a>
+      <a class="tab {{ 'active' if tab in ('no_go', 'bewertet') else '' }}" href="?tab=no_go">No-Go <span class="mono">({{ counts.no_go }})</span></a>
+    </nav>
+    {% if tab in ('no_go', 'bewertet') %}
+      <nav class="subtabs">
+        <a class="subtab {{ 'active' if tab == 'no_go' else '' }}" href="?tab=no_go">No-Go</a>
+        <a class="subtab {{ 'active' if tab == 'bewertet' else '' }}" href="?tab=bewertet">Bereits bewertet <span class="mono">({{ counts.bewertet }})</span></a>
+      </nav>
+    {% endif %}
     {% if not entries %}
-      <p class="job-meta">Noch keine Jobs für dieses Profil bewertet.</p>
+      <p class="job-meta">Keine Jobs in diesem Tab.</p>
     {% endif %}
     {% for e in entries %}
       <div class="job-card">
