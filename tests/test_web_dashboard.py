@@ -68,6 +68,27 @@ def test_feedback_records_vote(client):
     assert storage.get_feedback_map(pid)[fp] == "up"
 
 
+def test_feedback_json_response_no_redirect(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                                first_seen="2026-07-11"))
+    resp = client.post(f"/dashboard/{pid}/feedback/{fp}", data={"vote": "up"},
+                       headers={"Accept": "application/json"}, follow_redirects=False)
+    assert resp.status_code == 200
+    assert resp.json() == {"vote": "up", "fingerprint": fp}
+    assert storage.get_feedback_map(pid)[fp] == "up"
+
+
+def test_feedback_json_response_invalid_vote_returns_null(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                                first_seen="2026-07-11"))
+    resp = client.post(f"/dashboard/{pid}/feedback/{fp}", data={"vote": "invalid"},
+                       headers={"Accept": "application/json"}, follow_redirects=False)
+    assert resp.status_code == 200
+    assert resp.json() == {"vote": None, "fingerprint": fp}
+
+
 def test_dashboard_grid_and_sticky_rules_removed():
     css = Path("jobscanner/web/static/style.css").read_text()
     assert ".dashboard { display: grid" not in css
