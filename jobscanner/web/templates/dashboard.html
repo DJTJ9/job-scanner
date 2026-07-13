@@ -3,68 +3,75 @@
 {% block title %}{{ profile.name }} — Job-Scanner{% endblock %}
 {% block content %}
 <h1>◈ JOB-SCANNER — Profil: {{ profile.name }} <a class="link" href="/">▾ wechseln</a></h1>
-<div class="dashboard">
-  <div class="panel feintuning">
-    <h2>Feintuning</h2>
-    <form method="post" action="/dashboard/{{ profile.id }}/criteria" data-criteria-form>
-      {% for c in criteria %}
-        <div class="criterion">
-          <label for="weight_{{ c.key }}">{{ c.label }} <span class="weight">{{ c.weight }}</span></label>
-          <input type="range" id="weight_{{ c.key }}" name="weight_{{ c.key }}" min="0" max="5" value="{{ c.weight }}">
-        </div>
-      {% endfor %}
-      <button type="submit" class="btn btn-primary">Speichern</button>
-    </form>
-  </div>
-  <div class="panel">
-    <h2>Kontakte</h2>
-    <nav class="tabs">
-      <a class="tab {{ 'active' if tab == 'aktiv' else '' }}" href="?tab=aktiv">Aktiv <span class="mono">({{ counts.aktiv }})</span></a>
-      <a class="tab {{ 'active' if tab in ('no_go', 'bewertet') else '' }}" href="?tab=no_go">No-Go <span class="mono">({{ counts.no_go }})</span></a>
-    </nav>
-    {% if tab in ('no_go', 'bewertet') %}
-      <nav class="subtabs">
-        <a class="subtab {{ 'active' if tab == 'no_go' else '' }}" href="?tab=no_go">No-Go</a>
-        <a class="subtab {{ 'active' if tab == 'bewertet' else '' }}" href="?tab=bewertet">Bereits bewertet <span class="mono">({{ counts.bewertet }})</span></a>
-      </nav>
-    {% endif %}
-    {% if not entries %}
-      <p class="job-meta">Keine Jobs in diesem Tab.</p>
-    {% endif %}
-    {% for e in entries %}
-      <div class="job-card">
-        {{ ping(e.score, e.category) }}
-        <div style="flex:1">
-          <strong>{{ e.job.title }}</strong> · {{ e.job.company }}
-          <div class="job-meta">{{ e.job.location }} · {{ e.job.remote_flag }} · {{ e.job.first_seen }}</div>
-          {% if e.breakdown %}
-            <details>
-              <summary>▸ Begründung</summary>
-              <table class="breakdown-table">
-                <tr><th>Kriterium</th><th>Punkte/10</th><th>Gewicht</th><th>Grund</th></tr>
-                {% for c in criteria %}
-                  {% set b = e.breakdown.get(c.key) %}
-                  <tr class="{{ 'unbekannt' if not b or b.punkte is none else '' }}">
-                    <td>{{ c.label }}</td>
-                    <td>{{ b.punkte if b and b.punkte is not none else "unbekannt" }}</td>
-                    <td>{{ c.weight }}</td>
-                    <td>{{ b.grund if b else "" }}</td>
-                  </tr>
-                {% endfor %}
-              </table>
-            </details>
-          {% elif e.reason %}
-            <p class="job-meta">{{ e.reason }}</p>
-          {% endif %}
-          <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/feedback/{{ e.job.fingerprint }}">
-            <button type="submit" name="vote" value="up" class="feedback-btn {{ 'active-up' if feedback.get(e.job.fingerprint) == 'up' }}">👍</button>
-          </form>
-          <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/feedback/{{ e.job.fingerprint }}">
-            <button type="submit" name="vote" value="down" class="feedback-btn {{ 'active-down' if feedback.get(e.job.fingerprint) == 'down' }}">👎</button>
-          </form>
-        </div>
+<nav class="tabs" data-toplevel-tabs>
+  <button type="button" class="tab active" data-tab-target="kontakte">Kontakte</button>
+  <button type="button" class="tab" data-tab-target="feintuning">Feintuning</button>
+</nav>
+<div class="panel feintuning panel-hidden" data-tab-panel="feintuning">
+  <h2>Feintuning</h2>
+  <form method="post" action="/dashboard/{{ profile.id }}/criteria" data-criteria-form>
+    {% for c in criteria %}
+      <div class="criterion">
+        <label for="weight_{{ c.key }}">{{ c.label }} <span class="weight">{{ c.weight }}</span></label>
+        <input type="range" id="weight_{{ c.key }}" name="weight_{{ c.key }}" min="0" max="5" value="{{ c.weight }}">
       </div>
     {% endfor %}
-  </div>
+    <button type="submit" class="btn btn-primary">Speichern</button>
+  </form>
 </div>
+<div class="panel" data-tab-panel="kontakte">
+  <h2>Kontakte</h2>
+  <nav class="tabs">
+    <a class="tab {{ 'active' if tab == 'aktiv' else '' }}" href="?tab=aktiv">Aktiv <span class="mono">({{ counts.aktiv }})</span></a>
+    <a class="tab {{ 'active' if tab in ('no_go', 'bewertet') else '' }}" href="?tab=no_go">No-Go <span class="mono">({{ counts.no_go }})</span></a>
+  </nav>
+  {% if tab in ('no_go', 'bewertet') %}
+    <nav class="subtabs">
+      <a class="subtab {{ 'active' if tab == 'no_go' else '' }}" href="?tab=no_go">No-Go</a>
+      <a class="subtab {{ 'active' if tab == 'bewertet' else '' }}" href="?tab=bewertet">Bereits bewertet <span class="mono">({{ counts.bewertet }})</span></a>
+    </nav>
+  {% endif %}
+  {% if not entries %}
+    <p class="job-meta">Keine Jobs in diesem Tab.</p>
+  {% endif %}
+  {% for e in entries %}
+    {% set vote = feedback.get(e.job.fingerprint) %}
+    <div class="job-card" data-fingerprint="{{ e.job.fingerprint }}">
+      {{ ping(e.score, e.category) }}
+      <div style="flex:1">
+        <strong>{{ e.job.title }}</strong> · {{ e.job.company }}
+        <div class="job-meta">{{ e.job.location }} · {{ e.job.remote_flag }} · {{ e.job.first_seen }}</div>
+        {% if e.breakdown %}
+          <details>
+            <summary>▸ Begründung</summary>
+            <table class="breakdown-table">
+              <tr><th>Kriterium</th><th>Punkte/10</th><th>Gewicht</th><th>Grund</th></tr>
+              {% for c in criteria %}
+                {% set b = e.breakdown.get(c.key) %}
+                <tr class="{{ 'unbekannt' if not b or b.punkte is none else '' }}">
+                  <td>{{ c.label }}</td>
+                  <td>{{ b.punkte if b and b.punkte is not none else "unbekannt" }}</td>
+                  <td>{{ c.weight }}</td>
+                  <td>{{ b.grund if b else "" }}</td>
+                </tr>
+              {% endfor %}
+            </table>
+          </details>
+        {% elif e.reason %}
+          <p class="job-meta">{{ e.reason }}</p>
+        {% endif %}
+        <p class="feedback-badge {{ 'feedback-badge-up' if vote == 'up' else 'feedback-badge-down' if vote == 'down' else 'feedback-badge-hidden' }}" data-feedback-badge>
+          {% if vote == 'up' %}✓ bewertet 👍{% elif vote == 'down' %}✓ bewertet 👎{% endif %}
+        </p>
+        <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/feedback/{{ e.job.fingerprint }}" data-vote-form>
+          <button type="submit" name="vote" value="up" class="feedback-btn {{ 'active-up' if vote == 'up' }}" data-vote-btn="up">👍</button>
+        </form>
+        <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/feedback/{{ e.job.fingerprint }}" data-vote-form>
+          <button type="submit" name="vote" value="down" class="feedback-btn {{ 'active-down' if vote == 'down' }}" data-vote-btn="down">👎</button>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+<script src="/static/dashboard.js" defer></script>
 {% endblock %}

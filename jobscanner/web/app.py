@@ -7,7 +7,7 @@ import hmac
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -111,6 +111,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         vote = form.get("vote")
         if vote in ("up", "down"):
             storage.add_feedback(profile_id, fingerprint, vote)
+        else:
+            vote = None
+        if "application/json" in request.headers.get("accept", ""):
+            return JSONResponse({"vote": vote, "fingerprint": fingerprint})
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
 
     STEP_ORDER = ["basis", "skills", "zielrollen", "ort_umfang", "no_gos", "gewichte"]

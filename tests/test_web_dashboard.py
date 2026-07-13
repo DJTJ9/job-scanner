@@ -68,6 +68,92 @@ def test_feedback_records_vote(client):
     assert storage.get_feedback_map(pid)[fp] == "up"
 
 
+def test_feedback_json_response_no_redirect(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                                first_seen="2026-07-11"))
+    resp = client.post(f"/dashboard/{pid}/feedback/{fp}", data={"vote": "up"},
+                       headers={"Accept": "application/json"}, follow_redirects=False)
+    assert resp.status_code == 200
+    assert resp.json() == {"vote": "up", "fingerprint": fp}
+    assert storage.get_feedback_map(pid)[fp] == "up"
+
+
+def test_feedback_json_response_invalid_vote_returns_null(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                                first_seen="2026-07-11"))
+    resp = client.post(f"/dashboard/{pid}/feedback/{fp}", data={"vote": "invalid"},
+                       headers={"Accept": "application/json"}, follow_redirects=False)
+    assert resp.status_code == 200
+    assert resp.json() == {"vote": None, "fingerprint": fp}
+
+
+def test_dashboard_grid_and_sticky_rules_removed():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert ".dashboard { display: grid" not in css
+    assert "position: sticky; top: 1rem;" not in css
+    assert "@media (max-width: 720px)" not in css
+
+
+def test_panel_hidden_and_badge_styles_defined():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert ".panel-hidden { display: none; }" in css
+    assert ".feedback-badge-hidden { display: none; }" in css
+    assert ".feedback-badge-up { color: var(--beute); }" in css
+    assert ".feedback-badge-down { color: var(--veto); }" in css
+
+
+def test_dashboard_has_toplevel_tabs_and_panels(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    resp = client.get(f"/dashboard/{pid}")
+    assert 'data-tab-target="kontakte"' in resp.text
+    assert 'data-tab-target="feintuning"' in resp.text
+    assert 'data-tab-panel="kontakte"' in resp.text
+    assert 'data-tab-panel="feintuning"' in resp.text
+    assert 'class="panel feintuning panel-hidden"' in resp.text
+    assert '<div class="dashboard">' not in resp.text
+
+
+def test_dashboard_job_card_has_vote_hooks_and_hidden_badge(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unrated Job", company="A", location="Hamburg",
+                                first_seen="2026-07-11"))
+    resp = client.get(f"/dashboard/{pid}")
+    assert f'data-fingerprint="{fp}"' in resp.text
+    assert "data-vote-form" in resp.text
+    assert 'data-vote-btn="up"' in resp.text
+    assert 'data-vote-btn="down"' in resp.text
+    assert "feedback-badge-hidden" in resp.text
+
+
+def test_dashboard_job_card_shows_badge_when_already_voted(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Rated Job", company="A", location="Hamburg",
+                                first_seen="2026-07-11"))
+    storage.add_feedback(pid, fp, "up")
+    resp = client.get(f"/dashboard/{pid}")
+    assert "feedback-badge-up" in resp.text
+    assert "✓ bewertet 👍" in resp.text
+
+
+def test_dashboard_js_has_tab_switch_hooks():
+    js = Path("jobscanner/web/static/dashboard.js").read_text()
+    assert "data-tab-target" in js
+    assert "data-tab-panel" in js
+    assert "panel-hidden" in js
+
+
+def test_dashboard_js_has_fetch_vote_hooks_with_inflight_disable():
+    js = Path("jobscanner/web/static/dashboard.js").read_text()
+    assert "data-vote-form" in js
+    assert "preventDefault" in js
+    assert "fetch(form.action" in js
+    assert '"Accept"' in js and "application/json" in js
+    assert "b.disabled = true" in js
+    assert "data-feedback-badge" in js
+
+
 def test_dashboard_requires_login(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "x")
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "y")
@@ -137,13 +223,3 @@ def test_dashboard_shows_tab_navigation_with_counts(client):
     assert "No-Go" in resp.text
     resp_nogo = client.get(f"/dashboard/{pid}", params={"tab": "no_go"})
     assert "Bereits bewertet" in resp_nogo.text
-
-
-def test_feintuning_sticky_disabled_on_mobile():
-    css = Path("jobscanner/web/static/style.css").read_text()
-    mobile_block_start = css.index("@media (max-width: 720px)")
-    mobile_block = css[mobile_block_start:mobile_block_start + 300]
-    assert ".feintuning" in mobile_block
-    assert "position: static" in mobile_block
-    # Desktop-Regel bleibt außerhalb der Media Query unverändert (steht nach ihr, Zeile 65→66)
-    assert css.index(".feintuning { position: sticky; top: 1rem; }") > mobile_block_start
