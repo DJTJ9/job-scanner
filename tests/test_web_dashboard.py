@@ -137,6 +137,23 @@ def test_dashboard_job_card_shows_badge_when_already_voted(client):
     assert "✓ bewertet 👍" in resp.text
 
 
+def test_dashboard_js_has_tab_switch_hooks():
+    js = Path("jobscanner/web/static/dashboard.js").read_text()
+    assert "data-tab-target" in js
+    assert "data-tab-panel" in js
+    assert "panel-hidden" in js
+
+
+def test_dashboard_js_has_fetch_vote_hooks_with_inflight_disable():
+    js = Path("jobscanner/web/static/dashboard.js").read_text()
+    assert "data-vote-form" in js
+    assert "preventDefault" in js
+    assert "fetch(form.action" in js
+    assert '"Accept"' in js and "application/json" in js
+    assert "b.disabled = true" in js
+    assert "data-feedback-badge" in js
+
+
 def test_dashboard_requires_login(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "x")
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "y")
