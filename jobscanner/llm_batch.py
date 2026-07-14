@@ -33,7 +33,8 @@ def list_pending(db_path: str | Path | None = None, limit: int = _DEFAULT_LIMIT)
             "no_gos": p["data"].get("no_gos", []),
             "feedback": storage.list_feedback_with_titles(p["id"]),
         })
-    return {"jobs": jobs, "profiles": profiles}
+    to_score = storage.list_unscored_extracted(limit=limit)
+    return {"jobs": jobs, "to_score": to_score, "profiles": profiles}
 
 
 def write_batch(entries: list[dict], db_path: str | Path | None = None,
@@ -46,15 +47,23 @@ def write_batch(entries: list[dict], db_path: str | Path | None = None,
 
     stats = {"extracted": 0, "skipped_extraction": 0, "scored": 0, "skipped_scoring": 0}
     for entry in entries:
-        raw_fp = entry["fingerprint"]
-        # portal/url sind Platzhalter: storage.apply_extraction() liest die echten
-        # Quellen aus der Raw-Zeile und überschreibt job.sources ohnehin.
-        job = extract.to_job(entry["extraction"], portal="", url="", today=today)
-        if job is None:
-            stats["skipped_extraction"] += 1
-            continue
-        fp = storage.apply_extraction(raw_fp, job)
-        stats["extracted"] += 1
+        if "extraction" in entry:
+            raw_fp = entry["fingerprint"]
+            # portal/url sind Platzhalter: storage.apply_extraction() liest die echten
+            # Quellen aus der Raw-Zeile und überschreibt job.sources ohnehin.
+            job = extract.to_job(entry["extraction"], portal="", url="", today=today)
+            if job is None:
+                stats["skipped_extraction"] += 1
+                continue
+            fp = storage.apply_extraction(raw_fp, job)
+            stats["extracted"] += 1
+        else:
+            # score-only: Job ist bereits extrahiert (Catch-up der Re-Pick-Lücke), nur bewerten.
+            fp = entry["fingerprint"]
+            job = storage.get_job(fp)
+            if job is None:
+                stats["skipped_scoring"] += 1
+                continue
 
         for profile in active_profiles:
             pid = profile["id"]

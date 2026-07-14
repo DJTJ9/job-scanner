@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from jobscanner import llm_batch, storage
+from jobscanner.models import Job
 
 
 @pytest.fixture()
@@ -125,3 +126,34 @@ class TestWriteBatch:
         assert stats["skipped_scoring"] == 1
         job = storage.list_jobs()[0]
         assert storage.get_job_score(pid, job.fingerprint) is None
+
+
+class TestScoreOnly:
+    def test_list_pending_includes_to_score(self, db):
+        _profile(db)
+        fp = storage.upsert_job(Job(title="Waise", company="ACME", location="Hamburg",
+                                    first_seen="2026-07-12"))
+        result = llm_batch.list_pending(db)
+        assert result["jobs"] == []
+        assert len(result["to_score"]) == 1
+        assert result["to_score"][0]["fingerprint"] == fp
+
+    def test_write_batch_scores_without_extraction(self, db):
+        pid = _profile(db)
+        fp = storage.upsert_job(Job(title="Unity Developer", company="ACME",
+                                    location="Hamburg", first_seen="2026-07-12"))
+        entries = [{"fingerprint": fp,
+                    "scores": {str(pid): {"veto": None,
+                        "kriterien": {"role_fit": {"punkte": 6, "grund": "ok"}}}}}]
+        with patch("jobscanner.llm_batch.nocodb_board.push_job", return_value=7):
+            stats = llm_batch.write_batch(entries, db, today="2026-07-12")
+        assert stats["extracted"] == 0
+        assert stats["scored"] == 1
+        assert storage.get_job_score(pid, fp)["score"] == 60
+        assert storage.get_job(fp).score == 60
+
+    def test_write_batch_score_only_missing_job_skips(self, db):
+        _profile(db)
+        entries = [{"fingerprint": "does|not|exist", "scores": {}}]
+        stats = llm_batch.write_batch(entries, db, today="2026-07-12")
+        assert stats["skipped_scoring"] == 1
