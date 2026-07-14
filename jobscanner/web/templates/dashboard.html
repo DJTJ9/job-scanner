@@ -25,7 +25,11 @@
       <div class="job-card">
         {{ ping(e.score, e.category) }}
         <div style="flex:1">
-          <strong>{{ e.job.title }}</strong> · {{ e.job.company }}
+          {% if e.job.sources %}
+            <strong><a class="link" href="{{ e.job.sources[0].url }}" target="_blank" rel="noopener">{{ e.job.title }}</a></strong> · {{ e.job.company }}
+          {% else %}
+            <strong>{{ e.job.title }}</strong> · {{ e.job.company }}
+          {% endif %}
           <div class="job-meta">{{ e.job.location }} · {{ e.job.remote_flag }} · {{ e.job.first_seen }}</div>
           {% if e.breakdown %}
             <details>

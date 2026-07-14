@@ -56,6 +56,25 @@ def test_dashboard_shows_scored_job_with_breakdown(client):
     assert "starke Passung" in resp.text
 
 
+def test_dashboard_job_title_links_to_source_when_sources_present(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                                first_seen="2026-07-11",
+                                sources=[{"portal": "stepstone", "url": "https://example.com/job/123",
+                                          "found_at": "2026-07-11"}]))
+    resp = client.get(f"/dashboard/{pid}")
+    assert '<a class="link" href="https://example.com/job/123" target="_blank" rel="noopener">Unity Dev</a>' in resp.text
+
+
+def test_dashboard_job_title_plain_text_when_no_sources(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                           first_seen="2026-07-11"))
+    resp = client.get(f"/dashboard/{pid}")
+    assert "<strong>Unity Dev</strong>" in resp.text
+    assert '<a class="link"' not in resp.text.split("<strong>Unity Dev</strong>")[0][-200:]
+
+
 def test_feedback_records_vote(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
