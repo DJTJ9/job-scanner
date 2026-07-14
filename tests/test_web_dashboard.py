@@ -77,6 +77,17 @@ def test_dashboard_job_title_plain_text_when_no_sources(client):
     assert '<a class="link"' not in resp.text.split("<strong>Unity Dev</strong>")[0][-200:]
 
 
+def test_dashboard_job_title_plain_text_when_source_url_has_unsafe_scheme(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                           first_seen="2026-07-11",
+                           sources=[{"portal": "stepstone", "url": "javascript:alert(1)",
+                                     "found_at": "2026-07-11"}]))
+    resp = client.get(f"/dashboard/{pid}")
+    assert "<strong>Unity Dev</strong>" in resp.text
+    assert "javascript:" not in resp.text
+
+
 def test_feedback_records_vote(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",

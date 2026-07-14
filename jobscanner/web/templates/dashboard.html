@@ -25,7 +25,7 @@
       <div class="job-card">
         {{ ping(e.score, e.category) }}
         <div style="flex:1">
-          {% if e.job.sources %}
+          {% if e.job.sources and e.job.sources[0].url.startswith(('http://', 'https://')) %}
             <strong><a class="link" href="{{ e.job.sources[0].url }}" target="_blank" rel="noopener">{{ e.job.title }}</a></strong> · {{ e.job.company }}
           {% else %}
             <strong>{{ e.job.title }}</strong> · {{ e.job.company }}
