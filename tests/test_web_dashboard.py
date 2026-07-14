@@ -237,3 +237,27 @@ def test_dashboard_shows_tab_navigation_with_counts(client):
     assert "No-Go" in resp.text
     resp_nogo = client.get(f"/dashboard/{pid}", params={"tab": "no_go"})
     assert "Bereits bewertet" in resp_nogo.text
+
+
+def _current_git_short_hash():
+    return subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"],
+        cwd=Path(__file__).parent.parent,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
+def test_base_template_static_refs_use_git_hash_version(client):
+    version = _current_git_short_hash()
+    resp = client.get("/")
+    assert f"/static/style.css?v={version}" in resp.text
+    assert f"/static/app.js?v={version}" in resp.text
+
+
+def test_dashboard_template_static_ref_uses_git_hash_version(client):
+    version = _current_git_short_hash()
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    resp = client.get(f"/dashboard/{pid}")
+    assert f"/static/dashboard.js?v={version}" in resp.text
