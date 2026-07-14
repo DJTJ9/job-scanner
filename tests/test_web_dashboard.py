@@ -1,4 +1,6 @@
 """Tests für Profilwahl, Dashboard, Kriterien-Save, Feedback."""
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -54,6 +56,15 @@ def test_dashboard_shows_scored_job_with_breakdown(client):
     assert "Unity Dev" in resp.text
     assert "78" in resp.text
     assert "starke Passung" in resp.text
+
+
+def test_breakdown_table_has_fixed_layout_and_weighted_column_widths():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert "table-layout: fixed;" in css
+    assert ".breakdown-table th:nth-child(1), .breakdown-table td:nth-child(1) { width: 20%; }" in css
+    assert ".breakdown-table th:nth-child(2), .breakdown-table td:nth-child(2) { width: 15%; }" in css
+    assert ".breakdown-table th:nth-child(3), .breakdown-table td:nth-child(3) { width: 15%; }" in css
+    assert ".breakdown-table th:nth-child(4), .breakdown-table td:nth-child(4) { width: 50%; }" in css
 
 
 def test_feedback_records_vote(client):
