@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hmac
 import subprocess
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
@@ -13,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from jobscanner import config, storage
+from jobscanner import config, nocodb_board, storage
 from jobscanner.web import llm_refine
 
 _DIR = Path(__file__).parent
@@ -118,6 +119,17 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             for c in existing
         ]
         storage.save_criteria(profile_id, updated)
+        changed = storage.rescore_profile(profile_id)
+        if changed:
+            def _push_changed(fingerprints: list[str]) -> None:
+                for fp in fingerprints:
+                    job = storage.get_job(fp)
+                    if job is not None:
+                        try:
+                            nocodb_board.push_job(job)
+                        except Exception:
+                            pass
+            threading.Thread(target=_push_changed, args=(changed,), daemon=True).start()
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
 
     @app.post("/dashboard/{profile_id}/feedback/{fingerprint}")

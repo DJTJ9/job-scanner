@@ -1,6 +1,7 @@
 """Tests für Profilwahl, Dashboard, Kriterien-Save, Feedback."""
 import subprocess
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -311,3 +312,28 @@ def test_breakdown_table_and_job_meta_have_overflow_wrap():
     css = Path("jobscanner/web/static/style.css").read_text()
     assert ".breakdown-table td { overflow-wrap: anywhere; }" in css
     assert ".job-meta { color: #9fb3ba; font-size: 0.85rem; overflow-wrap: anywhere; }" in css
+
+
+def test_save_criteria_triggers_rescore(client, monkeypatch):
+    from unittest.mock import MagicMock
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    mock = MagicMock(return_value=[])
+    monkeypatch.setattr(storage, "rescore_profile", mock)
+    key = storage.list_criteria(pid)[0]["key"]
+    client.post(f"/dashboard/{pid}/criteria", data={f"weight_{key}": "1"},
+                follow_redirects=False)
+    mock.assert_called_once_with(pid)
+
+
+def test_save_criteria_recomputes_scores_from_breakdown(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                                first_seen="2026-07-11"))
+    storage.upsert_job_score(pid, fp, 0, "alt", "No-Go",
+                             {"role_fit": {"punkte": 8, "grund": "passt"}})
+    data = {f"weight_{c['key']}": ("5" if c["key"] == "role_fit" else "0")
+            for c in storage.list_criteria(pid)}
+    with patch("jobscanner.web.app.nocodb_board.push_job", return_value=1):
+        resp = client.post(f"/dashboard/{pid}/criteria", data=data, follow_redirects=False)
+    assert resp.status_code == 303
+    assert storage.get_job_score(pid, fp)["score"] == 80
