@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -75,18 +75,35 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return templates.TemplateResponse(
             request, "profiles.html", {"profiles": storage.list_profiles(active_only=True)})
 
+    _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet")
+
     @app.get("/dashboard/{profile_id}")
-    def dashboard(request: Request, profile_id: int):
+    def dashboard(request: Request, profile_id: int, tab: str = "aktiv"):
         if (redirect := require_login(request)) is not None:
             return redirect
         profile = storage.get_profile(profile_id)
         if profile is None:
             return RedirectResponse("/", status_code=303)
+        if tab not in _DASHBOARD_TABS:
+            tab = "aktiv"
+        feedback = storage.get_feedback_map(profile_id)
+        aktiv, no_go, bewertet = [], [], []
+        for entry in storage.list_jobs_with_scores(profile_id):
+            fp = entry["job"].fingerprint
+            if feedback.get(fp) == "down":
+                bewertet.append(entry)
+            elif entry["category"] == "No-Go":
+                no_go.append(entry)
+            else:
+                aktiv.append(entry)
+        entries_by_tab = {"aktiv": aktiv, "no_go": no_go, "bewertet": bewertet}
         return templates.TemplateResponse(request, "dashboard.html", {
             "profile": profile,
             "criteria": storage.list_criteria(profile_id),
-            "entries": storage.list_jobs_with_scores(profile_id),
-            "feedback": storage.get_feedback_map(profile_id),
+            "entries": entries_by_tab[tab],
+            "feedback": feedback,
+            "tab": tab,
+            "counts": {"aktiv": len(aktiv), "no_go": len(no_go), "bewertet": len(bewertet)},
         })
 
     @app.post("/dashboard/{profile_id}/criteria")
@@ -111,6 +128,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         vote = form.get("vote")
         if vote in ("up", "down"):
             storage.add_feedback(profile_id, fingerprint, vote)
+        else:
+            vote = None
+        if "application/json" in request.headers.get("accept", ""):
+            return JSONResponse({"vote": vote, "fingerprint": fingerprint})
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
 
     STEP_ORDER = ["basis", "skills", "zielrollen", "ort_umfang", "no_gos", "gewichte"]

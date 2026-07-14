@@ -1,42 +1,13 @@
-"""Playwright-Render + Groq-Extraktion + Normalisierung — Validierung lebt hier, nicht in storage."""
+"""Playwright-Render + Rohtext-Normalisierung — Extraktion selbst passiert jetzt im
+Claude-Agent-Batch-Lauf (llm_batch.py), kein Groq-Call mehr in diesem Modul."""
 from __future__ import annotations
 
-import json
-import os
-import time
-from pathlib import Path
-
 from bs4 import BeautifulSoup
-from groq import Groq, RateLimitError
 
 from jobscanner import browser
 from jobscanner.models import Job
 
-ENV_FILE = Path("/root/projekte/telegram-bot-army/.env")
-_MODEL = "llama-3.1-8b-instant"
-_MAX_CHARS = 8000  # Groq-TPM-Deckel (6.000 TPM auf llama-3.1-8b-instant) — Prompt klein halten
-_RETRY_ATTEMPTS = 3
-_RETRY_SLEEP_S = 15  # TPM-Fenster ist minütlich — 429er brauchen echte Wartezeit
-
-_SYSTEM_PROMPT = (
-    "Extrahiere Stellenanzeige-Daten aus dem folgenden Text als JSON-Objekt mit "
-    "exakt diesen Feldern: title (Jobtitel), company (Firmenname), location "
-    "(Arbeitsort), remote (onsite|hybrid|remote|unknown), employment_type "
-    "(z.B. Vollzeit/Teilzeit/Festanstellung), language (de|en), salary "
-    "(Gehaltsangabe falls vorhanden, sonst leerer String), requirements "
-    "(Liste von Anforderungen/Profil-Punkten), tech_stack (Liste von "
-    "Technologien/Tools/Frameworks). Fehlende Felder als leerer String bzw. "
-    "leere Liste. Antworte NUR mit dem JSON-Objekt."
-)
-
-
-def _load_env() -> None:
-    if ENV_FILE.exists():
-        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, _, v = line.partition("=")
-                os.environ.setdefault(k.strip(), v.strip())
+_MAX_CHARS = 8000  # Rohtext-Deckel — hält den Agent-Kontext pro Batch handhabbar
 
 
 def _clean_text(html: str) -> str:
@@ -47,43 +18,18 @@ def _clean_text(html: str) -> str:
     return "\n".join(lines)[:_MAX_CHARS]
 
 
-def extract_from_text(text: str) -> dict | None:
-    text = text[:_MAX_CHARS]
-    if not text.strip():
-        return None
-    _load_env()
-    client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
-    resp = None
-    for attempt in range(_RETRY_ATTEMPTS):
-        try:
-            resp = client.chat.completions.create(
-                model=_MODEL,
-                response_format={"type": "json_object"},
-                messages=[
-                    {"role": "system", "content": _SYSTEM_PROMPT},
-                    {"role": "user", "content": text},
-                ],
-            )
-            break
-        except RateLimitError:
-            # 429 TPM crashte am 2026-07-12 den kompletten Volllauf —
-            # kurz warten, dann Job notfalls überspringen statt abbrechen.
-            if attempt == _RETRY_ATTEMPTS - 1:
-                return None
-            time.sleep(_RETRY_SLEEP_S)
-    try:
-        data = json.loads(resp.choices[0].message.content)
-    except (json.JSONDecodeError, IndexError, AttributeError, TypeError):
-        return None
-    return data if isinstance(data, dict) else None
+def clean_api_text(text: str) -> str:
+    """Für Portale mit `detail_fetch: api` — Beschreibung liegt schon als Text vor,
+    nur Deckel + Whitespace-Trim nötig."""
+    return text[:_MAX_CHARS].strip()
 
 
-def scrape_job(url: str, fetch_method: str = "playwright",
-               failover: bool = False) -> dict | None:
+def fetch_raw_text(url: str, fetch_method: str = "playwright",
+                   failover: bool = False) -> str | None:
     html = browser.fetch(url, method=fetch_method, failover=failover)
     if html is None:
         return None
-    return extract_from_text(_clean_text(html))
+    return _clean_text(html)
 
 
 def _str_field(value) -> str:

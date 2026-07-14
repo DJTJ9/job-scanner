@@ -61,9 +61,7 @@ input[type="text"], input[type="password"], input[type="number"], textarea, sele
 .btn-primary { background: var(--signal); color: var(--tiefe); font-weight: 600; }
 .btn-primary.dirty { box-shadow: 0 0 0 2px var(--signal); }
 .btn-secondary { background: transparent; border: 1px solid var(--signal); color: var(--signal); }
-.dashboard { display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; align-items: start; }
-@media (max-width: 720px) { .dashboard { grid-template-columns: 1fr; } }
-.feintuning { position: sticky; top: 1rem; }
+.panel-hidden { display: none; }
 .criterion { margin-bottom: 0.75rem; }
 .criterion input[type="range"] { width: 100%; accent-color: var(--signal); }
 .job-card {
@@ -95,3 +93,12 @@ input[type="text"], input[type="password"], input[type="number"], textarea, sele
 .tiefenmesser .mark.done { color: var(--beute); }
 .chip { display: inline-block; background: var(--tiefe); border: 1px solid var(--signal); border-radius: 12px; padding: 0.2rem 0.6rem; margin: 0.2rem; font-size: 0.85rem; }
 .chip input { margin-right: 0.3rem; }
+.tabs, .subtabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--wasser); padding-bottom: 0.5rem; }
+.tab, .subtab { color: var(--gischt); text-decoration: none; opacity: 0.6; font-family: "IBM Plex Mono", monospace; }
+.tab.active, .subtab.active { opacity: 1; color: var(--signal); border-bottom: 2px solid var(--signal); }
+.subtabs { border-bottom: none; margin-bottom: 0.75rem; font-size: 0.9rem; }
+.tabs button.tab { background: none; border: none; padding: 0; cursor: pointer; }
+.feedback-badge { display: block; margin: 0.35rem 0; font-size: 0.85rem; font-family: "IBM Plex Mono", monospace; }
+.feedback-badge-hidden { display: none; }
+.feedback-badge-up { color: var(--beute); }
+.feedback-badge-down { color: var(--veto); }
