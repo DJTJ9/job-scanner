@@ -89,6 +89,15 @@ def test_dashboard_job_title_plain_text_when_source_url_has_unsafe_scheme(client
     assert "javascript:" not in resp.text
 
 
+def test_breakdown_table_has_fixed_layout_and_weighted_column_widths():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert "table-layout: fixed;" in css
+    assert ".breakdown-table th:nth-child(1), .breakdown-table td:nth-child(1) { width: 20%; }" in css
+    assert ".breakdown-table th:nth-child(2), .breakdown-table td:nth-child(2) { width: 15%; }" in css
+    assert ".breakdown-table th:nth-child(3), .breakdown-table td:nth-child(3) { width: 15%; }" in css
+    assert ".breakdown-table th:nth-child(4), .breakdown-table td:nth-child(4) { width: 50%; }" in css
+
+
 def test_feedback_records_vote(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
