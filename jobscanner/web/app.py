@@ -4,6 +4,7 @@ echte data/jobs.db als Seiteneffekt auslösen."""
 from __future__ import annotations
 
 import hmac
+import subprocess
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
@@ -19,6 +20,21 @@ _DIR = Path(__file__).parent
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "data" / "jobs.db"
 
 
+def _read_asset_version(base_dir: Path) -> str:
+    """Git-Short-Hash als Cache-Busting-Version für /static/-Refs. Fallback 'unknown' bei Fehler/kein Git-Repo."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=base_dir,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return "unknown"
+
+
 def create_app(db_path: str | Path | None = None) -> FastAPI:
     settings = config.load_web_settings()
     storage.init_db(db_path or _DEFAULT_DB)
@@ -28,6 +44,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     app.add_middleware(SessionMiddleware, secret_key=settings["session_secret"])
     app.mount("/static", StaticFiles(directory=_DIR / "static"), name="static")
     templates = Jinja2Templates(directory=_DIR / "templates")
+    templates.env.globals["asset_version"] = _read_asset_version(_DIR)
 
     def require_login(request: Request) -> RedirectResponse | None:
         if not request.session.get("authenticated"):

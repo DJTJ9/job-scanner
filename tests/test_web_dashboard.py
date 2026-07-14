@@ -1,4 +1,7 @@
 """Tests für Profilwahl, Dashboard, Kriterien-Save, Feedback."""
+import subprocess
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -73,3 +76,16 @@ def test_dashboard_requires_login(tmp_path, monkeypatch):
     anon = TestClient(app)
     resp = anon.get("/dashboard/1", follow_redirects=False)
     assert resp.status_code == 303
+
+
+def test_read_asset_version_returns_git_short_hash():
+    from jobscanner.web.app import _read_asset_version
+    version = _read_asset_version(Path(__file__).parent.parent)
+    assert len(version) == 7
+    assert version != "unknown"
+
+
+def test_read_asset_version_falls_back_when_not_a_git_repo(tmp_path):
+    from jobscanner.web.app import _read_asset_version
+    version = _read_asset_version(tmp_path)
+    assert version == "unknown"
