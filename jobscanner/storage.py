@@ -6,7 +6,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from jobscanner import config
+from jobscanner import config, scoring
 from jobscanner.models import Job
 
 _SCHEMA = """
@@ -530,3 +530,40 @@ def delete_job(fingerprint: str) -> None:
     conn.execute("DELETE FROM feedback WHERE fingerprint = ?", (fingerprint,))
     conn.execute("DELETE FROM jobs WHERE fingerprint = ?", (fingerprint,))
     conn.commit()
+
+
+def rescore_profile(profile_id: int) -> list[str]:
+    """Rechnet alle job_scores des Profils deterministisch aus breakdown_json neu
+    (nach Gewichts-Änderung im Feintuning) — kein LLM. Veto-Zeilen (leeres breakdown)
+    bleiben unberührt. Aktualisiert bei Default-Profil zusätzlich die jobs-Tabelle.
+    Gibt die Fingerprints zurück, deren Score sich geändert hat."""
+    conn = _require_conn()
+    criteria = list_criteria(profile_id)
+    profile = get_profile(profile_id)
+    is_default = profile is not None and profile["is_default"]
+    changed: list[str] = []
+    rows = conn.execute(
+        "SELECT fingerprint, score, breakdown_json FROM job_scores WHERE profile_id = ?",
+        (profile_id,)).fetchall()
+    for r in rows:
+        breakdown = json.loads(r["breakdown_json"] or "{}")
+        if not breakdown:
+            continue
+        new_score = scoring.compute_weighted_score(breakdown, criteria)
+        if new_score is None:
+            continue
+        category = scoring.category_for_score(new_score)
+        reason = scoring.top_reasons(breakdown, criteria)
+        fp = r["fingerprint"]
+        conn.execute(
+            "UPDATE job_scores SET score = ?, category = ?, reason = ? "
+            "WHERE profile_id = ? AND fingerprint = ?",
+            (new_score, category, reason, profile_id, fp))
+        if is_default:
+            conn.execute(
+                "UPDATE jobs SET score = ?, category = ?, score_reason = ? WHERE fingerprint = ?",
+                (new_score, category, reason, fp))
+        if r["score"] != new_score:
+            changed.append(fp)
+    conn.commit()
+    return changed
