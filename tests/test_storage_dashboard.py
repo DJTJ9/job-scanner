@@ -55,3 +55,26 @@ def test_get_feedback_map():
     storage.add_feedback(pid, "fp1", "up")
     storage.add_feedback(pid, "fp2", "down")
     assert storage.get_feedback_map(pid) == {"fp1": "up", "fp2": "down"}
+
+
+def test_list_unscored_extracted_returns_extracted_score_null_jobs():
+    fp = storage.upsert_job(_mk_job(title="Waise", requirements=["Python"], tech_stack=["Django"]))
+    rows = storage.list_unscored_extracted()
+    assert len(rows) == 1
+    assert rows[0]["fingerprint"] == fp
+    assert rows[0]["title"] == "Waise"
+    assert rows[0]["requirements"] == ["Python"]
+    assert rows[0]["tech_stack"] == ["Django"]
+
+
+def test_list_unscored_extracted_excludes_pending_and_scored():
+    storage.insert_raw_job("https://a.test/1", "indeed", "roh", "2026-07-12")  # pending
+    fp_scored = storage.upsert_job(_mk_job(title="Bewertet", company="ScoredCo"))
+    storage.update_job(fp_scored, score=80)
+    assert storage.list_unscored_extracted() == []
+
+
+def test_list_unscored_extracted_respects_limit():
+    for i in range(3):
+        storage.upsert_job(_mk_job(title=f"Job {i}", company=f"C{i}"))
+    assert len(storage.list_unscored_extracted(limit=2)) == 2

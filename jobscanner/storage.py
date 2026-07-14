@@ -205,6 +205,30 @@ def list_pending_extraction(limit: int | None = None) -> list[dict]:
     return out
 
 
+def list_unscored_extracted(limit: int | None = None) -> list[dict]:
+    """Extrahierte, aber nie gescorte Jobs (extraction_status='extracted' AND score IS NULL)
+    für den score-only-Zweig des Agent-Batch-Laufs — schließt die Re-Pick-Lücke, die
+    entsteht wenn ein Agent-Lauf nach apply_extraction, aber vor dem Scoring abbricht."""
+    conn = _require_conn()
+    sql = ("SELECT fingerprint, title, company, location, employment_type, "
+           "requirements_json, tech_stack_json FROM jobs "
+           "WHERE extraction_status = 'extracted' AND score IS NULL ORDER BY id")
+    if limit is not None:
+        sql += f" LIMIT {int(limit)}"
+    out = []
+    for r in conn.execute(sql):
+        out.append({
+            "fingerprint": r["fingerprint"],
+            "title": r["title"],
+            "company": r["company"],
+            "location": r["location"] or "",
+            "employment_type": r["employment_type"] or "",
+            "requirements": json.loads(r["requirements_json"] or "[]"),
+            "tech_stack": json.loads(r["tech_stack_json"] or "[]"),
+        })
+    return out
+
+
 def apply_extraction(raw_fingerprint: str, job: Job) -> str:
     """Schreibt das Agent-Extraktionsergebnis in die Raw-Zeile — merged in eine bestehende
     Zeile, falls derselbe Job über 2 Portale vor der Extraktion gefunden wurde (die
