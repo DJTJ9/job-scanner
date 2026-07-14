@@ -74,9 +74,11 @@ input[type="text"], input[type="password"], input[type="number"], textarea, sele
   display: flex;
   gap: 1rem;
 }
-.job-meta { color: #9fb3ba; font-size: 0.85rem; }
+.job-card > div { min-width: 0; }
+.job-meta { color: #9fb3ba; font-size: 0.85rem; overflow-wrap: anywhere; }
 .breakdown-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.85rem; }
 .breakdown-table td, .breakdown-table th { padding: 0.25rem 0.5rem; text-align: left; border-bottom: 1px solid var(--tiefe); }
+.breakdown-table td { overflow-wrap: anywhere; }
 .unbekannt { color: #6c8189; }
 .feedback-form { display: inline; }
 .feedback-btn { background: none; border: none; font-size: 1.1rem; cursor: pointer; }

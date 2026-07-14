@@ -1,4 +1,6 @@
 """Tests für Profilwahl, Dashboard, Kriterien-Save, Feedback."""
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -92,3 +94,14 @@ def test_dashboard_requires_login(tmp_path, monkeypatch):
     anon = TestClient(app)
     resp = anon.get("/dashboard/1", follow_redirects=False)
     assert resp.status_code == 303
+
+
+def test_job_card_flex_child_has_min_width_zero():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert ".job-card > div { min-width: 0; }" in css
+
+
+def test_breakdown_table_and_job_meta_have_overflow_wrap():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert ".breakdown-table td { overflow-wrap: anywhere; }" in css
+    assert ".job-meta { color: #9fb3ba; font-size: 0.85rem; overflow-wrap: anywhere; }" in css
