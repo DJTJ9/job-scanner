@@ -6,6 +6,7 @@
 <nav class="tabs" data-toplevel-tabs>
   <button type="button" class="tab active" data-tab-target="kontakte">Kontakte</button>
   <button type="button" class="tab" data-tab-target="feintuning">Feintuning</button>
+  <button type="button" class="tab" data-tab-target="lernen">Lernen</button>
 </nav>
 <div class="panel feintuning panel-hidden" data-tab-panel="feintuning">
   <h2>Feintuning</h2>
@@ -18,6 +19,69 @@
     {% endfor %}
     <button type="submit" class="btn btn-primary">Speichern</button>
   </form>
+</div>
+<div class="panel panel-hidden" data-tab-panel="lernen"
+     data-analysis-status="{{ analysis.status if analysis else '' }}">
+  <h2>Lernen</h2>
+  {% if not analysis or analysis.status == 'finalized' %}
+    <p class="job-meta">
+      {% if analysis %}Letzte Analyse abgeschlossen.{% endif %}
+      {{ vote_count }} Votes bewertet.
+    </p>
+    <form method="post" action="/dashboard/{{ profile.id }}/analyze">
+      <button type="submit" class="btn btn-primary">Votes analysieren</button>
+    </form>
+  {% elif analysis.status in ('analyzing', 'synthesizing') %}
+    <p class="job-meta" data-analysis-spinner>⏳ {{ 'Analyse' if analysis.status == 'analyzing' else 'Synthese' }} läuft …</p>
+  {% elif analysis.status == 'pending_review' %}
+    <form method="post" action="/dashboard/{{ profile.id }}/analysis/answers" data-answers-form
+          data-analysis-id="{{ analysis.id }}">
+      <div class="insight-card"><strong>Muster in deinen ↑-Votes</strong>
+        {% for m in analysis.cards.get('up_muster', []) %}<p class="job-meta">„{{ m }}"</p>{% endfor %}
+      </div>
+      <div class="insight-card"><strong>Muster in deinen ↓-Votes</strong>
+        {% for m in analysis.cards.get('down_muster', []) %}<p class="job-meta">„{{ m }}"</p>{% endfor %}
+      </div>
+      {% for w in analysis.cards.get('widersprüche', []) %}
+        <div class="insight-card"><strong>Widerspruch — warum?</strong>
+          <p class="job-meta">↑ {{ w.jobA }} · ↓ {{ w.jobB }}</p>
+          <p class="job-meta">{{ w.frage }}</p>
+          <input type="text" name="widerspruch_{{ loop.index0 }}" placeholder="warum …">
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-primary">Erkenntnisse finalisieren</button>
+    </form>
+  {% endif %}
+
+  {% if proposed_insights %}
+    <h3>Vorgeschlagene Erkenntnisse</h3>
+    {% for ins in proposed_insights %}
+      <div class="insight-card">
+        {% if ins.kind == 'preference' %}🅟 „{{ ins.text }}"
+        {% elif ins.kind == 'weight' %}⚖ Gewicht {{ ins.payload.key }}: {{ ins.payload.old_weight }} → {{ ins.payload.new_weight }}
+        {% endif %}
+        <form method="post" action="/dashboard/{{ profile.id }}/insights/{{ ins.id }}/confirm" class="feedback-form">
+          <button type="submit" class="btn btn-secondary">Übernehmen</button></form>
+        <form method="post" action="/dashboard/{{ profile.id }}/insights/{{ ins.id }}/reject" class="feedback-form">
+          <button type="submit" class="btn btn-secondary">×</button></form>
+      </div>
+    {% endfor %}
+    <form method="post" action="/dashboard/{{ profile.id }}/apply">
+      <button type="submit" class="btn btn-primary">Übernehmen & Jobs neu bewerten</button>
+    </form>
+  {% endif %}
+
+  {% if active_insights %}
+    <h3>Aktive Erkenntnisse</h3>
+    {% for ins in active_insights %}
+      <div class="insight-card">
+        {% if ins.kind == 'preference' %}🅟 „{{ ins.text }}"{% elif ins.kind == 'weight' %}⚖ {{ ins.payload.key }} → {{ ins.payload.new_weight }}{% endif %}
+        <span class="mono">{{ ins.created_at }}</span>
+        <form method="post" action="/dashboard/{{ profile.id }}/insights/{{ ins.id }}/reject" class="feedback-form">
+          <button type="submit" class="btn btn-secondary">entfernen</button></form>
+      </div>
+    {% endfor %}
+  {% endif %}
 </div>
 <div class="panel" data-tab-panel="kontakte">
   <h2>Kontakte</h2>

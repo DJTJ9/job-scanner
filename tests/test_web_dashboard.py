@@ -449,3 +449,33 @@ def test_apply_weight_only_does_not_launch_agent(client):
         resp = client.post(f"/dashboard/{pid}/apply", follow_redirects=False)
     assert resp.status_code == 303
     popen.assert_not_called()
+
+
+def test_dashboard_has_lernen_tab(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    resp = client.get(f"/dashboard/{pid}")
+    assert 'data-tab-target="lernen"' in resp.text
+    assert "Votes analysieren" in resp.text
+
+
+def test_dashboard_renders_pending_cards(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    aid = storage.create_analysis(pid)
+    storage.save_analysis_cards(aid, {
+        "up_muster": ["Remote + kleine Studios"], "down_muster": ["Senior onsite"],
+        "widersprüche": [{"jobA": "A@HH", "jobB": "B@München", "frage": "warum?"}]})
+    storage.set_analysis_status(aid, "pending_review")
+    resp = client.get(f"/dashboard/{pid}")
+    assert "Remote + kleine Studios" in resp.text
+    assert "Senior onsite" in resp.text
+    assert "Erkenntnisse finalisieren" in resp.text
+
+
+def test_dashboard_renders_proposed_insights(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    storage.add_insight(pid, "preference", "Bevorzugt Remote + kleine Studios")
+    storage.add_insight(pid, "weight", "",
+                        payload={"key": "location", "old_weight": 3, "new_weight": 5})
+    resp = client.get(f"/dashboard/{pid}")
+    assert "Bevorzugt Remote + kleine Studios" in resp.text
+    assert "Übernehmen &amp; Jobs neu bewerten" in resp.text or "Übernehmen & Jobs neu bewerten" in resp.text

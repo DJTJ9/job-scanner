@@ -45,4 +45,46 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+
+  // Lernen: Status pollen, bei Wechsel neu laden (Karten sind server-rendered)
+  const lernenPanel = document.querySelector('[data-tab-panel="lernen"]');
+  if (lernenPanel) {
+    const status = lernenPanel.dataset.analysisStatus;
+    if (status === "analyzing" || status === "synthesizing") {
+      const poll = setInterval(async () => {
+        try {
+          const resp = await fetch(window.location.pathname + "/analysis",
+                                   { headers: { "Accept": "application/json" } });
+          if (!resp.ok) return;
+          const data = await resp.json();
+          if (data.status !== status) { clearInterval(poll); window.location.reload(); }
+        } catch (e) { /* transient */ }
+      }, 3000);
+    }
+  }
+
+  // Widerspruchs-Antworten vor dem Finalize als JSON speichern
+  const answersForm = document.querySelector("[data-answers-form]");
+  if (answersForm) {
+    answersForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const answers = {};
+      answersForm.querySelectorAll('input[type="text"]').forEach((inp) => {
+        answers[inp.name] = inp.value;
+      });
+      const base = window.location.pathname.replace(/\/$/, "");
+      try {
+        await fetch(base + "/analysis/answers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ analysis_id: Number(answersForm.dataset.analysisId), answers }),
+        });
+      } catch (e) { /* answers optional */ }
+      const finalize = document.createElement("form");
+      finalize.method = "post";
+      finalize.action = base + "/finalize";
+      document.body.appendChild(finalize);
+      finalize.submit();
+    });
+  }
 });

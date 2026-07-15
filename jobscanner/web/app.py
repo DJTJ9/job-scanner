@@ -99,6 +99,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             else:
                 aktiv.append(entry)
         entries_by_tab = {"aktiv": aktiv, "no_go": no_go, "bewertet": bewertet}
+        analysis = storage.get_latest_analysis(profile_id)
         return templates.TemplateResponse(request, "dashboard.html", {
             "profile": profile,
             "criteria": storage.list_criteria(profile_id),
@@ -106,6 +107,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "feedback": feedback,
             "tab": tab,
             "counts": {"aktiv": len(aktiv), "no_go": len(no_go), "bewertet": len(bewertet)},
+            "analysis": analysis,
+            "proposed_insights": storage.list_insights(profile_id, status="proposed"),
+            "active_insights": storage.list_insights(profile_id, status="confirmed"),
+            "vote_count": len(feedback),
         })
 
     @app.post("/dashboard/{profile_id}/criteria")
