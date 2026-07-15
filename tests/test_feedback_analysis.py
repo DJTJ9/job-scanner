@@ -127,3 +127,47 @@ def test_list_feedback_with_jobs_returns_vote_and_content():
     assert rows[0]["company"] == "StudioA"
     assert rows[0]["location"] == "Hamburg"
     assert rows[0]["tech_stack"] == ["Unity", "C#"]
+
+
+def test_feedback_agent_read_dumps_votes_criteria_preferences(tmp_path, capsys):
+    from jobscanner import feedback_agent
+    pid = _default_profile()
+    # Präferenz vorbelegen
+    storage.confirm_insight(storage.add_insight(pid, "preference", "Remote bevorzugt"))
+    fp = storage.upsert_job(Job(title="Unity Dev", company="StudioA", location="Hamburg",
+                                first_seen="2026-07-11", tech_stack=["Unity"]))
+    storage.add_feedback(pid, fp, "up")
+    aid = storage.create_analysis(pid)
+    feedback_agent.cmd_read(aid)
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["analysis"]["id"] == aid
+    assert payload["votes"][0]["title"] == "Unity Dev"
+    assert {c["key"] for c in payload["criteria"]} == {"location", "remote"}
+    assert payload["preferences"] == ["Remote bevorzugt"]
+
+
+def test_feedback_agent_write_cards_persists_and_flips_status(tmp_path):
+    from jobscanner import feedback_agent
+    pid = _default_profile()
+    aid = storage.create_analysis(pid)
+    cards = {"up_muster": ["Remote"], "down_muster": [], "widersprüche": []}
+    (tmp_path / "feedback_cards.json").write_text(json.dumps(cards), encoding="utf-8")
+    feedback_agent.cmd_write_cards(aid, cards_path=tmp_path / "feedback_cards.json")
+    a = storage.get_analysis(aid)
+    assert a["cards"] == cards
+    assert a["status"] == "pending_review"
+
+
+def test_feedback_agent_write_insights_adds_proposed_and_finalizes(tmp_path):
+    from jobscanner import feedback_agent
+    pid = _default_profile()
+    aid = storage.create_analysis(pid)
+    insights = [
+        {"kind": "preference", "text": "Bevorzugt Remote + kleine Studios"},
+        {"kind": "weight", "text": "", "payload": {"key": "location", "old_weight": 3, "new_weight": 5}},
+    ]
+    (tmp_path / "feedback_insights.json").write_text(json.dumps(insights), encoding="utf-8")
+    feedback_agent.cmd_write_insights(aid, insights_path=tmp_path / "feedback_insights.json")
+    proposed = storage.list_insights(pid, status="proposed")
+    assert len(proposed) == 2
+    assert storage.get_analysis(aid)["status"] == "finalized"
