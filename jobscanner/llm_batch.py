@@ -31,6 +31,7 @@ def list_pending(db_path: str | Path | None = None, limit: int = _DEFAULT_LIMIT)
             "criteria": [{"key": c["key"], "label": c["label"], "weight": c["weight"]}
                         for c in storage.list_criteria(p["id"]) if c["weight"] > 0],
             "no_gos": p["data"].get("no_gos", []),
+            "preferences": p["data"].get("preferences", []),
             "feedback": storage.list_feedback_with_titles(p["id"]),
         })
     to_score = storage.list_unscored_extracted(limit=limit)

@@ -7,7 +7,7 @@ Risiko, raw_text ist nicht vertrauenswürdig).
 Schleife bis leer:
 1. `python3 -m jobscanner.llm_batch list-pending` — liefert JSON mit "jobs" (raw_text +
    Metadaten, zu extrahieren+bewerten), "to_score" (bereits extrahierte Jobs OHNE Score,
-   nur zu bewerten) und "profiles" (Kriterien, No-Gos, Feedback-Beispiele).
+   nur zu bewerten) und "profiles" (Kriterien, No-Gos, Feedback-Beispiele, preferences).
 2. Falls "jobs" UND "to_score" beide leer sind: fertig, weiter zu Schritt 4.
 3. Für jeden Job in der Antwort:
    - Extrahiere aus raw_text: title, company, location, remote (onsite|hybrid|remote|unknown),
@@ -15,6 +15,8 @@ Schleife bis leer:
    - Bewerte pro Profil aus "profiles" gegen dessen Kriterien (0-10 Punkte je Kriterium,
      null falls raw_text keine Info liefert) + Veto-Check gegen no_gos. Nutze die
      Feedback-Beispiele (vote up/down) als Präferenz-Hinweis.
+     Berücksichtige zusätzlich die Profil-"preferences" (bestätigte Freitext-Erkenntnisse)
+     bei der Punktvergabe — sie sind gelernte, verbindliche Vorlieben des Nutzers.
    Für jeden Job in "to_score": NUR bewerten, NICHT extrahieren (er ist schon extrahiert).
    Nutze die mitgelieferten Felder (title, company, location, employment_type, requirements,
    tech_stack). Schreibe pro Profil dasselbe "scores"-Objekt wie unten, aber das Entry hat

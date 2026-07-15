@@ -157,3 +157,17 @@ class TestScoreOnly:
         entries = [{"fingerprint": "does|not|exist", "scores": {}}]
         stats = llm_batch.write_batch(entries, db, today="2026-07-12")
         assert stats["skipped_scoring"] == 1
+
+
+def test_list_pending_includes_profile_preferences(tmp_path):
+    from jobscanner import storage
+    from jobscanner import llm_batch
+    storage.init_db(tmp_path / "jobs.db")
+    pid = storage.create_profile(
+        "Tjark", {"preferences": ["Hamburg stark bepunkten", "Remote bevorzugt"]},
+        is_default=True)
+    storage.save_criteria(pid, [{"key": "role_fit", "label": "Rolle", "weight": 5, "sort": 0}])
+    result = llm_batch.list_pending(tmp_path / "jobs.db")
+    prof = next(p for p in result["profiles"] if p["id"] == pid)
+    assert prof["preferences"] == ["Hamburg stark bepunkten", "Remote bevorzugt"]
+    storage.close()
