@@ -75,6 +75,24 @@ CREATE TABLE IF NOT EXISTS job_scores (
     scored_at TEXT,
     PRIMARY KEY (profile_id, fingerprint)
 );
+CREATE TABLE IF NOT EXISTS feedback_analysis (
+    id INTEGER PRIMARY KEY,
+    profile_id INTEGER NOT NULL REFERENCES profiles(id),
+    cards_json TEXT NOT NULL DEFAULT '{}',
+    answers_json TEXT NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'analyzing',
+    created_at TEXT
+);
+CREATE TABLE IF NOT EXISTS insights (
+    id INTEGER PRIMARY KEY,
+    profile_id INTEGER NOT NULL REFERENCES profiles(id),
+    kind TEXT NOT NULL,
+    text TEXT NOT NULL DEFAULT '',
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'proposed',
+    source TEXT NOT NULL DEFAULT 'learned',
+    created_at TEXT
+);
 """
 
 _UPDATABLE = {
@@ -443,6 +461,63 @@ def get_job_score(profile_id: int, fingerprint: str) -> dict | None:
     d = dict(row)
     d["breakdown"] = json.loads(d.pop("breakdown_json") or "{}")
     return d
+
+
+def _row_to_analysis(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "profile_id": row["profile_id"],
+        "cards": json.loads(row["cards_json"] or "{}"),
+        "answers": json.loads(row["answers_json"] or "{}"),
+        "status": row["status"],
+        "created_at": row["created_at"],
+    }
+
+
+def create_analysis(profile_id: int) -> int:
+    conn = _require_conn()
+    cur = conn.execute(
+        """INSERT INTO feedback_analysis (profile_id, cards_json, answers_json, status, created_at)
+           VALUES (?, '{}', '{}', 'analyzing', datetime('now'))""",
+        (profile_id,))
+    conn.commit()
+    return cur.lastrowid
+
+
+def get_analysis(analysis_id: int) -> dict | None:
+    conn = _require_conn()
+    row = conn.execute(
+        "SELECT * FROM feedback_analysis WHERE id = ?", (analysis_id,)).fetchone()
+    return _row_to_analysis(row) if row else None
+
+
+def get_latest_analysis(profile_id: int) -> dict | None:
+    conn = _require_conn()
+    row = conn.execute(
+        "SELECT * FROM feedback_analysis WHERE profile_id = ? ORDER BY id DESC LIMIT 1",
+        (profile_id,)).fetchone()
+    return _row_to_analysis(row) if row else None
+
+
+def save_analysis_cards(analysis_id: int, cards: dict) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE feedback_analysis SET cards_json = ? WHERE id = ?",
+                 (json.dumps(cards, ensure_ascii=False), analysis_id))
+    conn.commit()
+
+
+def save_analysis_answers(analysis_id: int, answers: dict) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE feedback_analysis SET answers_json = ? WHERE id = ?",
+                 (json.dumps(answers, ensure_ascii=False), analysis_id))
+    conn.commit()
+
+
+def set_analysis_status(analysis_id: int, status: str) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE feedback_analysis SET status = ? WHERE id = ?",
+                 (status, analysis_id))
+    conn.commit()
 
 
 DEFAULT_CRITERIA = [
