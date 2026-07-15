@@ -45,6 +45,18 @@
           <strong>{{ e.job.title }}</strong> · {{ e.job.company }}
         {% endif %}
         <div class="job-meta">{{ e.job.location }} · {{ e.job.remote_flag }} · {{ e.job.first_seen }}</div>
+        <p class="feedback-badge {{ 'feedback-badge-up' if vote == 'up' else 'feedback-badge-down' if vote == 'down' else 'feedback-badge-hidden' }}" data-feedback-badge>
+          {% if vote == 'up' %}✓ bewertet 👍{% elif vote == 'down' %}✓ bewertet 👎{% endif %}
+        </p>
+        <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/feedback/{{ e.job.fingerprint }}" data-vote-form>
+          <button type="submit" name="vote" value="up" class="feedback-btn {{ 'active-up' if vote == 'up' }}" data-vote-btn="up">👍</button>
+        </form>
+        <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/feedback/{{ e.job.fingerprint }}" data-vote-form>
+          <button type="submit" name="vote" value="down" class="feedback-btn {{ 'active-down' if vote == 'down' }}" data-vote-btn="down">👎</button>
+        </form>
+      </div>
+      {% if e.breakdown or e.reason %}
+      <div class="breakdown-full">
         {% if e.breakdown %}
           <details>
             <summary>▸ Begründung</summary>
@@ -66,16 +78,8 @@
         {% elif e.reason %}
           <p class="job-meta">{{ e.reason }}</p>
         {% endif %}
-        <p class="feedback-badge {{ 'feedback-badge-up' if vote == 'up' else 'feedback-badge-down' if vote == 'down' else 'feedback-badge-hidden' }}" data-feedback-badge>
-          {% if vote == 'up' %}✓ bewertet 👍{% elif vote == 'down' %}✓ bewertet 👎{% endif %}
-        </p>
-        <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/feedback/{{ e.job.fingerprint }}" data-vote-form>
-          <button type="submit" name="vote" value="up" class="feedback-btn {{ 'active-up' if vote == 'up' }}" data-vote-btn="up">👍</button>
-        </form>
-        <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/feedback/{{ e.job.fingerprint }}" data-vote-form>
-          <button type="submit" name="vote" value="down" class="feedback-btn {{ 'active-down' if vote == 'down' }}" data-vote-btn="down">👎</button>
-        </form>
       </div>
+      {% endif %}
     </div>
   {% endfor %}
 </div>

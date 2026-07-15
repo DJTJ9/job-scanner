@@ -346,3 +346,14 @@ def test_breakdown_table_wrapped_in_scroll_container_with_min_width():
     css = Path("jobscanner/web/static/style.css").read_text()
     assert ".breakdown-scroll { overflow-x: auto; }" in css
     assert ".breakdown-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.85rem; table-layout: fixed; min-width: 480px; }" in css
+
+
+def test_breakdown_spans_full_card_width_outside_flex_column():
+    html = Path("jobscanner/web/templates/dashboard.html").read_text()
+    # Breakdown lives in a full-width wrapper at .job-card level, not inside the flex:1 title column
+    assert '<div class="breakdown-full">' in html
+    assert html.index('<div style="flex:1">') < html.index('<div class="breakdown-full">')
+    assert html.index('data-vote-btn="down"') < html.index('<div class="breakdown-full">')
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert "flex-wrap: wrap;" in css
+    assert ".breakdown-full { flex-basis: 100%; }" in css

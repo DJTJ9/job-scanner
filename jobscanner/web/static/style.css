@@ -70,9 +70,11 @@ input[type="text"], input[type="password"], input[type="number"], textarea, sele
   padding: 1rem;
   margin-bottom: 0.75rem;
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 .job-card > div { min-width: 0; }
+.breakdown-full { flex-basis: 100%; }
 .job-meta { color: #9fb3ba; font-size: 0.85rem; overflow-wrap: anywhere; }
 .breakdown-scroll { overflow-x: auto; }
 .breakdown-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.85rem; table-layout: fixed; min-width: 480px; }
