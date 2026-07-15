@@ -3,6 +3,7 @@ kein Modul-Level app-Objekt, sonst würde jeder Test-Import storage.init_db() ge
 echte data/jobs.db als Seiteneffekt auslösen."""
 from __future__ import annotations
 
+import hmac
 import subprocess
 import threading
 from pathlib import Path
@@ -80,6 +81,27 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def logout(request: Request):
         request.session.clear()
         return RedirectResponse("/login", status_code=303)
+
+    @app.get("/register")
+    def register_form(request: Request):
+        return templates.TemplateResponse(request, "register.html", {"error": None})
+
+    @app.post("/register")
+    def register_submit(request: Request, email: str = Form(...),
+                        password: str = Form(...), invite_code: str = Form(...)):
+        if not settings["invite_code"] or not hmac.compare_digest(
+                invite_code, settings["invite_code"]):
+            return templates.TemplateResponse(
+                request, "register.html", {"error": "Ungültiger Invite-Code"}, status_code=403)
+        email = email.strip().lower()
+        if storage.get_user_by_email(email) is not None:
+            return templates.TemplateResponse(
+                request, "register.html", {"error": "Email bereits registriert"}, status_code=409)
+        uid = storage.create_user(email, password, role="member")
+        request.session["user_id"] = uid
+        request.session["email"] = email
+        request.session["role"] = "member"
+        return RedirectResponse("/", status_code=303)
 
     @app.get("/")
     def profiles_view(request: Request):
