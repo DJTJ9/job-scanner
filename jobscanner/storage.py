@@ -657,6 +657,41 @@ def list_feedback_with_titles(profile_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def list_feedback_with_jobs(profile_id: int) -> list[dict]:
+    """Vote + voller Job-Inhalt für den Analyse-Agent (Muster/Widersprüche), neueste zuerst."""
+    conn = _require_conn()
+    rows = conn.execute(
+        """SELECT feedback.vote AS vote, jobs.fingerprint AS fingerprint, jobs.title AS title,
+                  jobs.company AS company, jobs.location AS location,
+                  jobs.remote_flag AS remote_flag, jobs.employment_type AS employment_type,
+                  jobs.requirements_json AS requirements_json, jobs.tech_stack_json AS tech_stack_json
+           FROM feedback JOIN jobs ON jobs.fingerprint = feedback.fingerprint
+           WHERE feedback.profile_id = ?
+           ORDER BY feedback.created_at DESC, feedback.id DESC""", (profile_id,))
+    out = []
+    for r in rows:
+        out.append({
+            "vote": r["vote"], "fingerprint": r["fingerprint"], "title": r["title"],
+            "company": r["company"], "location": r["location"] or "",
+            "remote_flag": r["remote_flag"] or "", "employment_type": r["employment_type"] or "",
+            "requirements": json.loads(r["requirements_json"] or "[]"),
+            "tech_stack": json.loads(r["tech_stack_json"] or "[]"),
+        })
+    return out
+
+
+def enqueue_jobs_for_rescore(profile_id: int) -> int:
+    """Setzt jobs.score=NULL für extrahierte Jobs, damit der Scoring-Agent sie via
+    list_unscored_extracted (to_score-Zweig) mit den neuen Präferenzen neu bewertet.
+    Gibt die Anzahl betroffener Jobs zurück. profile_id ist Signatur-durchgezogen
+    (Default-Profil-Scope; list_unscored_extracted ist global)."""
+    conn = _require_conn()
+    cur = conn.execute(
+        "UPDATE jobs SET score = NULL WHERE extraction_status = 'extracted'")
+    conn.commit()
+    return cur.rowcount
+
+
 def set_sources(fingerprint: str, sources: list) -> None:
     conn = _require_conn()
     conn.execute("UPDATE jobs SET sources_json = ? WHERE fingerprint = ?",

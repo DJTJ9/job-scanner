@@ -101,3 +101,29 @@ def test_reject_insight_sets_rejected_and_no_side_effect():
     storage.reject_insight(iid)
     assert storage.list_insights(pid, status="rejected")[0]["id"] == iid
     assert storage.get_profile(pid)["data"].get("preferences", []) == []
+
+
+def test_enqueue_jobs_for_rescore_nulls_extracted_scores():
+    pid = _default_profile()
+    fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                                first_seen="2026-07-11"))
+    storage.update_job(fp, score=78, category="Pass")
+    n = storage.enqueue_jobs_for_rescore(pid)
+    assert n == 1
+    assert storage.get_job(fp).score is None
+    # Job ist jetzt für den Scoring-Agent (to_score-Zweig) sichtbar:
+    assert any(j["fingerprint"] == fp for j in storage.list_unscored_extracted())
+
+
+def test_list_feedback_with_jobs_returns_vote_and_content():
+    pid = _default_profile()
+    fp = storage.upsert_job(Job(title="Unity Dev", company="StudioA", location="Hamburg",
+                                remote_flag="onsite", first_seen="2026-07-11",
+                                tech_stack=["Unity", "C#"]))
+    storage.add_feedback(pid, fp, "up")
+    rows = storage.list_feedback_with_jobs(pid)
+    assert rows[0]["vote"] == "up"
+    assert rows[0]["title"] == "Unity Dev"
+    assert rows[0]["company"] == "StudioA"
+    assert rows[0]["location"] == "Hamburg"
+    assert rows[0]["tech_stack"] == ["Unity", "C#"]
