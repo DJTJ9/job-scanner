@@ -337,3 +337,12 @@ def test_save_criteria_recomputes_scores_from_breakdown(client):
         resp = client.post(f"/dashboard/{pid}/criteria", data=data, follow_redirects=False)
     assert resp.status_code == 303
     assert storage.get_job_score(pid, fp)["score"] == 80
+
+
+def test_breakdown_table_wrapped_in_scroll_container_with_min_width():
+    html = Path("jobscanner/web/templates/dashboard.html").read_text()
+    assert '<div class="breakdown-scroll">' in html
+    assert html.index('<div class="breakdown-scroll">') < html.index('<table class="breakdown-table">')
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert ".breakdown-scroll { overflow-x: auto; }" in css
+    assert ".breakdown-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.85rem; table-layout: fixed; min-width: 480px; }" in css

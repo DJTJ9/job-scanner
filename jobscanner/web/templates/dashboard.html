@@ -48,6 +48,7 @@
         {% if e.breakdown %}
           <details>
             <summary>▸ Begründung</summary>
+            <div class="breakdown-scroll">
             <table class="breakdown-table">
               <tr><th>Kriterium</th><th>Punkte/10</th><th>Gewicht</th><th>Grund</th></tr>
               {% for c in criteria %}
@@ -60,6 +61,7 @@
                 </tr>
               {% endfor %}
             </table>
+            </div>
           </details>
         {% elif e.reason %}
           <p class="job-meta">{{ e.reason }}</p>
