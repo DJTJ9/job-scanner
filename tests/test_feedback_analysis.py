@@ -64,3 +64,40 @@ def test_get_latest_analysis_returns_newest():
 def test_get_latest_analysis_none_when_empty():
     pid = _default_profile()
     assert storage.get_latest_analysis(pid) is None
+
+
+def test_add_and_list_insights_filters_by_status():
+    pid = _default_profile()
+    storage.add_insight(pid, "preference", "Bevorzugt Remote + kleine Studios")
+    storage.add_insight(pid, "weight", "", payload={"key": "location", "old_weight": 3, "new_weight": 5})
+    proposed = storage.list_insights(pid, status="proposed")
+    assert len(proposed) == 2
+    assert proposed[0]["status"] == "proposed"
+    assert storage.list_insights(pid, status="confirmed") == []
+
+
+def test_confirm_preference_appends_to_profile_preferences():
+    pid = _default_profile()
+    iid = storage.add_insight(pid, "preference", "Hamburg stark, aber Gesamtpassung entscheidet")
+    storage.confirm_insight(iid)
+    assert storage.list_insights(pid, status="confirmed")[0]["id"] == iid
+    prefs = storage.get_profile(pid)["data"].get("preferences", [])
+    assert prefs == ["Hamburg stark, aber Gesamtpassung entscheidet"]
+
+
+def test_confirm_weight_patches_criterion_weight():
+    pid = _default_profile()
+    iid = storage.add_insight(pid, "weight", "",
+                              payload={"key": "location", "old_weight": 3, "new_weight": 5})
+    storage.confirm_insight(iid)
+    weights = {c["key"]: c["weight"] for c in storage.list_criteria(pid)}
+    assert weights["location"] == 5
+    assert weights["remote"] == 4  # unangetastet
+
+
+def test_reject_insight_sets_rejected_and_no_side_effect():
+    pid = _default_profile()
+    iid = storage.add_insight(pid, "preference", "irrelevant")
+    storage.reject_insight(iid)
+    assert storage.list_insights(pid, status="rejected")[0]["id"] == iid
+    assert storage.get_profile(pid)["data"].get("preferences", []) == []

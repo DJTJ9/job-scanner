@@ -520,6 +520,72 @@ def set_analysis_status(analysis_id: int, status: str) -> None:
     conn.commit()
 
 
+def _row_to_insight(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "profile_id": row["profile_id"],
+        "kind": row["kind"],
+        "text": row["text"],
+        "payload": json.loads(row["payload_json"] or "{}"),
+        "status": row["status"],
+        "source": row["source"],
+        "created_at": row["created_at"],
+    }
+
+
+def add_insight(profile_id: int, kind: str, text: str,
+                payload: dict | None = None, source: str = "learned") -> int:
+    conn = _require_conn()
+    cur = conn.execute(
+        """INSERT INTO insights (profile_id, kind, text, payload_json, status, source, created_at)
+           VALUES (?, ?, ?, ?, 'proposed', ?, datetime('now'))""",
+        (profile_id, kind, text, json.dumps(payload or {}, ensure_ascii=False), source))
+    conn.commit()
+    return cur.lastrowid
+
+
+def list_insights(profile_id: int, status: str | None = None) -> list[dict]:
+    conn = _require_conn()
+    sql = "SELECT * FROM insights WHERE profile_id = ?"
+    params: list = [profile_id]
+    if status is not None:
+        sql += " AND status = ?"
+        params.append(status)
+    sql += " ORDER BY id"
+    return [_row_to_insight(r) for r in conn.execute(sql, params)]
+
+
+def _append_preference(conn: sqlite3.Connection, profile_id: int, text: str) -> None:
+    row = conn.execute("SELECT data_json FROM profiles WHERE id = ?", (profile_id,)).fetchone()
+    data = json.loads(row["data_json"] or "{}") if row else {}
+    data.setdefault("preferences", []).append(text)
+    conn.execute("UPDATE profiles SET data_json = ? WHERE id = ?",
+                 (json.dumps(data, ensure_ascii=False), profile_id))
+
+
+def confirm_insight(insight_id: int) -> None:
+    """Setzt status=confirmed und wirkt je kind: preference → profiles.data_json['preferences'],
+    weight → criteria-Gewicht (per key, chirurgisch). location_boost bleibt no-op (reserviert)."""
+    conn = _require_conn()
+    row = conn.execute("SELECT * FROM insights WHERE id = ?", (insight_id,)).fetchone()
+    if row is None:
+        return
+    conn.execute("UPDATE insights SET status = 'confirmed' WHERE id = ?", (insight_id,))
+    if row["kind"] == "preference":
+        _append_preference(conn, row["profile_id"], row["text"])
+    elif row["kind"] == "weight":
+        payload = json.loads(row["payload_json"] or "{}")
+        conn.execute("UPDATE criteria SET weight = ? WHERE profile_id = ? AND key = ?",
+                     (payload["new_weight"], row["profile_id"], payload["key"]))
+    conn.commit()
+
+
+def reject_insight(insight_id: int) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE insights SET status = 'rejected' WHERE id = ?", (insight_id,))
+    conn.commit()
+
+
 DEFAULT_CRITERIA = [
     {"key": "role_fit", "label": "Passung zu Zielrollen", "weight": 5},
     {"key": "seniority", "label": "Level passt (Junior/Entry)", "weight": 5},
