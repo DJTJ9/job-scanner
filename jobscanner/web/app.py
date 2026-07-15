@@ -19,6 +19,7 @@ from jobscanner.web import llm_refine
 
 _DIR = Path(__file__).parent
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "data" / "jobs.db"
+_REPO_ROOT = Path(__file__).parent.parent.parent
 
 
 def _read_asset_version(base_dir: Path) -> str:
@@ -145,6 +146,41 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if "application/json" in request.headers.get("accept", ""):
             return JSONResponse({"vote": vote, "fingerprint": fingerprint})
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+
+    def _launch_feedback_agent(pass_name: str, analysis_id: int) -> None:
+        try:
+            subprocess.Popen(
+                ["bash", "deploy/run_feedback_agent.sh", pass_name, str(analysis_id)],
+                cwd=_REPO_ROOT,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
+    @app.post("/dashboard/{profile_id}/analyze")
+    def analyze_votes(request: Request, profile_id: int):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        analysis_id = storage.create_analysis(profile_id)
+        _launch_feedback_agent("analyze", analysis_id)
+        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+
+    @app.get("/dashboard/{profile_id}/analysis")
+    def analysis_status(request: Request, profile_id: int):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        analysis = storage.get_latest_analysis(profile_id)
+        if analysis is None:
+            return JSONResponse({"status": None})
+        return JSONResponse({"id": analysis["id"], "status": analysis["status"],
+                             "cards": analysis["cards"]})
+
+    @app.post("/dashboard/{profile_id}/analysis/answers")
+    async def save_answers(request: Request, profile_id: int):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        body = await request.json()
+        storage.save_analysis_answers(body["analysis_id"], body.get("answers", {}))
+        return JSONResponse({"ok": True})
 
     STEP_ORDER = ["basis", "skills", "zielrollen", "ort_umfang", "no_gos", "gewichte"]
 

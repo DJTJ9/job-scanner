@@ -357,3 +357,42 @@ def test_breakdown_spans_full_card_width_outside_flex_column():
     css = Path("jobscanner/web/static/style.css").read_text()
     assert "flex-wrap: wrap;" in css
     assert ".breakdown-full { flex-basis: 100%; }" in css
+
+
+def test_analyze_creates_analysis_and_launches_agent(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    with patch("jobscanner.web.app.subprocess.Popen") as popen:
+        resp = client.post(f"/dashboard/{pid}/analyze", follow_redirects=False)
+    assert resp.status_code == 303
+    latest = storage.get_latest_analysis(pid)
+    assert latest is not None and latest["status"] == "analyzing"
+    args = popen.call_args[0][0]
+    assert args[:3] == ["bash", "deploy/run_feedback_agent.sh", "analyze"]
+    assert args[3] == str(latest["id"])
+
+
+def test_analysis_get_returns_status_and_cards(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    aid = storage.create_analysis(pid)
+    storage.save_analysis_cards(aid, {"up_muster": ["Remote"], "down_muster": [], "widersprüche": []})
+    storage.set_analysis_status(aid, "pending_review")
+    resp = client.get(f"/dashboard/{pid}/analysis")
+    data = resp.json()
+    assert data["status"] == "pending_review"
+    assert data["cards"]["up_muster"] == ["Remote"]
+
+
+def test_analysis_get_returns_none_status_when_no_analysis(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    resp = client.get(f"/dashboard/{pid}/analysis")
+    assert resp.json()["status"] is None
+
+
+def test_answers_route_saves_answers(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    aid = storage.create_analysis(pid)
+    resp = client.post(f"/dashboard/{pid}/analysis/answers",
+                       json={"analysis_id": aid, "answers": {"up_muster": [True]}},
+                       follow_redirects=False)
+    assert resp.status_code in (200, 303)
+    assert storage.get_analysis(aid)["answers"] == {"up_muster": [True]}
