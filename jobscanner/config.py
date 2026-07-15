@@ -56,6 +56,8 @@ def load_web_settings() -> dict:
         "password": os.environ.get("JOBSCANNER_WEB_PASSWORD", ""),
         "session_secret": os.environ.get("JOBSCANNER_SESSION_SECRET", ""),
         "port": int(os.environ.get("JOBSCANNER_WEB_PORT", "8010")),
+        "invite_code": os.environ.get("JOBSCANNER_INVITE_CODE", ""),
+        "owner_email": os.environ.get("JOBSCANNER_OWNER_EMAIL", ""),
     }
 
 
