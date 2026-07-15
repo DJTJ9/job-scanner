@@ -79,3 +79,22 @@ def test_member_sees_own_profile_and_ranking(app):
     resp = c.get(dash)
     assert resp.status_code == 200
     assert "Mein-Profil" in resp.text
+
+
+def test_member_llm_routes_forbidden(app):
+    c = TestClient(app)
+    _register(c)
+    dash = _wizard_profile(c, "Mein-Profil")
+    pid = int(dash.rsplit("/", 1)[1])
+    assert c.post("/wizard/llm-refine", data={"freetext": "x"},
+                  follow_redirects=False).status_code == 403
+    assert c.post(f"/dashboard/{pid}/analyze", follow_redirects=False).status_code == 403
+    assert c.post(f"/dashboard/{pid}/apply", follow_redirects=False).status_code == 403
+
+
+def test_owner_llm_route_not_forbidden(app):
+    c = TestClient(app)
+    c.post("/login", data={"email": "owner@test.de", "password": "ownerpw"})
+    # Owner erhält KEIN 403 (Redirect 303 nach /wizard/skills ist ok).
+    assert c.post("/wizard/llm-refine", data={"freetext": ""},
+                  follow_redirects=False).status_code != 403

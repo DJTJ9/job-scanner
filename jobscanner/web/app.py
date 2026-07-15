@@ -209,6 +209,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/analyze")
     def analyze_votes(request: Request, profile_id: int):
+        if (resp := require_owner(request)) is not None:
+            return resp
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
@@ -218,6 +220,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/dashboard/{profile_id}/analysis")
     def analysis_status(request: Request, profile_id: int):
+        if (resp := require_owner(request)) is not None:
+            return resp
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
@@ -229,6 +233,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/analysis/answers")
     async def save_answers(request: Request, profile_id: int):
+        if (resp := require_owner(request)) is not None:
+            return resp
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
@@ -238,6 +244,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/finalize")
     def finalize_analysis(request: Request, profile_id: int):
+        if (resp := require_owner(request)) is not None:
+            return resp
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
@@ -249,6 +257,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/confirm")
     def confirm_insight_route(request: Request, profile_id: int, insight_id: int):
+        if (resp := require_owner(request)) is not None:
+            return resp
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
@@ -257,6 +267,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/reject")
     def reject_insight_route(request: Request, profile_id: int, insight_id: int):
+        if (resp := require_owner(request)) is not None:
+            return resp
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
@@ -265,6 +277,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/apply")
     def apply_insights(request: Request, profile_id: int):
+        if (resp := require_owner(request)) is not None:
+            return resp
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
@@ -325,6 +339,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/wizard/llm-refine")
     async def wizard_llm_refine(request: Request):
+        if (resp := require_owner(request)) is not None:
+            return resp
         if (redirect := require_user(request)) is not None:
             return redirect
         form = await request.form()
