@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
+import os
 import sqlite3
 from pathlib import Path
 
@@ -93,6 +95,14 @@ CREATE TABLE IF NOT EXISTS insights (
     source TEXT NOT NULL DEFAULT 'learned',
     created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    pw_hash TEXT NOT NULL,
+    salt TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member',
+    created_at TEXT
+);
 """
 
 _UPDATABLE = {
@@ -122,6 +132,9 @@ def init_db(path: str | Path) -> None:
     if "extraction_status" not in existing_cols:
         _conn.execute("ALTER TABLE jobs ADD COLUMN extraction_status TEXT DEFAULT 'extracted'")
     _conn.executescript(_SCHEMA_PROFILES)
+    prof_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(profiles)")}
+    if "user_id" not in prof_cols:
+        _conn.execute("ALTER TABLE profiles ADD COLUMN user_id INTEGER REFERENCES users(id)")
     _conn.commit()
 
 
@@ -136,6 +149,54 @@ def _require_conn() -> sqlite3.Connection:
     if _conn is None:
         raise RuntimeError("init_db() muss vor allen Storage-Aufrufen laufen")
     return _conn
+
+
+def _hash_password(password: str, salt: bytes) -> str:
+    return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000).hex()
+
+
+def create_user(email: str, password: str, role: str = "member") -> int:
+    conn = _require_conn()
+    salt = os.urandom(16)
+    cur = conn.execute(
+        "INSERT INTO users (email, pw_hash, salt, role, created_at) "
+        "VALUES (?, ?, ?, ?, datetime('now'))",
+        (email.strip().lower(), _hash_password(password, salt), salt.hex(), role))
+    conn.commit()
+    return cur.lastrowid
+
+
+def get_user(user_id: int) -> dict | None:
+    conn = _require_conn()
+    row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_user_by_email(email: str) -> dict | None:
+    conn = _require_conn()
+    row = conn.execute("SELECT * FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
+    return dict(row) if row else None
+
+
+def verify_password(email: str, password: str) -> dict | None:
+    user = get_user_by_email(email)
+    if user is None:
+        return None
+    expected = _hash_password(password, bytes.fromhex(user["salt"]))
+    return user if hmac.compare_digest(expected, user["pw_hash"]) else None
+
+
+def seed_owner(email: str, password: str) -> int | None:
+    """Legt einmalig den Owner-User an, falls noch kein Owner existiert, und ordnet ihm
+    alle Profile ohne user_id zu. Idempotent — gibt die vorhandene Owner-Id zurück."""
+    conn = _require_conn()
+    existing = conn.execute("SELECT id FROM users WHERE role = 'owner' LIMIT 1").fetchone()
+    if existing is not None:
+        return existing["id"]
+    uid = create_user(email, password, role="owner")
+    conn.execute("UPDATE profiles SET user_id = ? WHERE user_id IS NULL", (uid,))
+    conn.commit()
+    return uid
 
 
 def upsert_job(job: Job) -> str:
@@ -353,19 +414,20 @@ def _row_to_profile(row: sqlite3.Row) -> dict:
         "queries": json.loads(row["queries_json"]) if row["queries_json"] else None,
         "active": bool(row["active"]),
         "is_default": bool(row["is_default"]),
+        "user_id": row["user_id"],
         "created_at": row["created_at"],
     }
 
 
 def create_profile(name: str, data: dict, queries: dict | None = None,
-                   is_default: bool = False) -> int:
+                   is_default: bool = False, user_id: int | None = None) -> int:
     conn = _require_conn()
     cur = conn.execute(
-        """INSERT INTO profiles (name, data_json, queries_json, active, is_default, created_at)
-           VALUES (?, ?, ?, 1, ?, date('now'))""",
+        """INSERT INTO profiles (name, data_json, queries_json, active, is_default, user_id, created_at)
+           VALUES (?, ?, ?, 1, ?, ?, date('now'))""",
         (name, json.dumps(data, ensure_ascii=False),
          json.dumps(queries, ensure_ascii=False) if queries else None,
-         int(is_default)),
+         int(is_default), user_id),
     )
     conn.commit()
     return cur.lastrowid
@@ -383,12 +445,18 @@ def get_profile_by_name(name: str) -> dict | None:
     return _row_to_profile(row) if row else None
 
 
-def list_profiles(active_only: bool = False) -> list[dict]:
+def list_profiles(active_only: bool = False, user_id: int | None = None) -> list[dict]:
     conn = _require_conn()
     sql = "SELECT * FROM profiles"
+    conds, params = [], []
     if active_only:
-        sql += " WHERE active = 1"
-    return [_row_to_profile(r) for r in conn.execute(sql + " ORDER BY id")]
+        conds.append("active = 1")
+    if user_id is not None:
+        conds.append("user_id = ?")
+        params.append(user_id)
+    if conds:
+        sql += " WHERE " + " AND ".join(conds)
+    return [_row_to_profile(r) for r in conn.execute(sql + " ORDER BY id", params)]
 
 
 def save_criteria(profile_id: int, criteria: list[dict]) -> None:
