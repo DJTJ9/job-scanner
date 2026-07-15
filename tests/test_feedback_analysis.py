@@ -171,3 +171,22 @@ def test_feedback_agent_write_insights_adds_proposed_and_finalizes(tmp_path):
     proposed = storage.list_insights(pid, status="proposed")
     assert len(proposed) == 2
     assert storage.get_analysis(aid)["status"] == "finalized"
+
+
+def test_run_feedback_agent_script_wires_cli_commands():
+    from pathlib import Path
+    txt = Path("/root/projekte/job-scanner/deploy/run_feedback_agent.sh").read_text()
+    assert "feedback_analysis_prompt.txt" in txt
+    assert "feedback_synthesis_prompt.txt" in txt
+    # allowedTools müssen die konkrete Analysis-ID einsetzen (kein Wildcard):
+    assert "jobscanner.feedback_agent read $AID" in txt
+    assert "jobscanner.feedback_agent write-cards $AID" in txt
+    assert "jobscanner.feedback_agent write-insights $AID" in txt
+
+
+def test_feedback_prompts_exist_and_name_cli():
+    from pathlib import Path
+    analyze = Path("/root/projekte/job-scanner/deploy/feedback_analysis_prompt.txt").read_text()
+    synth = Path("/root/projekte/job-scanner/deploy/feedback_synthesis_prompt.txt").read_text()
+    assert "feedback_agent read" in analyze and "write-cards" in analyze
+    assert "feedback_agent read" in synth and "write-insights" in synth
