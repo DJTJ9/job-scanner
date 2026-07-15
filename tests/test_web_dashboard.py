@@ -396,3 +396,56 @@ def test_answers_route_saves_answers(client):
                        follow_redirects=False)
     assert resp.status_code in (200, 303)
     assert storage.get_analysis(aid)["answers"] == {"up_muster": [True]}
+
+
+def test_finalize_launches_synthesize_agent(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    aid = storage.create_analysis(pid)
+    storage.set_analysis_status(aid, "pending_review")
+    with patch("jobscanner.web.app.subprocess.Popen") as popen:
+        resp = client.post(f"/dashboard/{pid}/finalize", follow_redirects=False)
+    assert resp.status_code == 303
+    assert storage.get_analysis(aid)["status"] == "synthesizing"
+    args = popen.call_args[0][0]
+    assert args[:3] == ["bash", "deploy/run_feedback_agent.sh", "synthesize"]
+    assert args[3] == str(aid)
+
+
+def test_confirm_insight_route_sets_confirmed(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    iid = storage.add_insight(pid, "preference", "Remote bevorzugt")
+    resp = client.post(f"/dashboard/{pid}/insights/{iid}/confirm", follow_redirects=False)
+    assert resp.status_code in (200, 303)
+    assert storage.list_insights(pid, status="confirmed")[0]["id"] == iid
+
+
+def test_reject_insight_route_sets_rejected(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    iid = storage.add_insight(pid, "preference", "irrelevant")
+    resp = client.post(f"/dashboard/{pid}/insights/{iid}/reject", follow_redirects=False)
+    assert resp.status_code in (200, 303)
+    assert storage.list_insights(pid, status="rejected")[0]["id"] == iid
+
+
+def test_apply_rescores_and_enqueues_when_preference_confirmed(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                                first_seen="2026-07-11"))
+    storage.update_job(fp, score=50, category="Vielleicht")
+    storage.confirm_insight(storage.add_insight(pid, "preference", "Hamburg stark"))
+    with patch("jobscanner.web.app.subprocess.Popen") as popen:
+        resp = client.post(f"/dashboard/{pid}/apply", follow_redirects=False)
+    assert resp.status_code == 303
+    # Präferenz vorhanden → bestehende Jobs enqueued (score genullt) + Scoring-Agent gestartet
+    assert storage.get_job(fp).score is None
+    assert popen.call_args[0][0][:2] == ["bash", "deploy/run_scoring_agent.sh"]
+
+
+def test_apply_weight_only_does_not_launch_agent(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    storage.confirm_insight(storage.add_insight(
+        pid, "weight", "", payload={"key": "location", "old_weight": 3, "new_weight": 5}))
+    with patch("jobscanner.web.app.subprocess.Popen") as popen:
+        resp = client.post(f"/dashboard/{pid}/apply", follow_redirects=False)
+    assert resp.status_code == 303
+    popen.assert_not_called()

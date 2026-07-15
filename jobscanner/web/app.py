@@ -182,6 +182,61 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         storage.save_analysis_answers(body["analysis_id"], body.get("answers", {}))
         return JSONResponse({"ok": True})
 
+    @app.post("/dashboard/{profile_id}/finalize")
+    def finalize_analysis(request: Request, profile_id: int):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        analysis = storage.get_latest_analysis(profile_id)
+        if analysis is not None:
+            storage.set_analysis_status(analysis["id"], "synthesizing")
+            _launch_feedback_agent("synthesize", analysis["id"])
+        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+
+    @app.post("/dashboard/{profile_id}/insights/{insight_id}/confirm")
+    def confirm_insight_route(request: Request, profile_id: int, insight_id: int):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        storage.confirm_insight(insight_id)
+        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+
+    @app.post("/dashboard/{profile_id}/insights/{insight_id}/reject")
+    def reject_insight_route(request: Request, profile_id: int, insight_id: int):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        storage.reject_insight(insight_id)
+        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+
+    @app.post("/dashboard/{profile_id}/apply")
+    def apply_insights(request: Request, profile_id: int):
+        if (redirect := require_login(request)) is not None:
+            return redirect
+        # Gewichts-Insights sind schon in criteria → deterministischer Rescore, sofort.
+        changed = storage.rescore_profile(profile_id)
+        # Freitext-Präferenzen → bestehende Jobs für LLM-Rescore enqueuen + Scoring-Agent starten.
+        has_preference = any(
+            i["kind"] == "preference"
+            for i in storage.list_insights(profile_id, status="confirmed"))
+        if has_preference:
+            storage.enqueue_jobs_for_rescore(profile_id)
+            try:
+                subprocess.Popen(
+                    ["bash", "deploy/run_scoring_agent.sh"],
+                    cwd=_REPO_ROOT,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+        if changed:
+            def _push_changed(fingerprints: list[str]) -> None:
+                for fp in fingerprints:
+                    job = storage.get_job(fp)
+                    if job is not None:
+                        try:
+                            nocodb_board.push_job(job)
+                        except Exception:
+                            pass
+            threading.Thread(target=_push_changed, args=(changed,), daemon=True).start()
+        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+
     STEP_ORDER = ["basis", "skills", "zielrollen", "ort_umfang", "no_gos", "gewichte"]
 
     def _split(text: str) -> list[str]:
