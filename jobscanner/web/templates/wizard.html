@@ -60,7 +60,7 @@
   <button type="submit" class="btn btn-primary">{{ "Profil anlegen" if step == "gewichte" else "Weiter" }}</button>
 </form>
 
-{% if step == "skills" %}
+{% if step == "skills" and request.session.get("role") == "owner" %}
 <form method="post" action="/wizard/llm-refine" class="panel">
   <label for="freetext">Optional: Freitext/CV für LLM-Verfeinerung</label>
   <textarea id="freetext" name="freetext" rows="4"></textarea>

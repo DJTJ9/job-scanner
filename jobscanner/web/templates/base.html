@@ -11,7 +11,8 @@
 <body>
   <header class="topbar">
     <span class="brand">◈ JOB-SCANNER</span>
-    {% if request.session.get("authenticated") %}
+    {% if request.session.get("user_id") %}
+      <span class="link">{{ request.session.get("email") }}</span>
       <a class="link" href="/logout">Abmelden</a>
     {% endif %}
   </header>

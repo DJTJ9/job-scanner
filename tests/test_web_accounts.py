@@ -98,3 +98,28 @@ def test_owner_llm_route_not_forbidden(app):
     # Owner erhält KEIN 403 (Redirect 303 nach /wizard/skills ist ok).
     assert c.post("/wizard/llm-refine", data={"freetext": ""},
                   follow_redirects=False).status_code != 403
+
+
+def test_login_page_has_email_field_and_register_link(app):
+    c = TestClient(app)
+    page = c.get("/login").text
+    assert 'name="email"' in page
+    assert "/register" in page
+
+
+def test_member_dashboard_hides_owner_only_controls(app):
+    c = TestClient(app)
+    _register(c)
+    dash = _wizard_profile(c, "Mein-Profil")
+    assert "Lernen" not in c.get(dash).text  # owner-only Tab
+    # Member-Wizard-skills-Seite ohne LLM-Verfeinerungs-Form:
+    c.get("/wizard/new")
+    c.post("/wizard/basis", data={"name": "X", "level": "j", "experience_years": "0"})
+    assert "/wizard/llm-refine" not in c.get("/wizard/skills").text
+
+
+def test_owner_dashboard_shows_lernen_tab(app):
+    c = TestClient(app)
+    c.post("/login", data={"email": "owner@test.de", "password": "ownerpw"})
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    assert "Lernen" in c.get(f"/dashboard/{pid}").text

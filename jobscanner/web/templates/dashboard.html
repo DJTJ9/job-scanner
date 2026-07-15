@@ -6,7 +6,9 @@
 <nav class="tabs" data-toplevel-tabs>
   <button type="button" class="tab active" data-tab-target="kontakte">Kontakte</button>
   <button type="button" class="tab" data-tab-target="feintuning">Feintuning</button>
+  {% if request.session.get("role") == "owner" %}
   <button type="button" class="tab" data-tab-target="lernen">Lernen</button>
+  {% endif %}
 </nav>
 <div class="panel feintuning panel-hidden" data-tab-panel="feintuning">
   <h2>Feintuning</h2>
@@ -20,6 +22,7 @@
     <button type="submit" class="btn btn-primary">Speichern</button>
   </form>
 </div>
+{% if request.session.get("role") == "owner" %}
 <div class="panel panel-hidden" data-tab-panel="lernen"
      data-analysis-status="{{ analysis.status if analysis else '' }}">
   <h2>Lernen</h2>
@@ -83,6 +86,7 @@
     {% endfor %}
   {% endif %}
 </div>
+{% endif %}
 <div class="panel" data-tab-panel="kontakte">
   <h2>Kontakte</h2>
   <nav class="tabs">
