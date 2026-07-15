@@ -62,6 +62,18 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return JSONResponse({"error": "forbidden"}, status_code=403)
         return None
 
+    def _require_owned(request: Request, profile_id: int):
+        """(profile, None) wenn eingeloggt UND Profil dem User gehört; sonst (None, response).
+        Unbekanntes Profil → Redirect /; fremdes Profil → 404."""
+        if (redirect := require_user(request)) is not None:
+            return None, redirect
+        profile = storage.get_profile(profile_id)
+        if profile is None:
+            return None, RedirectResponse("/", status_code=303)
+        if profile.get("user_id") != request.session.get("user_id"):
+            return None, JSONResponse({"error": "not found"}, status_code=404)
+        return profile, None
+
     @app.get("/login")
     def login_form(request: Request):
         return templates.TemplateResponse(request, "login.html", {"error": None})
@@ -115,11 +127,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/dashboard/{profile_id}")
     def dashboard(request: Request, profile_id: int, tab: str = "aktiv"):
-        if (redirect := require_user(request)) is not None:
-            return redirect
-        profile = storage.get_profile(profile_id)
-        if profile is None:
-            return RedirectResponse("/", status_code=303)
+        profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
         if tab not in _DASHBOARD_TABS:
             tab = "aktiv"
         feedback = storage.get_feedback_map(profile_id)
@@ -149,8 +159,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/criteria")
     async def save_criteria_route(request: Request, profile_id: int):
-        if (redirect := require_user(request)) is not None:
-            return redirect
+        _profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
         form = await request.form()
         existing = storage.list_criteria(profile_id)
         updated = [
@@ -174,8 +185,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/feedback/{fingerprint}")
     async def feedback_route(request: Request, profile_id: int, fingerprint: str):
-        if (redirect := require_user(request)) is not None:
-            return redirect
+        _profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
         form = await request.form()
         vote = form.get("vote")
         if vote in ("up", "down"):
@@ -197,16 +209,18 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/analyze")
     def analyze_votes(request: Request, profile_id: int):
-        if (redirect := require_user(request)) is not None:
-            return redirect
+        _profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
         analysis_id = storage.create_analysis(profile_id)
         _launch_feedback_agent("analyze", analysis_id)
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
 
     @app.get("/dashboard/{profile_id}/analysis")
     def analysis_status(request: Request, profile_id: int):
-        if (redirect := require_user(request)) is not None:
-            return redirect
+        _profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
         analysis = storage.get_latest_analysis(profile_id)
         if analysis is None:
             return JSONResponse({"status": None})
@@ -215,16 +229,18 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/analysis/answers")
     async def save_answers(request: Request, profile_id: int):
-        if (redirect := require_user(request)) is not None:
-            return redirect
+        _profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
         body = await request.json()
         storage.save_analysis_answers(body["analysis_id"], body.get("answers", {}))
         return JSONResponse({"ok": True})
 
     @app.post("/dashboard/{profile_id}/finalize")
     def finalize_analysis(request: Request, profile_id: int):
-        if (redirect := require_user(request)) is not None:
-            return redirect
+        _profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
         analysis = storage.get_latest_analysis(profile_id)
         if analysis is not None:
             storage.set_analysis_status(analysis["id"], "synthesizing")
@@ -233,22 +249,25 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/confirm")
     def confirm_insight_route(request: Request, profile_id: int, insight_id: int):
-        if (redirect := require_user(request)) is not None:
-            return redirect
+        _profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
         storage.confirm_insight(insight_id)
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
 
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/reject")
     def reject_insight_route(request: Request, profile_id: int, insight_id: int):
-        if (redirect := require_user(request)) is not None:
-            return redirect
+        _profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
         storage.reject_insight(insight_id)
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
 
     @app.post("/dashboard/{profile_id}/apply")
     def apply_insights(request: Request, profile_id: int):
-        if (redirect := require_user(request)) is not None:
-            return redirect
+        _profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
         # Gewichts-Insights sind schon in criteria → deterministischer Rescore, sofort.
         changed = storage.rescore_profile(profile_id)
         # Freitext-Präferenzen → bestehende Jobs für LLM-Rescore enqueuen + Scoring-Agent starten.
@@ -355,7 +374,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             data.setdefault("experience_sources", [])
             data.setdefault("portfolio", [])
             name = data.pop("name", "") or f"Profil {len(storage.list_profiles()) + 1}"
-            pid = storage.create_profile(name, data, queries=None)
+            pid = storage.create_profile(name, data, queries=None,
+                                        user_id=request.session.get("user_id"))
             storage.save_criteria(pid, criteria)
             request.session.pop("wizard", None)
             return RedirectResponse(f"/dashboard/{pid}", status_code=303)

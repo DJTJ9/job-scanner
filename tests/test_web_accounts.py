@@ -56,3 +56,26 @@ def test_register_duplicate_email_rejected(app):
     resp = TestClient(app).post(
         "/register", data={"email": "stud@uni.de", "password": "x", "invite_code": "komm2026"})
     assert resp.status_code == 409
+
+
+def test_member_profile_isolated_from_other_member(app):
+    a = TestClient(app)
+    _register(a, email="a@uni.de", pw="pwa")
+    a_dash = _wizard_profile(a, "A-Profil")
+    a_pid = int(a_dash.rsplit("/", 1)[1])
+
+    b = TestClient(app)
+    _register(b, email="b@uni.de", pw="pwb")
+    # B sieht A's Profil nicht in der Liste …
+    assert "A-Profil" not in b.get("/").text
+    # … und kann es nicht per URL öffnen.
+    assert b.get(f"/dashboard/{a_pid}", follow_redirects=False).status_code == 404
+
+
+def test_member_sees_own_profile_and_ranking(app):
+    c = TestClient(app)
+    _register(c)
+    dash = _wizard_profile(c, "Mein-Profil")
+    resp = c.get(dash)
+    assert resp.status_code == 200
+    assert "Mein-Profil" in resp.text
