@@ -11,9 +11,10 @@ from jobscanner.web.app import create_app
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "geheim123")
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
+    monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     app = create_app(db_path=tmp_path / "jobs.db")
     c = TestClient(app)
-    c.post("/login", data={"password": "geheim123"})
+    c.post("/login", data={"email": "owner@test.de", "password": "geheim123"})
     return c
 
 

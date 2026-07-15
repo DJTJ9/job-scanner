@@ -1,4 +1,4 @@
-"""Tests für Login/Logout/Session-Guard."""
+"""Tests für Email/Passwort-Login, Logout und Session-Guard."""
 import pytest
 from fastapi.testclient import TestClient
 
@@ -9,6 +9,7 @@ from jobscanner.web.app import create_app
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "geheim123")
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
+    monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     app = create_app(db_path=tmp_path / "jobs.db")
     return TestClient(app)
 
@@ -20,21 +21,27 @@ def test_root_redirects_to_login_when_unauthenticated(client):
 
 
 def test_login_wrong_password_rejected(client):
-    resp = client.post("/login", data={"password": "falsch"})
+    resp = client.post("/login", data={"email": "owner@test.de", "password": "falsch"})
     assert resp.status_code == 401
-    assert "Falsches Passwort" in resp.text
+    assert "Falsche Zugangsdaten" in resp.text
 
 
-def test_login_correct_password_sets_session_and_redirects(client):
-    resp = client.post("/login", data={"password": "geheim123"}, follow_redirects=False)
+def test_login_correct_sets_session_and_redirects(client):
+    resp = client.post("/login", data={"email": "owner@test.de", "password": "geheim123"},
+                       follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/"
     resp2 = client.get("/", follow_redirects=False)
     assert resp2.status_code == 200
 
 
+def test_owner_seeded_with_owner_role(client):
+    from jobscanner import storage
+    assert storage.get_user_by_email("owner@test.de")["role"] == "owner"
+
+
 def test_logout_clears_session(client):
-    client.post("/login", data={"password": "geheim123"})
+    client.post("/login", data={"email": "owner@test.de", "password": "geheim123"})
     client.get("/logout")
     resp = client.get("/", follow_redirects=False)
     assert resp.status_code == 303

@@ -3,7 +3,6 @@ kein Modul-Level app-Objekt, sonst würde jeder Test-Import storage.init_db() ge
 echte data/jobs.db als Seiteneffekt auslösen."""
 from __future__ import annotations
 
-import hmac
 import subprocess
 import threading
 from pathlib import Path
@@ -41,6 +40,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     settings = config.load_web_settings()
     storage.init_db(db_path or _DEFAULT_DB)
     storage.migrate_yaml_profile()
+    if settings["owner_email"]:
+        storage.seed_owner(settings["owner_email"], settings["password"])
 
     app = FastAPI()
     app.add_middleware(SessionMiddleware, secret_key=settings["session_secret"])
@@ -48,9 +49,16 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     templates = Jinja2Templates(directory=_DIR / "templates")
     templates.env.globals["asset_version"] = _read_asset_version(_DIR)
 
-    def require_login(request: Request) -> RedirectResponse | None:
-        if not request.session.get("authenticated"):
+    def require_user(request: Request) -> RedirectResponse | None:
+        if request.session.get("user_id") is None:
             return RedirectResponse("/login", status_code=303)
+        return None
+
+    def require_owner(request: Request) -> RedirectResponse | JSONResponse | None:
+        if request.session.get("user_id") is None:
+            return RedirectResponse("/login", status_code=303)
+        if request.session.get("role") != "owner":
+            return JSONResponse({"error": "forbidden"}, status_code=403)
         return None
 
     @app.get("/login")
@@ -58,12 +66,15 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return templates.TemplateResponse(request, "login.html", {"error": None})
 
     @app.post("/login")
-    def login_submit(request: Request, password: str = Form(...)):
-        if hmac.compare_digest(password, settings["password"]):
-            request.session["authenticated"] = True
+    def login_submit(request: Request, email: str = Form(...), password: str = Form(...)):
+        user = storage.verify_password(email, password)
+        if user is not None:
+            request.session["user_id"] = user["id"]
+            request.session["email"] = user["email"]
+            request.session["role"] = user["role"]
             return RedirectResponse("/", status_code=303)
         return templates.TemplateResponse(
-            request, "login.html", {"error": "Falsches Passwort"}, status_code=401)
+            request, "login.html", {"error": "Falsche Zugangsdaten"}, status_code=401)
 
     @app.get("/logout")
     def logout(request: Request):
@@ -72,16 +83,17 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/")
     def profiles_view(request: Request):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
-        return templates.TemplateResponse(
-            request, "profiles.html", {"profiles": storage.list_profiles(active_only=True)})
+        return templates.TemplateResponse(request, "profiles.html", {
+            "profiles": storage.list_profiles(active_only=True,
+                                              user_id=request.session.get("user_id"))})
 
     _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet")
 
     @app.get("/dashboard/{profile_id}")
     def dashboard(request: Request, profile_id: int, tab: str = "aktiv"):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         profile = storage.get_profile(profile_id)
         if profile is None:
@@ -115,7 +127,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/criteria")
     async def save_criteria_route(request: Request, profile_id: int):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         form = await request.form()
         existing = storage.list_criteria(profile_id)
@@ -140,7 +152,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/feedback/{fingerprint}")
     async def feedback_route(request: Request, profile_id: int, fingerprint: str):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         form = await request.form()
         vote = form.get("vote")
@@ -163,7 +175,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/analyze")
     def analyze_votes(request: Request, profile_id: int):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         analysis_id = storage.create_analysis(profile_id)
         _launch_feedback_agent("analyze", analysis_id)
@@ -171,7 +183,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/dashboard/{profile_id}/analysis")
     def analysis_status(request: Request, profile_id: int):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         analysis = storage.get_latest_analysis(profile_id)
         if analysis is None:
@@ -181,7 +193,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/analysis/answers")
     async def save_answers(request: Request, profile_id: int):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         body = await request.json()
         storage.save_analysis_answers(body["analysis_id"], body.get("answers", {}))
@@ -189,7 +201,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/finalize")
     def finalize_analysis(request: Request, profile_id: int):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         analysis = storage.get_latest_analysis(profile_id)
         if analysis is not None:
@@ -199,21 +211,21 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/confirm")
     def confirm_insight_route(request: Request, profile_id: int, insight_id: int):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         storage.confirm_insight(insight_id)
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
 
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/reject")
     def reject_insight_route(request: Request, profile_id: int, insight_id: int):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         storage.reject_insight(insight_id)
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
 
     @app.post("/dashboard/{profile_id}/apply")
     def apply_insights(request: Request, profile_id: int):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         # Gewichts-Insights sind schon in criteria → deterministischer Rescore, sofort.
         changed = storage.rescore_profile(profile_id)
@@ -252,14 +264,14 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/wizard/new")
     def wizard_start(request: Request):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         request.session["wizard"] = {"data": {}, "suggestions": {}}
         return RedirectResponse(f"/wizard/{STEP_ORDER[0]}", status_code=303)
 
     @app.get("/wizard/{step}")
     def wizard_step_form(request: Request, step: str):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         if step not in STEP_ORDER:
             return RedirectResponse("/wizard/new", status_code=303)
@@ -272,7 +284,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/wizard/llm-refine")
     async def wizard_llm_refine(request: Request):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         form = await request.form()
         freetext = form.get("freetext", "")
@@ -287,7 +299,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/wizard/{step}")
     async def wizard_step_submit(request: Request, step: str):
-        if (redirect := require_login(request)) is not None:
+        if (redirect := require_user(request)) is not None:
             return redirect
         if step not in STEP_ORDER:
             return RedirectResponse("/wizard/new", status_code=303)
