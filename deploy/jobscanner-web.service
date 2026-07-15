@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 WorkingDirectory=/root/projekte/job-scanner
 EnvironmentFile=/root/projekte/telegram-bot-army/.env
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.nvm/versions/node/v24.16.0/bin
 ExecStart=/usr/bin/python3 -m uvicorn jobscanner.web.app:create_app --factory --host 127.0.0.1 --port 8010
 Restart=always
 RestartSec=5
