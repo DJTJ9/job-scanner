@@ -125,6 +125,14 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "profiles": profiles,
             "profile_exists": len(profiles) > 0})
 
+    @app.post("/profiles/{profile_id}/delete")
+    def delete_profile_route(request: Request, profile_id: int):
+        _profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
+        storage.delete_profile(profile_id)
+        return RedirectResponse("/", status_code=303)
+
     _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet")
 
     @app.get("/dashboard/{profile_id}")
@@ -334,6 +342,22 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         request.session["wizard"] = {"data": {}, "suggestions": {}}
         return RedirectResponse(f"/wizard/{STEP_ORDER[0]}", status_code=303)
 
+    @app.get("/wizard/edit/{profile_id}")
+    def wizard_edit(request: Request, profile_id: int):
+        profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
+        data = dict(profile["data"])
+        data["name"] = profile["name"]
+        weights = {c["key"]: c["weight"] for c in storage.list_criteria(profile_id)}
+        data["weights"] = weights
+        request.session["wizard"] = {
+            "data": data,
+            "suggestions": {"criteria_weights": weights},
+            "edit_id": profile_id,
+        }
+        return RedirectResponse(f"/wizard/{STEP_ORDER[0]}", status_code=303)
+
     @app.get("/wizard/{step}")
     def wizard_step_form(request: Request, step: str):
         if (redirect := require_user(request)) is not None:
@@ -426,10 +450,17 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             ]
             data.setdefault("experience_sources", [])
             data.setdefault("portfolio", [])
+            data.pop("weights", None)  # Prefill-Hilfsfeld, nicht persistieren
             name = data.pop("name", "") or f"Profil {len(storage.list_profiles()) + 1}"
-            pid = storage.create_profile(name, data, queries=None,
-                                        user_id=request.session.get("user_id"))
-            storage.save_criteria(pid, criteria)
+            edit_id = wizard.get("edit_id")
+            if edit_id is not None:
+                storage.update_profile(edit_id, name, data)
+                storage.save_criteria(edit_id, criteria)
+                pid = edit_id
+            else:
+                pid = storage.create_profile(name, data, queries=None,
+                                            user_id=request.session.get("user_id"))
+                storage.save_criteria(pid, criteria)
             if role != "owner":
                 storage.score_profile_deterministic(pid)
             request.session.pop("wizard", None)

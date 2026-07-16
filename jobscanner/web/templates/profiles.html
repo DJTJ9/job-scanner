@@ -20,7 +20,14 @@
     {% endif %}
   </div>
   {% for p in profiles %}
-    <p><a class="link" href="/dashboard/{{ p.id }}">{{ p.name }}</a>{% if p.is_default %} (Standard){% endif %}</p>
+    <p>
+      <a class="link" href="/dashboard/{{ p.id }}">{{ p.name }}</a>{% if p.is_default %} (Standard){% endif %}
+      <a class="link" href="/wizard/edit/{{ p.id }}">Bearbeiten</a>
+      <form method="post" action="/profiles/{{ p.id }}/delete" style="display:inline"
+            onsubmit="return confirm('Profil „{{ p.name }}“ wirklich löschen?');">
+        <button type="submit" class="link">Löschen</button>
+      </form>
+    </p>
   {% endfor %}
   <a class="btn btn-secondary" href="/wizard/new">+ Neues Profil</a>
 </div>
