@@ -83,3 +83,31 @@ def test_app_js_has_onboarding_toggle_snippet():
     assert 'data-onboarding-open' in js
     assert 'data-onboarding-close' in js
     assert 'panel-hidden' in js
+
+
+def test_bot_panel_has_portfolio_framing_and_tech_stack_chips(member_client):
+    resp = member_client.get("/")
+    assert "Portfolio-Projekt" in resp.text
+    for tech in ("Python", "FastAPI", "Jinja2", "SQLite", "Playwright", "Firecrawl",
+                 "Groq", "Claude Agents", "systemd", "NocoDB", "Caddy"):
+        assert f'<span class="chip">{tech}</span>' in resp.text
+
+
+def test_bot_panel_trigger_link_opens_lesson_panel(member_client):
+    resp = member_client.get("/")
+    assert 'data-onboarding-open="onboarding-lesson"' in resp.text
+    assert "Wie das genau funktioniert" in resp.text
+
+
+def test_lesson_panel_renders_hidden_with_full_tour(member_client):
+    resp = member_client.get("/")
+    assert 'id="onboarding-lesson" class="panel onboarding-panel panel-hidden"' in resp.text
+    for step in ("Ingestion", "Extraktion", "Storage", "Scoring", "Dashboard", "Feedback-Loop"):
+        assert step in resp.text
+    assert 'data-onboarding-close="onboarding-lesson"' in resp.text
+
+
+def test_lesson_panel_links_to_external_teach_lesson(member_client):
+    resp = member_client.get("/")
+    assert 'href="https://djtj9.github.io/teach-lessons/job-scanner/job-scanner-erklaert/lessons/job-scanner-erklaert.html"' in resp.text
+    assert 'target="_blank"' in resp.text
