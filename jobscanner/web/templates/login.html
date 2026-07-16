@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Login — Job-Scanner{% endblock %}
+{% block title %}Login — Bob der Job-Bot{% endblock %}
 {% block content %}
 <div class="panel panel-narrow">
-  <h1>◈ JOB-SCANNER</h1>
+  <div class="hero-landscape-band"><img class="bob-avatar" src="/static/img/bob/bob-pose-winken.png" alt="Bob"></div>
+  <h1>◈ BOB DER JOB-BOT</h1>
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
   <form method="post" action="/login">
     <label for="email">Email</label>
