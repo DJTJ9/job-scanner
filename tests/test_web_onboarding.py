@@ -63,3 +63,16 @@ def test_onboarding_panels_hidden_by_default_and_wizard_links_to_new(member_clie
     assert 'href="/wizard/new"' in resp.text
     assert 'data-onboarding-close="onboarding-bot"' in resp.text
     assert 'data-onboarding-close="onboarding-wizard"' in resp.text
+
+
+def test_onboarding_css_classes_present_and_reuse_theme():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    for cls in (".onboarding-hero", ".onboarding-header", ".onboarding-corner",
+                ".onboarding-icon-btn", ".onboarding-panel", ".onboarding-avatar-wrap"):
+        assert cls in css
+    assert "var(--signal)" in css.split(".onboarding-icon-btn")[1].split("}")[0]
+
+
+def test_onboarding_css_reuses_ping_keyframes_only():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert css.count("@keyframes") == 1   # nur ping-pulse — keine neue Animation
