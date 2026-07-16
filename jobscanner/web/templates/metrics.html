@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Metriken — Bob der Job-Bot{% endblock %}
 {% block content %}
-<h1>◈ JOB-SCANNER — Metriken <a class="link" href="/dashboard/{{ profile.id }}">◂ zurück</a></h1>
+<div class="hero-landscape-band"><img class="bob-avatar" src="/static/img/bob/bob-pose-daumen-hoch.png" alt="Bob"></div>
+<h1>◈ BOB DER JOB-BOT — Metriken <a class="link" href="/dashboard/{{ profile.id }}">◂ zurück</a></h1>
 <div class="panel">
   <div class="stat-grid">
     <div class="stat-tile">
@@ -36,9 +37,10 @@
 </div>
 <div class="panel">
   <h2>Funnel</h2>
+  {% set funnel_icons = {"Onboarding-Start": "marker-start", "Profil erstellt": "marker-profil", "Feedback gegeben": "marker-favorit"} %}
   {% for step in funnel_steps %}
     <div class="funnel-row">
-      <span class="funnel-label">{{ step.label }}</span>
+      <span class="funnel-label"><img class="funnel-icon" src="/static/img/bob/{{ funnel_icons.get(step.label, 'marker-ziel') }}.png" alt="">{{ step.label }}</span>
       <div class="funnel-track"><div class="funnel-fill" style="width: {{ step.pct }}%"></div></div>
       <span class="mono funnel-count">{{ step.count }}{% if step.drop is not none %} (-{{ step.drop }}%){% endif %}</span>
     </div>
