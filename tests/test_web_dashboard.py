@@ -275,7 +275,7 @@ def test_dashboard_shows_tab_navigation_with_counts(client):
     storage.upsert_job_score(pid, fp_nogo, 10, "", "No-Go", {})
     resp = client.get(f"/dashboard/{pid}")
     assert "Aktiv" in resp.text
-    assert "No-Go" in resp.text
+    assert "Aussortiert" in resp.text
     resp_nogo = client.get(f"/dashboard/{pid}", params={"tab": "no_go"})
     assert "Bereits bewertet" in resp_nogo.text
 
