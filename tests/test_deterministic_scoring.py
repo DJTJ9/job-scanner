@@ -75,3 +75,47 @@ def test_no_go_language_veto_uses_profile():
     veto = {n["key"]: n["veto"] for n in scoring.NO_GOS_CATALOG}["unpassende_sprache"]
     assert veto(_job(language="fr"), {"languages": ["de", "en"]}) is True
     assert veto(_job(language="de"), {"languages": ["de", "en"]}) is False
+
+
+def test_score_job_veto_returns_zero_no_go():
+    job = _job(title="Senior Developer")
+    score, breakdown, category, reason = scoring.score_job_deterministic(
+        job, [{"key": "remote", "label": "Remote", "weight": 5}],
+        active_no_gos=["senior_5j"], profile_data=_P)
+    assert score == 0
+    assert breakdown == {}
+    assert category == "No-Go"
+    assert reason == "Senior (5+ Jahre)"
+
+
+def test_score_job_weighted_sum_from_rules():
+    job = _job(remote_flag="remote", salary_text="")   # remote=10, gehalt_genannt=0
+    criteria = [{"key": "remote", "label": "Remote", "weight": 5},
+                {"key": "gehalt_genannt", "label": "Gehalt", "weight": 5}]
+    score, breakdown, category, reason = scoring.score_job_deterministic(
+        job, criteria, active_no_gos=[], profile_data=_P)
+    # (10*5 + 0*5) / (10*10) * 100 = 50
+    assert score == 50
+    assert breakdown["remote"]["punkte"] == 10
+    assert breakdown["gehalt_genannt"]["punkte"] == 0
+    assert category == "Vielleicht"
+
+
+def test_score_job_rule_none_excluded_from_breakdown():
+    job = _job(remote_flag="unknown")   # _r_remote → None
+    score, breakdown, category, reason = scoring.score_job_deterministic(
+        job, [{"key": "remote", "label": "Remote", "weight": 5},
+              {"key": "gehalt_genannt", "label": "Gehalt", "weight": 5}],
+        active_no_gos=[], profile_data=_P)
+    assert "remote" not in breakdown
+    assert "gehalt_genannt" in breakdown
+
+
+def test_score_job_inactive_no_go_key_ignored():
+    # senior_5j NICHT in active_no_gos → kein Veto trotz Senior-Titel
+    job = _job(title="Senior Developer", remote_flag="remote")
+    score, breakdown, category, reason = scoring.score_job_deterministic(
+        job, [{"key": "remote", "label": "Remote", "weight": 5}],
+        active_no_gos=["zeitarbeit"], profile_data=_P)
+    assert category != "No-Go"
+    assert score == 100

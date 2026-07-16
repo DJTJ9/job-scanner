@@ -332,6 +332,32 @@ NO_GOS_CATALOG = [
 ]
 
 
+def score_job_deterministic(job: Job, criteria: list[dict], active_no_gos: list[str],
+                            profile_data: dict) -> tuple[int | None, dict, str | None, str]:
+    """LLM-freier Score aus Katalog-Regeln. Erster aktiver Veto-Treffer → (0, {}, 'No-Go', label).
+    Sonst: breakdown wie beim LLM ({key: {punkte, grund}}) → gewichtete Summe wiederverwenden."""
+    active = set(active_no_gos)
+    for n in NO_GOS_CATALOG:
+        if n["key"] in active and n["veto"](job, profile_data):
+            return 0, {}, "No-Go", n["label"]
+    breakdown: dict = {}
+    for crit in criteria:
+        if crit["weight"] <= 0:
+            continue
+        rule = _WEIGHT_RULES.get(crit["key"])
+        if rule is None:
+            continue
+        res = rule(job, profile_data)
+        if res is None:
+            continue
+        punkte, grund = res
+        breakdown[crit["key"]] = {"punkte": punkte, "grund": grund}
+    score = compute_weighted_score(breakdown, criteria)
+    category = category_for_score(score) if score is not None else None
+    reason = top_reasons(breakdown, criteria) if breakdown else "nicht bewertbar"
+    return score, breakdown, category, reason
+
+
 def category_for_score(score: int) -> str:
     if score >= PASS_THRESHOLD:
         return "Pass"
