@@ -103,6 +103,13 @@ CREATE TABLE IF NOT EXISTS users (
     role TEXT NOT NULL DEFAULT 'member',
     created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY,
+    ts INTEGER NOT NULL,
+    user_id INTEGER REFERENCES users(id),
+    event_type TEXT NOT NULL,
+    meta_json TEXT
+);
 """
 
 _UPDATABLE = {
@@ -857,3 +864,65 @@ def score_profile_deterministic(profile_id: int) -> int:
         upsert_job_score(profile_id, job.fingerprint, score, reason, category, breakdown)
         count += 1
     return count
+
+
+def log_event(event_type: str, user_id: int | None = None, meta: dict | None = None) -> None:
+    conn = _require_conn()
+    conn.execute(
+        "INSERT INTO events (ts, user_id, event_type, meta_json) "
+        "VALUES (strftime('%s', 'now'), ?, ?, ?)",
+        (user_id, event_type, json.dumps(meta or {}, ensure_ascii=False)))
+    conn.commit()
+
+
+_FUNNEL_STEPS = ("onboarding_start", "profil_erstellt", "feedback_gegeben")
+
+
+def get_metrics_summary(days: int = 7) -> dict:
+    """Owner-Dashboard-Kennzahlen über die letzten `days` Tage: aktive Member (Rolle
+    'member' mit mindestens einem Event im Fenster), Onboarding-Completion (Profil
+    erstellt / Onboarding gestartet, im selben Fenster), Sessions heute (Pageviews
+    mit heutigem Datum) und rohe Funnel-Counts je Schritt."""
+    conn = _require_conn()
+    since = f"-{int(days)} days"
+    active_members = conn.execute(
+        """SELECT COUNT(DISTINCT events.user_id) AS n FROM events
+           JOIN users ON users.id = events.user_id
+           WHERE users.role = 'member' AND events.ts >= strftime('%s', 'now', ?)""",
+        (since,)).fetchone()["n"]
+    sessions_today = conn.execute(
+        """SELECT COUNT(*) AS n FROM events
+           WHERE event_type = 'pageview' AND date(ts, 'unixepoch') = date('now')""",
+    ).fetchone()["n"]
+    funnel_counts = {}
+    for step in _FUNNEL_STEPS:
+        row = conn.execute(
+            """SELECT COUNT(*) AS n FROM events
+               WHERE event_type = ? AND ts >= strftime('%s', 'now', ?)""",
+            (step, since)).fetchone()
+        funnel_counts[step] = row["n"]
+    onboarding_completion_rate = (
+        round(funnel_counts["profil_erstellt"] / funnel_counts["onboarding_start"] * 100)
+        if funnel_counts["onboarding_start"] else 0)
+    return {
+        "active_members": active_members,
+        "onboarding_completion_rate": onboarding_completion_rate,
+        "sessions_today": sessions_today,
+        "funnel_counts": funnel_counts,
+    }
+
+
+def get_daily_event_counts(days: int = 14) -> list[dict]:
+    """Event-Volumen pro Tag für den Ping-Verlauf, älteste zuerst, Lücken mit count=0
+    aufgefüllt (letzter Eintrag ist immer heute)."""
+    conn = _require_conn()
+    rows = conn.execute(
+        """SELECT date(ts, 'unixepoch') AS day, COUNT(*) AS n FROM events
+           WHERE ts >= strftime('%s', 'now', ?) GROUP BY day""",
+        (f"-{int(days) - 1} days",)).fetchall()
+    counts = {r["day"]: r["n"] for r in rows}
+    out = []
+    for i in range(days - 1, -1, -1):
+        day = conn.execute("SELECT date('now', ?) AS d", (f"-{i} days",)).fetchone()["d"]
+        out.append({"day": day, "count": counts.get(day, 0)})
+    return out
