@@ -121,6 +121,38 @@ def test_score_job_inactive_no_go_key_ignored():
     assert score == 100
 
 
+def test_domains_and_preset_catalogs_present():
+    assert len(scoring.DOMAINS_CATALOG) >= 20
+    assert all({"key", "label", "pattern"} <= set(d) for d in scoring.DOMAINS_CATALOG)
+    assert {"games", "sport", "fintech"} <= {d["key"] for d in scoring.DOMAINS_CATALOG}
+    assert len(scoring.SKILL_SUGGESTIONS) >= 25 and "Unity" in scoring.SKILL_SUGGESTIONS
+    assert len(scoring.ROLE_SUGGESTIONS) >= 20
+    assert scoring.CITY_SUGGESTIONS[0] == "Berlin" and "Remote" in scoring.CITY_SUGGESTIONS
+    assert "Vollzeit" in scoring.EMPLOYMENT_OPTIONS
+    assert {"code": "de", "label": "Deutsch"} in scoring.LANGUAGE_OPTIONS
+
+
+def test_r_domaene_personalized_by_profile_domains():
+    rule = _rule("domaene")
+    sport_job = _job(title="Sport Data Engineer", requirements=["Analytics"])
+    games_job = _job(title="Gameplay Programmer", requirements=["Unity"])
+    assert rule(sport_job, {"domains": []}) is None      # leer → nicht bewertbar
+    assert rule(games_job, {}) is None
+    assert rule(sport_job, {"domains": ["sport"]}) == (10, "Domäne passt")
+    assert rule(games_job, {"domains": ["sport"]}) == (0, "andere Domäne")
+    assert rule(games_job, {"domains": ["games", "sport"]})[0] == 10
+
+
+def test_r_standort_multi_city_and_legacy_fallback():
+    rule = _rule("standort")
+    job = _job(location="Hamburg, hybrid")
+    assert rule(job, {"cities": ["Berlin", "Hamburg"]}) == (10, "Standort passt")
+    assert rule(job, {"cities": ["Berlin", "München"]}) == (0, "anderer Ort")
+    assert rule(job, {"location": "hamburg"})[0] == 10   # Legacy-Fallback
+    assert rule(job, {}) is None
+    assert rule(_job(location=""), {"cities": ["Hamburg"]}) is None
+
+
 import pytest
 from jobscanner import storage
 

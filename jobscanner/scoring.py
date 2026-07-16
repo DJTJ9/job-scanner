@@ -61,7 +61,6 @@ def _parse_salary(text: str) -> int | None:
     return max(vals) if vals else None
 
 
-_DOMAIN_RE = re.compile(r"sport|edtech|serious game|simulation|\bxr\b|health|gesundheit", re.I)
 _TREND_TECH = {"rust", "ai", "llm", "kubernetes", "typescript", "go", "react", "kafka", "pytorch"}
 
 
@@ -113,10 +112,16 @@ def _r_gehalt_genannt(job, p):
 
 
 def _r_standort(job, p):
-    loc = (p.get("location") or "").strip().lower()
-    if not job.location or not loc:
+    if not job.location:
         return None
-    return (10, "Standort passt") if loc in job.location.lower() else (0, "anderer Ort")
+    cities = [c.strip().lower() for c in (p.get("cities") or []) if c.strip()]
+    if not cities:
+        legacy = (p.get("location") or "").strip().lower()
+        cities = [legacy] if legacy else []
+    if not cities:
+        return None
+    loc = job.location.lower()
+    return (10, "Standort passt") if any(c in loc for c in cities) else (0, "anderer Ort")
 
 
 def _r_sprache(job, p):
@@ -127,7 +132,12 @@ def _r_sprache(job, p):
 
 
 def _r_domaene(job, p):
-    return (10, "Domäne passt") if _DOMAIN_RE.search(_title_req(job)) else (0, "andere Domäne")
+    keys = set(p.get("domains", []))
+    patterns = [d["pattern"] for d in DOMAINS_CATALOG if d["key"] in keys]
+    if not patterns:
+        return None
+    rx = re.compile("|".join(patterns), re.I)
+    return (10, "Domäne passt") if rx.search(_title_req(job)) else (0, "andere Domäne")
 
 
 def _r_unbefristet(job, p):
@@ -216,6 +226,61 @@ def _r_international(job, p):
     return (8, "international") if re.search(
         r"international|englischsprachig|english-speaking", _title_req(job)) else (4, "kein Signal")
 
+
+SKILL_SUGGESTIONS = [
+    "C++", "C#", "Unity", "Unreal", "Godot", "Gameplay", "Rendering/Graphics",
+    "Shader/HLSL", "Physics", "Multiplayer/Netcode", "AI/NPC", "Vulkan", "DirectX",
+    "Tools Programming", "ECS",
+    "Python", "TypeScript", "React", "Node.js", "Go", "Rust", "Java", "Kotlin",
+    "SQL", "Git", "Docker", "Kubernetes", "CI/CD", "AWS", "REST",
+]
+
+ROLE_SUGGESTIONS = [
+    "Gameplay Programmer", "Engine Programmer", "Graphics Programmer",
+    "Tools Programmer", "AI Programmer", "Network Programmer", "Technical Artist",
+    "Technical Game Designer", "Game Designer", "Junior Game Programmer",
+    "Software Engineer", "Backend Engineer", "Frontend Engineer", "Full-Stack Engineer",
+    "DevOps Engineer", "Mobile Developer", "Data Engineer", "ML Engineer",
+    "QA Engineer", "SRE", "Junior Developer", "Werkstudent Software-Development",
+]
+
+DOMAINS_CATALOG = [
+    {"key": "games", "label": "Games allgemein", "pattern": r"game[s]?|spiele|gaming"},
+    {"key": "serious_games", "label": "Serious Games", "pattern": r"serious game"},
+    {"key": "mobile_games", "label": "Mobile Games", "pattern": r"mobile game"},
+    {"key": "aaa_konsole", "label": "AAA/Konsole", "pattern": r"\baaa\b|konsole|console|playstation|xbox"},
+    {"key": "indie", "label": "Indie", "pattern": r"\bindie\b"},
+    {"key": "xr", "label": "XR/AR/VR", "pattern": r"\bxr\b|\bar\b|\bvr\b|augmented|virtual reality"},
+    {"key": "film_vfx", "label": "Film/VFX/Animation", "pattern": r"vfx|animation|\bfilm\b"},
+    {"key": "igaming", "label": "iGaming/Glücksspiel", "pattern": r"igaming|glücksspiel|casino|betting|\bwett"},
+    {"key": "sport", "label": "Sport", "pattern": r"\bsport\b"},
+    {"key": "edtech", "label": "EdTech/E-Learning", "pattern": r"edtech|e-?learning|bildung"},
+    {"key": "simulation", "label": "Simulation", "pattern": r"simulation|simulator"},
+    {"key": "health", "label": "Health/MedTech", "pattern": r"health|gesundheit|medtech|medizin"},
+    {"key": "automotive", "label": "Automotive", "pattern": r"automotive|automobil|fahrzeug"},
+    {"key": "robotik_iot", "label": "Robotik/IoT", "pattern": r"robot|\biot\b|embedded"},
+    {"key": "fintech", "label": "Fintech", "pattern": r"fintech|banking|finanz"},
+    {"key": "ecommerce", "label": "E-Commerce", "pattern": r"e-?commerce|online-?shop"},
+    {"key": "saas", "label": "SaaS/B2B", "pattern": r"\bsaas\b|\bb2b\b"},
+    {"key": "ki_ml", "label": "KI/Machine Learning", "pattern": r"\bki\b|\bai\b|machine learning|\bml\b|künstliche intelligenz"},
+    {"key": "cybersecurity", "label": "Cybersecurity", "pattern": r"cyber|security|it-sicherheit"},
+    {"key": "govtech", "label": "GovTech", "pattern": r"govtech|öffentlicher dienst|behörde|verwaltung"},
+    {"key": "logistik", "label": "Logistik", "pattern": r"logistik|logistics|supply chain"},
+]
+
+CITY_SUGGESTIONS = ["Berlin", "Hamburg", "München", "Köln", "Frankfurt",
+                    "Stuttgart", "Düsseldorf", "Leipzig", "Remote"]
+
+EMPLOYMENT_OPTIONS = ["Vollzeit", "Teilzeit", "Werkstudent", "Praktikum",
+                      "Freelance/Werkvertrag", "Ausbildung", "Duales Studium", "Minijob"]
+
+LANGUAGE_OPTIONS = [
+    {"code": "de", "label": "Deutsch"}, {"code": "en", "label": "Englisch"},
+    {"code": "fr", "label": "Französisch"}, {"code": "es", "label": "Spanisch"},
+    {"code": "it", "label": "Italienisch"}, {"code": "nl", "label": "Niederländisch"},
+    {"code": "pl", "label": "Polnisch"}, {"code": "pt", "label": "Portugiesisch"},
+    {"code": "ru", "label": "Russisch"}, {"code": "tr", "label": "Türkisch"},
+]
 
 WEIGHTS_CATALOG = [
     {"key": "remote", "label": "Remote möglich", "default_weight": 4, "rule": _r_remote},
