@@ -119,9 +119,11 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def profiles_view(request: Request):
         if (redirect := require_user(request)) is not None:
             return redirect
+        profiles = storage.list_profiles(active_only=True,
+                                          user_id=request.session.get("user_id"))
         return templates.TemplateResponse(request, "profiles.html", {
-            "profiles": storage.list_profiles(active_only=True,
-                                              user_id=request.session.get("user_id"))})
+            "profiles": profiles,
+            "profile_exists": len(profiles) > 0})
 
     _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet")
 

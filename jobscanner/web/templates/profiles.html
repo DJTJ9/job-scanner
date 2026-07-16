@@ -2,7 +2,7 @@
 {% block title %}Profile — Job-Scanner{% endblock %}
 {% block content %}
 <h1>◈ JOB-SCANNER</h1>
-<div class="panel">
+<div class="panel" data-profile-exists="{{ profile_exists|lower }}">
   <h2>Profile</h2>
   {% for p in profiles %}
     <p><a class="link" href="/dashboard/{{ p.id }}">{{ p.name }}</a>{% if p.is_default %} (Standard){% endif %}</p>
