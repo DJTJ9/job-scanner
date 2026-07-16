@@ -811,3 +811,27 @@ def rescore_profile(profile_id: int) -> list[str]:
             changed.append(fp)
     conn.commit()
     return changed
+
+
+def score_profile_deterministic(profile_id: int) -> int:
+    """LLM-freies Scoring eines Member-Profils über den kompletten extrahierten Job-Pool:
+    wendet den Weights-/No-Go-Katalog (scoring.score_job_deterministic) an und schreibt je Job
+    einen job_scores-Eintrag. Gibt die Anzahl bewerteter Jobs zurück. Kein jobs-Tabellen-Update
+    (Member-Profile sind nie is_default) und kein LLM-Aufruf."""
+    conn = _require_conn()
+    profile = get_profile(profile_id)
+    if profile is None:
+        return 0
+    profile_data = profile["data"]
+    active_no_gos = profile_data.get("no_gos", [])
+    criteria = list_criteria(profile_id)
+    rows = conn.execute(
+        "SELECT * FROM jobs WHERE extraction_status = 'extracted'").fetchall()
+    count = 0
+    for row in rows:
+        job = _row_to_job(row)
+        score, breakdown, category, reason = scoring.score_job_deterministic(
+            job, criteria, active_no_gos, profile_data)
+        upsert_job_score(profile_id, job.fingerprint, score, reason, category, breakdown)
+        count += 1
+    return count

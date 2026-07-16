@@ -119,3 +119,54 @@ def test_score_job_inactive_no_go_key_ignored():
         active_no_gos=["zeitarbeit"], profile_data=_P)
     assert category != "No-Go"
     assert score == 100
+
+
+import pytest
+from jobscanner import storage
+
+
+@pytest.fixture
+def db(tmp_path):
+    storage.init_db(tmp_path / "jobs.db")
+    yield
+    storage.close()
+
+
+def _extracted(**kw):
+    """upsert_job setzt extraction_status default 'extracted'."""
+    return storage.upsert_job(_job(**kw))
+
+
+def test_score_profile_scores_whole_pool_without_llm(db):
+    fp1 = _extracted(title="Junior Unity Developer", company="A GmbH", remote_flag="remote")
+    fp2 = _extracted(title="Senior Architect", company="B GmbH", remote_flag="onsite",
+                     requirements=["5 Jahre Erfahrung"])
+    pid = storage.create_profile(
+        "Member", {"skills": ["Unity"], "languages": ["de"], "location": "Hamburg",
+                   "no_gos": ["senior_5j"]})
+    storage.save_criteria(pid, [
+        {"key": "remote", "label": "Remote", "weight": 5, "sort": 0},
+        {"key": "junior_level", "label": "Junior", "weight": 5, "sort": 1},
+    ])
+    n = storage.score_profile_deterministic(pid)
+    assert n == 2
+    s1 = storage.get_job_score(pid, fp1)
+    assert s1["score"] > 0 and s1["category"] != "No-Go"
+    s2 = storage.get_job_score(pid, fp2)
+    assert s2["score"] == 0 and s2["category"] == "No-Go"
+
+
+def test_score_profile_recompute_on_weight_change_without_prior_breakdown(db):
+    fp = _extracted(title="Junior Unity Developer", company="A GmbH", remote_flag="hybrid")
+    pid = storage.create_profile("Member", {"skills": ["Unity"], "languages": ["de"], "no_gos": []})
+    storage.save_criteria(pid, [{"key": "remote", "label": "Remote", "weight": 5, "sort": 0}])
+    storage.score_profile_deterministic(pid)
+    first = storage.get_job_score(pid, fp)["score"]        # remote=hybrid → 6 → 60
+    # Gewicht ändern + neu bewerten (Feintuning-Analog, KEIN vorhandenes LLM-breakdown nötig)
+    storage.save_criteria(pid, [
+        {"key": "remote", "label": "Remote", "weight": 5, "sort": 0},
+        {"key": "junior_level", "label": "Junior", "weight": 5, "sort": 1},
+    ])
+    storage.score_profile_deterministic(pid)
+    second = storage.get_job_score(pid, fp)["score"]       # +junior=10 → (6*5+10*5)/100*100=80
+    assert first == 60 and second == 80
