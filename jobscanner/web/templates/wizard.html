@@ -7,7 +7,7 @@
     {% set idx = loop.index0 %}
     {% set current_idx = step_order.index(step) %}
     <span class="mark {{ 'active' if s == step else ('done' if idx < current_idx else '') }}">
-      {{ idx * 5 }}m {{ '●' if s == step else ('✓' if idx < current_idx else '○') }} {{ s | capitalize }}
+      {{ '●' if s == step else ('✓' if idx < current_idx else '○') }} {{ step_labels.get(s, s) }}
     </span>
   {% endfor %}
 </div>
@@ -29,6 +29,11 @@
         <label class="chip"><input type="checkbox" name="suggested_skills" value="{{ s }}" checked>{{ s }}</label>
       {% endfor %}
     {% endif %}
+    <p class="job-meta">Vorschläge:</p>
+    {% for s in skill_suggestions %}
+      <label class="chip"><input type="checkbox" name="suggested_skills" value="{{ s }}"
+        {{ 'checked' if s in data.get('skills', []) else '' }}>{{ s }}</label>
+    {% endfor %}
   {% elif step == "zielrollen" %}
     <label for="target_roles">Zielrollen (kommagetrennt)</label>
     <input type="text" id="target_roles" name="target_roles" value="{{ data.get('target_roles', []) | join(', ') }}">
@@ -37,13 +42,35 @@
         <label class="chip"><input type="checkbox" name="suggested_roles" value="{{ r }}" checked>{{ r }}</label>
       {% endfor %}
     {% endif %}
+    <p class="job-meta">Vorschläge:</p>
+    {% for r in role_suggestions %}
+      <label class="chip"><input type="checkbox" name="suggested_roles" value="{{ r }}"
+        {{ 'checked' if r in data.get('target_roles', []) else '' }}>{{ r }}</label>
+    {% endfor %}
+  {% elif step == "domaenen" %}
+    <p class="job-meta">In welchen Branchen suchst du?</p>
+    {% for d in domains_catalog %}
+      <label class="chip"><input type="checkbox" name="domains" value="{{ d.key }}"
+        {{ 'checked' if d.key in data.get('domains', []) else '' }}>{{ d.label }}</label>
+    {% endfor %}
   {% elif step == "ort_umfang" %}
-    <label for="location">Ort</label>
-    <input type="text" id="location" name="location" value="{{ data.get('location', '') }}">
-    <label for="employment">Anstellungsart/Umfang</label>
-    <input type="text" id="employment" name="employment" value="{{ data.get('employment', '') }}">
-    <label for="languages">Sprachen (kommagetrennt)</label>
-    <input type="text" id="languages" name="languages" value="{{ data.get('languages', ['de']) | join(', ') }}">
+    <label for="cities">Stadt/Städte (kommagetrennt)</label>
+    <input type="text" id="cities" name="cities" value="{{ data.get('cities', []) | join(', ') }}">
+    {% for c in city_suggestions %}
+      <label class="chip"><input type="checkbox" name="suggested_cities" value="{{ c }}"
+        {{ 'checked' if c in data.get('cities', []) else '' }}>{{ c }}</label>
+    {% endfor %}
+    <label>Anstellungsart/Umfang</label>
+    {% for e in employment_options %}
+      <label class="chip"><input type="checkbox" name="employment_types" value="{{ e }}"
+        {{ 'checked' if e in data.get('employment_types', []) else '' }}>{{ e }}</label>
+    {% endfor %}
+    <label>Sprachen</label>
+    {% for l in language_options %}
+      <label class="chip"><input type="checkbox" name="languages" value="{{ l.code }}"
+        {{ 'checked' if l.code in data.get('languages', ['de', 'en']) else '' }}>{{ l.label }}</label>
+    {% endfor %}
+    <input type="text" name="languages_free" placeholder="weitere Sprachen (kommagetrennt)">
   {% elif step == "no_gos" %}
     {% if role == "owner" %}
       <label for="no_gos">No-Gos (kommagetrennt)</label>

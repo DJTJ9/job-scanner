@@ -104,6 +104,22 @@ def test_wizard_domaenen_and_ort_presets_stored(client):
     assert d["target_roles"] == ["Gameplay Programmer"]
 
 
+def test_wizard_renders_labels_and_suggestion_chips(client):
+    client.get("/wizard/new")
+    basis = client.get("/wizard/basis").text
+    assert "Basics" in basis and "Domänen" in basis and "Ort und Umfang" in basis and "No-Gos" in basis
+    assert "0m" not in basis and "5m" not in basis   # Zeitangaben entfernt
+    assert 'name="suggested_skills" value="Unity"' in client.get("/wizard/skills").text
+    assert 'name="suggested_roles" value="Gameplay Programmer"' in client.get("/wizard/zielrollen").text
+    dom = client.get("/wizard/domaenen").text
+    assert 'name="domains" value="games"' in dom and 'name="domains" value="sport"' in dom
+    ort = client.get("/wizard/ort_umfang").text
+    assert 'name="suggested_cities" value="Hamburg"' in ort
+    assert 'name="employment_types" value="Vollzeit"' in ort
+    assert 'name="languages" value="de"' in ort and "Deutsch" in ort
+    assert ort.count("checked") >= 2   # de + en vorausgewählt
+
+
 def test_wizard_requires_login(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "x")
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "y")
