@@ -312,7 +312,12 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             threading.Thread(target=_push_changed, args=(changed,), daemon=True).start()
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
 
-    STEP_ORDER = ["basis", "skills", "zielrollen", "ort_umfang", "no_gos", "gewichte"]
+    STEP_ORDER = ["basis", "skills", "zielrollen", "domaenen", "ort_umfang", "no_gos", "gewichte"]
+    STEP_LABELS = {
+        "basis": "Basics", "skills": "Skills", "zielrollen": "Zielrollen",
+        "domaenen": "Domänen", "ort_umfang": "Ort und Umfang",
+        "no_gos": "No-Gos", "gewichte": "Gewichte",
+    }
 
     def _split(text: str) -> list[str]:
         return [t.strip() for t in text.split(",") if t.strip()]
@@ -341,6 +346,13 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "weights_catalog": scoring.WEIGHTS_CATALOG,
             "no_gos_catalog": scoring.NO_GOS_CATALOG,
             "role": request.session.get("role"),
+            "step_labels": STEP_LABELS,
+            "skill_suggestions": scoring.SKILL_SUGGESTIONS,
+            "role_suggestions": scoring.ROLE_SUGGESTIONS,
+            "domains_catalog": scoring.DOMAINS_CATALOG,
+            "city_suggestions": scoring.CITY_SUGGESTIONS,
+            "employment_options": scoring.EMPLOYMENT_OPTIONS,
+            "language_options": scoring.LANGUAGE_OPTIONS,
         })
 
     @app.post("/wizard/llm-refine")
@@ -381,10 +393,17 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             roles = set(_split(form.get("target_roles", "")))
             roles.update(form.getlist("suggested_roles"))
             data["target_roles"] = sorted(roles)
+        elif step == "domaenen":
+            valid = {d["key"] for d in scoring.DOMAINS_CATALOG}
+            data["domains"] = [k for k in form.getlist("domains") if k in valid]
         elif step == "ort_umfang":
-            data["location"] = form.get("location", "").strip()
-            data["employment"] = form.get("employment", "").strip()
-            data["languages"] = _split(form.get("languages", "de"))
+            cities = set(_split(form.get("cities", "")))
+            cities.update(form.getlist("suggested_cities"))
+            data["cities"] = sorted(cities)
+            data["employment_types"] = form.getlist("employment_types")
+            langs = set(form.getlist("languages"))
+            langs.update(_split(form.get("languages_free", "")))
+            data["languages"] = sorted(langs)
         elif step == "no_gos":
             if request.session.get("role") == "owner":
                 data["no_gos"] = _split(form.get("no_gos", ""))

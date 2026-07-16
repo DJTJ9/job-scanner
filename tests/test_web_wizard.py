@@ -80,6 +80,30 @@ def test_wizard_step_invalid_redirects_to_new(client):
     assert resp.headers["location"] == "/wizard/new"
 
 
+def test_wizard_domaenen_and_ort_presets_stored(client):
+    client.get("/wizard/new")
+    client.post("/wizard/basis", data={"name": "PresetProfil", "level": "junior",
+                                       "experience_years": "0"})
+    client.post("/wizard/skills", data={"skills": "Python", "suggested_skills": ["Unity", "C#"]})
+    client.post("/wizard/zielrollen", data={"target_roles": "", "suggested_roles": ["Gameplay Programmer"]})
+    client.post("/wizard/domaenen", data={"domains": ["games", "sport", "bogus"]})
+    client.post("/wizard/ort_umfang", data={
+        "cities": "Hannover", "suggested_cities": ["Hamburg", "Berlin"],
+        "employment_types": ["Vollzeit", "Werkstudent"],
+        "languages": ["de", "en"], "languages_free": "Dänisch"})
+    client.post("/wizard/no_gos", data={"no_gos": ""})
+    resp = client.post("/wizard/gewichte", data={}, follow_redirects=False)
+    assert resp.status_code == 303
+
+    d = storage.get_profile_by_name("PresetProfil")["data"]
+    assert d["domains"] == ["games", "sport"]                 # "bogus" gefiltert
+    assert set(d["cities"]) == {"Hannover", "Hamburg", "Berlin"}
+    assert d["employment_types"] == ["Vollzeit", "Werkstudent"]
+    assert set(d["languages"]) == {"de", "en", "Dänisch"}
+    assert set(d["skills"]) == {"Python", "Unity", "C#"}
+    assert d["target_roles"] == ["Gameplay Programmer"]
+
+
 def test_wizard_requires_login(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "x")
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "y")
