@@ -433,6 +433,28 @@ def create_profile(name: str, data: dict, queries: dict | None = None,
     return cur.lastrowid
 
 
+def delete_profile(profile_id: int) -> None:
+    """Löscht Profil + alle abhängigen Zeilen (SQLite-FKs sind aus, daher manuell)."""
+    conn = _require_conn()
+    with conn:
+        conn.execute("DELETE FROM insights WHERE profile_id = ?", (profile_id,))
+        conn.execute("DELETE FROM feedback_analysis WHERE profile_id = ?", (profile_id,))
+        conn.execute("DELETE FROM job_scores WHERE profile_id = ?", (profile_id,))
+        conn.execute("DELETE FROM feedback WHERE profile_id = ?", (profile_id,))
+        conn.execute("DELETE FROM criteria WHERE profile_id = ?", (profile_id,))
+        conn.execute("DELETE FROM profiles WHERE id = ?", (profile_id,))
+
+
+def update_profile(profile_id: int, name: str, data: dict) -> None:
+    """Überschreibt Name + data_json eines bestehenden Profils (Wizard-Edit)."""
+    conn = _require_conn()
+    with conn:
+        conn.execute(
+            "UPDATE profiles SET name = ?, data_json = ? WHERE id = ?",
+            (name, json.dumps(data, ensure_ascii=False), profile_id),
+        )
+
+
 def get_profile(profile_id: int) -> dict | None:
     conn = _require_conn()
     row = conn.execute("SELECT * FROM profiles WHERE id = ?", (profile_id,)).fetchone()

@@ -132,3 +132,29 @@ def test_migrate_yaml_profile_is_idempotent():
     assert len(storage.list_profiles()) == 1
     # zweiter Lauf überschreibt manuell geänderte Gewichte NICHT
     assert storage.list_criteria(pid1)[0]["weight"] == 0
+
+
+def test_delete_profile_removes_profile_and_dependents():
+    pid = storage.create_profile("Weg", {"skills": ["python"]})
+    storage.save_criteria(pid, [{"key": "skills", "label": "Skills", "weight": 3, "sort": 0}])
+    storage.add_feedback(pid, "fp1", "up")
+    storage.delete_profile(pid)
+    assert storage.get_profile(pid) is None
+    assert storage.list_criteria(pid) == []
+    assert storage.list_feedback(pid) == []
+
+
+def test_delete_profile_leaves_other_profiles():
+    keep = storage.create_profile("Bleibt", {})
+    drop = storage.create_profile("Weg", {})
+    storage.delete_profile(drop)
+    assert storage.get_profile(keep) is not None
+    assert storage.get_profile(drop) is None
+
+
+def test_update_profile_overwrites_name_and_data():
+    pid = storage.create_profile("Alt", {"skills": ["python"]})
+    storage.update_profile(pid, "Neu", {"skills": ["rust"], "level": "senior"})
+    p = storage.get_profile(pid)
+    assert p["name"] == "Neu"
+    assert p["data"] == {"skills": ["rust"], "level": "senior"}
