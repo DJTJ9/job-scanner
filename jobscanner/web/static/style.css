@@ -1,11 +1,12 @@
-/* Echolot-Theme */
+/* Bob der Job-Bot Theme */
 :root {
-  --tiefe: #0B1D26;
-  --wasser: #143240;
-  --gischt: #E9F4F4;
-  --signal: #FFB454;
-  --beute: #53DDA8;
-  --veto: #F26D6D;
+  --tiefe: #0A1628;
+  --wasser: #142844;
+  --gischt: #EAF2FB;
+  --signal: #F5A623;
+  --beute: #22D3A8;
+  --veto: #F0665C;
+  --bob-lila: #9B6BF2;
 }
 * { box-sizing: border-box; }
 body {
@@ -147,3 +148,35 @@ input[type="text"], input[type="password"], input[type="number"], textarea, sele
 .drawer-close { align-self: flex-end; }
 .drawer-item { display: block; width: 100%; text-align: left; background: transparent; border: none; color: var(--gischt); font-family: "IBM Plex Sans", sans-serif; font-size: 1rem; padding: 0.6rem 0.5rem; border-radius: 4px; text-decoration: none; cursor: pointer; }
 .drawer-item:hover { background: var(--tiefe); }
+
+.hero-landscape {
+  position: relative;
+  background: url("/static/img/bob/hero-landscape-full.png") center / cover no-repeat;
+  border-radius: 8px;
+  padding: 2rem 1.5rem;
+  margin-bottom: 1.5rem;
+  min-height: 320px;
+}
+.hero-landscape-band {
+  background: url("/static/img/bob/hero-landscape-band.png") center / cover no-repeat;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  min-height: 90px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.bob-avatar { height: 64px; width: auto; display: block; }
+.onboarding-avatar-wrap .bob-avatar { height: 72px; }
+
+.path-progress { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; align-items: flex-end; }
+.path-progress .path-step {
+  display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; opacity: 0.5;
+}
+.path-progress .path-step.active { opacity: 1; color: var(--signal); }
+.path-progress .path-step.done { opacity: 0.8; color: var(--beute); }
+.path-progress .path-icon { width: 26px; height: 26px; }
+
+.funnel-icon { width: 18px; height: 18px; margin-right: 0.35rem; vertical-align: middle; }
