@@ -45,6 +45,14 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         storage.seed_owner(settings["owner_email"], settings["password"])
 
     app = FastAPI()
+
+    @app.middleware("http")
+    async def log_pageview(request: Request, call_next):
+        if not request.url.path.startswith("/static/"):
+            storage.log_event("pageview", user_id=request.session.get("user_id"),
+                              meta={"path": request.url.path})
+        return await call_next(request)
+
     app.add_middleware(SessionMiddleware, secret_key=settings["session_secret"])
     app.mount("/static", StaticFiles(directory=_DIR / "static"), name="static")
     templates = Jinja2Templates(directory=_DIR / "templates")
