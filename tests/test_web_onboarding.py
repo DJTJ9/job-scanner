@@ -118,3 +118,9 @@ def test_bot_panel_last_paragraph_has_no_employer_address(member_client):
     assert "Für dich heißt das: weniger Zeit mit manuellem Suchen, mehr passende Treffer." in resp.text
     assert "Bewerber" not in resp.text
     assert "selbst gerade" not in resp.text
+
+
+def test_lesson_panel_heading_has_der(member_client):
+    resp = member_client.get("/")
+    assert "Wie der Job-Scanner funktioniert" in resp.text
+    assert "<h2>Wie Job-Scanner funktioniert</h2>" not in resp.text
