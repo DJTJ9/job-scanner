@@ -45,17 +45,35 @@
     <label for="languages">Sprachen (kommagetrennt)</label>
     <input type="text" id="languages" name="languages" value="{{ data.get('languages', ['de']) | join(', ') }}">
   {% elif step == "no_gos" %}
-    <label for="no_gos">No-Gos (kommagetrennt)</label>
-    <input type="text" id="no_gos" name="no_gos" value="{{ data.get('no_gos', []) | join(', ') }}">
+    {% if role == "owner" %}
+      <label for="no_gos">No-Gos (kommagetrennt)</label>
+      <input type="text" id="no_gos" name="no_gos" value="{{ data.get('no_gos', []) | join(', ') }}">
+    {% else %}
+      <p class="job-meta">Wähle aus, was für dich nicht in Frage kommt:</p>
+      {% for n in no_gos_catalog %}
+        <label class="chip"><input type="checkbox" name="no_gos" value="{{ n.key }}"
+          {{ 'checked' if n.key in data.get('no_gos', []) else '' }}>{{ n.label }}</label>
+      {% endfor %}
+    {% endif %}
   {% elif step == "gewichte" %}
-    {% for c in default_criteria %}
-      {% set suggested = suggestions.get("criteria_weights", {}).get(c.key) %}
-      <div class="criterion">
-        <label for="weight_{{ c.key }}">{{ c.label }}</label>
-        <input type="range" id="weight_{{ c.key }}" name="weight_{{ c.key }}" min="0" max="5"
-               value="{{ suggested if suggested is not none else c.weight }}">
-      </div>
-    {% endfor %}
+    {% if role == "owner" %}
+      {% for c in default_criteria %}
+        {% set suggested = suggestions.get("criteria_weights", {}).get(c.key) %}
+        <div class="criterion">
+          <label for="weight_{{ c.key }}">{{ c.label }}</label>
+          <input type="range" id="weight_{{ c.key }}" name="weight_{{ c.key }}" min="0" max="5"
+                 value="{{ suggested if suggested is not none else c.weight }}">
+        </div>
+      {% endfor %}
+    {% else %}
+      {% for w in weights_catalog %}
+        <div class="criterion">
+          <label for="weight_{{ w.key }}">{{ w.label }}</label>
+          <input type="range" id="weight_{{ w.key }}" name="weight_{{ w.key }}" min="0" max="5"
+                 value="{{ data.get('weights', {}).get(w.key, w.default_weight) }}">
+        </div>
+      {% endfor %}
+    {% endif %}
   {% endif %}
   <button type="submit" class="btn btn-primary">{{ "Profil anlegen" if step == "gewichte" else "Weiter" }}</button>
 </form>

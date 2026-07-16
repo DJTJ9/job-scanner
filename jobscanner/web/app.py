@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from jobscanner import config, nocodb_board, storage
+from jobscanner import config, nocodb_board, scoring, storage
 from jobscanner.web import llm_refine
 
 _DIR = Path(__file__).parent
@@ -170,17 +170,20 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             for c in existing
         ]
         storage.save_criteria(profile_id, updated)
-        changed = storage.rescore_profile(profile_id)
-        if changed:
-            def _push_changed(fingerprints: list[str]) -> None:
-                for fp in fingerprints:
-                    job = storage.get_job(fp)
-                    if job is not None:
-                        try:
-                            nocodb_board.push_job(job)
-                        except Exception:
-                            pass
-            threading.Thread(target=_push_changed, args=(changed,), daemon=True).start()
+        if request.session.get("role") == "owner":
+            changed = storage.rescore_profile(profile_id)
+            if changed:
+                def _push_changed(fingerprints: list[str]) -> None:
+                    for fp in fingerprints:
+                        job = storage.get_job(fp)
+                        if job is not None:
+                            try:
+                                nocodb_board.push_job(job)
+                            except Exception:
+                                pass
+                threading.Thread(target=_push_changed, args=(changed,), daemon=True).start()
+        else:
+            storage.score_profile_deterministic(profile_id)
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
 
     @app.post("/dashboard/{profile_id}/feedback/{fingerprint}")
@@ -335,6 +338,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "step": step, "step_order": STEP_ORDER,
             "data": wizard["data"], "suggestions": wizard.get("suggestions", {}),
             "default_criteria": storage.DEFAULT_CRITERIA,
+            "weights_catalog": scoring.WEIGHTS_CATALOG,
+            "no_gos_catalog": scoring.NO_GOS_CATALOG,
+            "role": request.session.get("role"),
         })
 
     @app.post("/wizard/llm-refine")
@@ -380,12 +386,22 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             data["employment"] = form.get("employment", "").strip()
             data["languages"] = _split(form.get("languages", "de"))
         elif step == "no_gos":
-            data["no_gos"] = _split(form.get("no_gos", ""))
+            if request.session.get("role") == "owner":
+                data["no_gos"] = _split(form.get("no_gos", ""))
+            else:
+                valid = {n["key"] for n in scoring.NO_GOS_CATALOG}
+                data["no_gos"] = [k for k in form.getlist("no_gos") if k in valid]
         elif step == "gewichte":
+            role = request.session.get("role")
+            if role == "owner":
+                catalog = [dict(c) for c in storage.DEFAULT_CRITERIA]
+            else:
+                catalog = [{"key": w["key"], "label": w["label"], "weight": w["default_weight"]}
+                           for w in scoring.WEIGHTS_CATALOG]
             criteria = [
                 {"key": c["key"], "label": c["label"], "sort": i,
-                 "weight": int(form.get(f"weight_{c['key']}", c["weight"]))}
-                for i, c in enumerate(storage.DEFAULT_CRITERIA)
+                 "weight": int(form.get(f"weight_{c['key']}", 0))}
+                for i, c in enumerate(catalog)
             ]
             data.setdefault("experience_sources", [])
             data.setdefault("portfolio", [])
@@ -393,6 +409,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             pid = storage.create_profile(name, data, queries=None,
                                         user_id=request.session.get("user_id"))
             storage.save_criteria(pid, criteria)
+            if role != "owner":
+                storage.score_profile_deterministic(pid)
             request.session.pop("wizard", None)
             return RedirectResponse(f"/dashboard/{pid}", status_code=303)
         request.session["wizard"] = wizard
