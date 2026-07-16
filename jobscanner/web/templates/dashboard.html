@@ -8,6 +8,7 @@
   <button type="button" class="tab" data-tab-target="feintuning">Feintuning</button>
   {% if request.session.get("role") == "owner" %}
   <button type="button" class="tab" data-tab-target="lernen">Lernen</button>
+  <a class="tab" href="/dashboard/{{ profile.id }}/metriken">Metriken</a>
   {% endif %}
 </nav>
 <div class="panel feintuning panel-hidden" data-tab-panel="feintuning">

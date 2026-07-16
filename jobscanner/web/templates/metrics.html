@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Metriken — Job-Scanner{% endblock %}
+{% block content %}
+<h1>◈ JOB-SCANNER — Metriken <a class="link" href="/dashboard/{{ profile.id }}">◂ zurück</a></h1>
+<div class="panel">
+  <div class="stat-grid">
+    <div class="stat-tile">
+      <span class="mono stat-value">{{ metrics.active_members }}</span>
+      <span class="stat-label">Aktive Member 7T</span>
+    </div>
+    <div class="stat-tile">
+      <span class="mono stat-value">{{ metrics.onboarding_completion_rate }}%</span>
+      <span class="stat-label">Onboarding-Completion</span>
+    </div>
+    <div class="stat-tile">
+      <span class="mono stat-value">{{ metrics.sessions_today }}</span>
+      <span class="stat-label">Sessions heute</span>
+    </div>
+    <div class="stat-tile">
+      <span class="mono stat-value">{{ feedback_rate }}%</span>
+      <span class="stat-label">Feedback-Rate</span>
+    </div>
+  </div>
+</div>
+<div class="panel">
+  <h2>Ping-Verlauf (14 Tage)</h2>
+  <div class="ping-verlauf">
+    {% for d in daily_counts %}
+      <div class="ping-bar{% if loop.last %} ping{% endif %}" style="height: {{ d.height_pct }}%"
+           title="{{ d.day }}: {{ d.count }}"></div>
+    {% endfor %}
+  </div>
+  <div class="ping-verlauf-labels">
+    {% for d in daily_counts %}<span>{{ d.weekday }}</span>{% endfor %}
+  </div>
+</div>
+<div class="panel">
+  <h2>Funnel</h2>
+  {% for step in funnel_steps %}
+    <div class="funnel-row">
+      <span class="funnel-label">{{ step.label }}</span>
+      <div class="funnel-track"><div class="funnel-fill" style="width: {{ step.pct }}%"></div></div>
+      <span class="mono funnel-count">{{ step.count }}{% if step.drop is not none %} (-{{ step.drop }}%){% endif %}</span>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

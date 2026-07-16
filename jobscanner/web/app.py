@@ -6,6 +6,7 @@ from __future__ import annotations
 import hmac
 import subprocess
 import threading
+from datetime import date
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
@@ -142,6 +143,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return RedirectResponse("/", status_code=303)
 
     _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet")
+    _FUNNEL_STEPS = (("onboarding_start", "Onboarding-Start"),
+                     ("profil_erstellt", "Profil erstellt"),
+                     ("feedback_gegeben", "Feedback gegeben"))
+    _WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
     @app.get("/dashboard/{profile_id}")
     def dashboard(request: Request, profile_id: int, tab: str = "aktiv"):
@@ -173,6 +178,46 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "proposed_insights": storage.list_insights(profile_id, status="proposed"),
             "active_insights": storage.list_insights(profile_id, status="confirmed"),
             "vote_count": len(feedback),
+        })
+
+    @app.get("/dashboard/{profile_id}/metriken")
+    def metrics_view(request: Request, profile_id: int):
+        if (resp := require_owner(request)) is not None:
+            return resp
+        profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
+        metrics = storage.get_metrics_summary()
+        funnel_counts = metrics["funnel_counts"]
+        max_count = funnel_counts.get("onboarding_start", 0) or 1
+        funnel_steps = []
+        prev_count = None
+        for key, label in _FUNNEL_STEPS:
+            count = funnel_counts.get(key, 0)
+            drop = round((1 - count / prev_count) * 100) if prev_count else None
+            funnel_steps.append({
+                "label": label, "count": count,
+                "pct": round(count / max_count * 100),
+                "drop": drop,
+            })
+            prev_count = count or None
+        feedback_rate = (
+            round(funnel_counts["feedback_gegeben"] / funnel_counts["profil_erstellt"] * 100)
+            if funnel_counts.get("profil_erstellt") else 0)
+        daily = storage.get_daily_event_counts()
+        max_daily = max((d["count"] for d in daily), default=0) or 1
+        daily_counts = [
+            {"day": d["day"], "count": d["count"],
+             "height_pct": round(d["count"] / max_daily * 100),
+             "weekday": _WEEKDAYS[date.fromisoformat(d["day"]).weekday()]}
+            for d in daily
+        ]
+        return templates.TemplateResponse(request, "metrics.html", {
+            "profile": profile,
+            "metrics": metrics,
+            "feedback_rate": feedback_rate,
+            "funnel_steps": funnel_steps,
+            "daily_counts": daily_counts,
         })
 
     @app.post("/dashboard/{profile_id}/criteria")

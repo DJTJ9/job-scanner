@@ -122,3 +122,20 @@ input[type="text"], input[type="password"], input[type="number"], textarea, sele
 .onboarding-icon-btn { background: transparent; border: 1px solid var(--signal); border-radius: 6px; font-size: 1.25rem; padding: 0.25rem 0.5rem; cursor: pointer; }
 .onboarding-panel { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); max-width: 420px; z-index: 10; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4); }
 .onboarding-avatar-wrap { display: flex; justify-content: center; margin-bottom: 1rem; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; }
+.stat-tile { text-align: center; }
+.stat-tile .stat-value { display: block; font-size: 1.75rem; }
+.stat-tile .stat-label { display: block; opacity: 0.6; font-size: 0.8rem; margin-top: 0.25rem; }
+
+.ping-verlauf { display: flex; align-items: flex-end; gap: 0.4rem; height: 80px; }
+.ping-bar { flex: 1; background: var(--signal); border-radius: 2px 2px 0 0; min-height: 2px; }
+.ping-verlauf-labels { display: flex; gap: 0.4rem; font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem; opacity: 0.6; margin-top: 0.25rem; }
+.ping-verlauf-labels span { flex: 1; text-align: center; }
+
+.funnel-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+.funnel-label { width: 140px; flex-shrink: 0; }
+.funnel-track { flex: 1; background: var(--wasser); border-radius: 4px; height: 20px; overflow: hidden; }
+.funnel-fill { background: var(--signal); height: 100%; }
+.funnel-count { width: 100px; text-align: right; flex-shrink: 0; }
