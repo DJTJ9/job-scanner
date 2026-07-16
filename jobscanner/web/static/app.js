@@ -8,8 +8,17 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  const drawer = document.getElementById("drawer");
+  document.querySelectorAll("[data-drawer-open]").forEach((btn) => {
+    btn.addEventListener("click", () => { if (drawer) drawer.classList.remove("panel-hidden"); });
+  });
+  document.querySelectorAll("[data-drawer-close]").forEach((btn) => {
+    btn.addEventListener("click", () => { if (drawer) drawer.classList.add("panel-hidden"); });
+  });
+
   document.querySelectorAll("[data-onboarding-open]").forEach((trigger) => {
     trigger.addEventListener("click", () => {
+      if (drawer) drawer.classList.add("panel-hidden");
       document.querySelectorAll(".onboarding-panel").forEach((p) => p.classList.add("panel-hidden"));
       const panel = document.getElementById(trigger.dataset.onboardingOpen);
       if (panel) panel.classList.remove("panel-hidden");

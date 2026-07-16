@@ -182,3 +182,48 @@ def test_hero_buttons_have_filled_color_rules():
     assert '.onboarding-hero .btn[data-onboarding-open="onboarding-wizard"]' in css
     assert "var(--beute)" in css
     assert "var(--signal)" in css
+
+
+def test_drawer_and_panels_present_on_non_home_page(owner_client):
+    pid = storage.list_profiles(user_id=1)[0]["id"]
+    resp = owner_client.get(f"/dashboard/{pid}")
+    assert "data-drawer-open" in resp.text
+    assert '<a class="drawer-item" href="/">' in resp.text
+    assert 'id="onboarding-bot" class="panel onboarding-panel panel-hidden"' in resp.text
+    assert 'id="onboarding-was-kann" class="panel onboarding-panel panel-hidden"' in resp.text
+    assert 'id="onboarding-wizard" class="panel onboarding-panel panel-hidden"' in resp.text
+
+
+def test_was_kann_panel_has_function_overview(member_client):
+    resp = member_client.get("/")
+    assert 'id="onboarding-was-kann" class="panel onboarding-panel panel-hidden"' in resp.text
+    assert "Alle Funktionen im Detail" in resp.text
+    assert 'data-onboarding-open="onboarding-guide"' in resp.text
+    assert 'data-onboarding-close="onboarding-was-kann"' in resp.text
+
+
+def test_wizard_panel_trimmed_to_profile_start(member_client):
+    resp = member_client.get("/")
+    assert 'id="onboarding-wizard" class="panel onboarding-panel panel-hidden"' in resp.text
+    assert 'href="/wizard/new"' in resp.text
+    assert "Profil erstellen" in resp.text
+    wizard_block = resp.text.split('id="onboarding-wizard"')[1].split("</div>")[0]
+    assert "👍/👎 Jobs bewerten" not in wizard_block
+
+
+def test_app_js_has_drawer_toggle():
+    js = Path("jobscanner/web/static/app.js").read_text()
+    assert "data-drawer-open" in js
+    assert "data-drawer-close" in js
+    assert 'getElementById("drawer")' in js
+
+
+def test_drawer_and_panels_absent_pre_auth():
+    import os
+    from fastapi.testclient import TestClient
+    from jobscanner.web.app import create_app
+    os.environ.setdefault("JOBSCANNER_SESSION_SECRET", "test-secret-key")
+    client = TestClient(create_app(db_path="/tmp/na_preauth.db"))
+    resp = client.get("/login")
+    assert "data-drawer-open" not in resp.text
+    assert 'id="onboarding-bot"' not in resp.text

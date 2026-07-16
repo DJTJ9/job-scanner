@@ -10,15 +10,37 @@
 </head>
 <body>
   <header class="topbar">
-    <span class="brand">◈ JOB-SCANNER</span>
+    <span class="topbar-left">
+      {% if request.session.get("user_id") %}
+      <button type="button" class="drawer-toggle" data-drawer-open aria-label="Menü öffnen">☰</button>
+      {% endif %}
+      <span class="brand">◈ JOB-SCANNER</span>
+    </span>
     {% if request.session.get("user_id") %}
       <span class="link">{{ request.session.get("email") }}</span>
       <a class="link" href="/logout">Abmelden</a>
     {% endif %}
   </header>
+  {% if request.session.get("user_id") %}
+  <nav class="drawer panel-hidden" id="drawer">
+    <button type="button" class="drawer-close" data-drawer-close aria-label="Menü schließen">✕</button>
+    <a class="drawer-item" href="/">⌂ Startseite</a>
+    <button type="button" class="drawer-item" data-onboarding-open="onboarding-bot">🤖 Wer bin ich?</button>
+    <button type="button" class="drawer-item" data-onboarding-open="onboarding-was-kann">💡 Was kann ich?</button>
+    <button type="button" class="drawer-item" data-onboarding-open="onboarding-wizard">📋 Wer bist du?</button>
+    <a class="drawer-item" href="/wizard/new">＋ Neues Profil</a>
+  </nav>
+  {% endif %}
   <main class="page">
     {% block content %}{% endblock %}
   </main>
+  {% if request.session.get("user_id") %}
+  {% include "_onboarding_bot.html" %}
+  {% include "_onboarding_was_kann.html" %}
+  {% include "_onboarding_wizard.html" %}
+  {% include "_onboarding_guide.html" %}
+  {% include "_onboarding_lesson.html" %}
+  {% endif %}
   <script src="/static/app.js?v={{ asset_version }}" defer></script>
 </body>
 </html>
