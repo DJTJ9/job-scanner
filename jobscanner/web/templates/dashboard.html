@@ -4,7 +4,7 @@
 {% block content %}
 <h1>◈ JOB-SCANNER — Profil: {{ profile.name }} <a class="link" href="/">▾ wechseln</a></h1>
 <nav class="tabs" data-toplevel-tabs>
-  <button type="button" class="tab active" data-tab-target="kontakte">Kontakte</button>
+  <button type="button" class="tab active" data-tab-target="kontakte">Job-Angebote</button>
   <button type="button" class="tab" data-tab-target="feintuning">Feintuning</button>
   {% if request.session.get("role") == "owner" %}
   <button type="button" class="tab" data-tab-target="lernen">Lernen</button>
@@ -88,10 +88,10 @@
 </div>
 {% endif %}
 <div class="panel" data-tab-panel="kontakte">
-  <h2>Kontakte</h2>
+  <h2>Job-Angebote</h2>
   <nav class="tabs">
     <a class="tab {{ 'active' if tab == 'aktiv' else '' }}" href="?tab=aktiv">Aktiv <span class="mono">({{ counts.aktiv }})</span></a>
-    <a class="tab {{ 'active' if tab in ('no_go', 'bewertet') else '' }}" href="?tab=no_go">No-Go <span class="mono">({{ counts.no_go }})</span></a>
+    <a class="tab {{ 'active' if tab in ('no_go', 'bewertet') else '' }}" href="?tab=no_go">Aussortiert <span class="mono">({{ counts.no_go }})</span></a>
   </nav>
   {% if tab in ('no_go', 'bewertet') %}
     <nav class="subtabs">

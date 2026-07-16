@@ -133,3 +133,19 @@ def test_app_js_closes_all_onboarding_panels_before_opening_target():
     close_all_pos = open_block.index('querySelectorAll(".onboarding-panel")')
     open_target_pos = open_block.index('classList.remove("panel-hidden")')
     assert close_all_pos < open_target_pos
+
+
+def test_bot_panel_mentions_aussortiert_in_profil(member_client):
+    resp = member_client.get("/")
+    assert "Aussortiert" in resp.text
+    assert "filtere ich automatisch raus" in resp.text
+
+
+def test_dashboard_renames_tabs_to_jobangebote_and_aussortiert(owner_client):
+    pid = storage.list_profiles(user_id=1)[0]["id"]
+    resp = owner_client.get(f"/dashboard/{pid}")
+    # Top-Tab + Panel-Überschrift umbenannt, Query-Param/ID unverändert
+    assert 'data-tab-target="kontakte">Job-Angebote' in resp.text
+    assert "<h2>Job-Angebote</h2>" in resp.text
+    # Top-Tab-Label No-Go → Aussortiert (Link-Target ?tab=no_go bleibt)
+    assert '?tab=no_go">Aussortiert' in resp.text
