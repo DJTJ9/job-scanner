@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Job-Scanner{% endblock %}</title>
+  <title>{% block title %}Bob der Job-Bot{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
@@ -14,7 +14,7 @@
       {% if request.session.get("user_id") %}
       <button type="button" class="drawer-toggle" data-drawer-open aria-label="Menü öffnen">☰</button>
       {% endif %}
-      <span class="brand">◈ JOB-SCANNER</span>
+      <span class="brand"><img class="bob-avatar" style="height:28px" src="/static/img/bob/bob-pose-winken.png" alt="Bob"> BOB DER JOB-BOT</span>
     </span>
     {% if request.session.get("user_id") %}
       <span class="link">{{ request.session.get("email") }}</span>
