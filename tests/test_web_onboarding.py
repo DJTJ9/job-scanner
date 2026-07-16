@@ -149,3 +149,22 @@ def test_dashboard_renames_tabs_to_jobangebote_and_aussortiert(owner_client):
     assert "<h2>Job-Angebote</h2>" in resp.text
     # Top-Tab-Label No-Go → Aussortiert (Link-Target ?tab=no_go bleibt)
     assert '?tab=no_go">Aussortiert' in resp.text
+
+
+def test_wizard_panel_shows_function_overview_and_two_buttons(member_client):
+    resp = member_client.get("/")
+    # id + panel-Klassen + Close bleiben erhalten (bestehende Tests hängen daran)
+    assert 'id="onboarding-wizard" class="panel onboarding-panel panel-hidden"' in resp.text
+    assert 'data-onboarding-close="onboarding-wizard"' in resp.text
+    # neuer Funktions-Überblick + zwei Buttons
+    assert "Alle Funktionen im Detail" in resp.text
+    assert 'data-onboarding-open="onboarding-guide"' in resp.text
+    assert 'href="/wizard/new"' in resp.text
+    assert "Profil erstellen" in resp.text
+
+
+def test_guide_panel_renders_hidden_and_links_to_teach_lesson(member_client):
+    resp = member_client.get("/")
+    assert 'id="onboarding-guide" class="panel onboarding-panel panel-hidden"' in resp.text
+    assert "job-scanner-nutzen/lessons/job-scanner-nutzen.html" in resp.text
+    assert 'data-onboarding-close="onboarding-guide"' in resp.text
