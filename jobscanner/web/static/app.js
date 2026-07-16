@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.querySelectorAll("[data-onboarding-open]").forEach((trigger) => {
     trigger.addEventListener("click", () => {
+      document.querySelectorAll(".onboarding-panel").forEach((p) => p.classList.add("panel-hidden"));
       const panel = document.getElementById(trigger.dataset.onboardingOpen);
       if (panel) panel.classList.remove("panel-hidden");
     });

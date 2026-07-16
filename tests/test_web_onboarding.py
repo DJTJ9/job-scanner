@@ -124,3 +124,12 @@ def test_lesson_panel_heading_has_der(member_client):
     resp = member_client.get("/")
     assert "Wie der Job-Scanner funktioniert" in resp.text
     assert "<h2>Wie Job-Scanner funktioniert</h2>" not in resp.text
+
+
+def test_app_js_closes_all_onboarding_panels_before_opening_target():
+    js = Path("jobscanner/web/static/app.js").read_text()
+    open_block = js.split('querySelectorAll("[data-onboarding-open]")')[1].split("});")[0]
+    assert 'querySelectorAll(".onboarding-panel")' in open_block
+    close_all_pos = open_block.index('querySelectorAll(".onboarding-panel")')
+    open_target_pos = open_block.index('classList.remove("panel-hidden")')
+    assert close_all_pos < open_target_pos
