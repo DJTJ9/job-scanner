@@ -76,3 +76,10 @@ def test_onboarding_css_classes_present_and_reuse_theme():
 def test_onboarding_css_reuses_ping_keyframes_only():
     css = Path("jobscanner/web/static/style.css").read_text()
     assert css.count("@keyframes") == 1   # nur ping-pulse — keine neue Animation
+
+
+def test_app_js_has_onboarding_toggle_snippet():
+    js = Path("jobscanner/web/static/app.js").read_text()
+    assert 'data-onboarding-open' in js
+    assert 'data-onboarding-close' in js
+    assert 'panel-hidden' in js
