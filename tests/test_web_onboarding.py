@@ -83,3 +83,17 @@ def test_app_js_has_onboarding_toggle_snippet():
     assert 'data-onboarding-open' in js
     assert 'data-onboarding-close' in js
     assert 'panel-hidden' in js
+
+
+def test_bot_panel_has_portfolio_framing_and_tech_stack_chips(member_client):
+    resp = member_client.get("/")
+    assert "Portfolio-Projekt" in resp.text
+    for tech in ("Python", "FastAPI", "Jinja2", "SQLite", "Playwright", "Firecrawl",
+                 "Groq", "Claude Agents", "systemd", "NocoDB", "Caddy"):
+        assert f'<span class="chip">{tech}</span>' in resp.text
+
+
+def test_bot_panel_trigger_link_opens_lesson_panel(member_client):
+    resp = member_client.get("/")
+    assert 'data-onboarding-open="onboarding-lesson"' in resp.text
+    assert "Wie das genau funktioniert" in resp.text
