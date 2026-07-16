@@ -153,6 +153,25 @@ def test_r_standort_multi_city_and_legacy_fallback():
     assert rule(_job(location=""), {"cities": ["Hamburg"]}) is None
 
 
+def test_new_no_go_vetos_present_and_fire():
+    vetos = {n["key"]: n["veto"] for n in scoring.NO_GOS_CATALOG}
+    new_keys = {"crunch", "igaming", "free_to_play", "qa_only", "outsourcing",
+                "praesenz_5tage", "relocation_ausland", "provision", "kaltakquise",
+                "legacy_only"}
+    assert new_keys <= set(vetos)
+    assert vetos["igaming"](_job(title="Backend Dev", company="LuckyCasino GmbH"), _P) is True
+    assert vetos["crunch"](_job(requirements=["Crunch-Phasen üblich"]), _P) is True
+    assert vetos["free_to_play"](_job(title="F2P Monetization Designer"), _P) is True
+    assert vetos["qa_only"](_job(title="Game Tester"), _P) is True
+    assert vetos["qa_only"](_job(title="Software Developer"), _P) is False
+    assert vetos["kaltakquise"](_job(title="Sales", requirements=["Kaltakquise"]), _P) is True
+    assert vetos["legacy_only"](_job(requirements=["Reine Wartung der Legacy-Codebasis"]), _P) is True
+    # unbeteiligter Dev-Job löst KEINEN neuen Veto aus
+    clean = _job(title="Junior Unity Developer", company="ACME GmbH", requirements=["Unity"])
+    for k in new_keys:
+        assert vetos[k](clean, _P) is False
+
+
 import pytest
 from jobscanner import storage
 

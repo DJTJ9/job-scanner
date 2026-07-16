@@ -378,6 +378,49 @@ def _v_sprache(job, p):
     return bool(langs) and job.language.lower() not in langs
 
 
+def _v_crunch(job, p):
+    return bool(re.search(r"crunch|unbezahlte überstunden|überstunden.{0,15}unbezahlt", _title_req(job)))
+
+
+def _v_igaming(job, p):
+    return bool(re.search(r"igaming|glücksspiel|casino|betting|\bwett", _title_req(job) + " " + job.company.lower()))
+
+
+def _v_f2p(job, p):
+    return bool(re.search(r"free-?to-?play|free2play|\bf2p\b|micro-?transaction|in-app-käufe", _title_req(job)))
+
+
+def _v_qa_only(job, p):
+    t = job.title.lower()
+    if re.search(r"develop|entwickl|programmer", t):
+        return False
+    return bool(re.search(r"\bqa\b|quality assurance|test engineer|\btester\b|game tester|test automation", t))
+
+
+def _v_outsourcing(job, p):
+    return bool(re.search(r"outsourcing|game publisher|publishing-agentur", _title_req(job) + " " + job.company.lower()))
+
+
+def _v_praesenz5(job, p):
+    return bool(re.search(r"präsenzpflicht|5 tage.{0,12}(büro|vor ort)|vollständig vor ort", _req(job)))
+
+
+def _v_reloc_ausland(job, p):
+    return bool(re.search(r"relocation.{0,20}(ausland|abroad)|umzug ins ausland|relocate abroad", _req(job)))
+
+
+def _v_provision(job, p):
+    return bool(re.search(r"provision|kommission|commission-based|erfolgsbasierte vergütung", _title_req(job)))
+
+
+def _v_kaltakquise(job, p):
+    return bool(re.search(r"kaltakquise|cold[- ]calling|neukundenakquise", _title_req(job)))
+
+
+def _v_legacy_only(job, p):
+    return bool(re.search(r"legacy-system|reine wartung|wartungsprojekt|legacy-codebasis|bestandspflege", _title_req(job)))
+
+
 NO_GOS_CATALOG = [
     {"key": "senior_5j", "label": "Senior (5+ Jahre)", "veto": _v_senior},
     {"key": "zeitarbeit", "label": "Zeitarbeit", "veto": _v_zeitarbeit},
@@ -394,6 +437,16 @@ NO_GOS_CATALOG = [
     {"key": "werkstudent", "label": "Werkstudent", "veto": _v_werkstudent},
     {"key": "wochenende", "label": "Wochenendarbeit", "veto": _v_wochenende},
     {"key": "unpassende_sprache", "label": "Unpassende Sprache", "veto": _v_sprache},
+    {"key": "crunch", "label": "Crunch/unbezahlte Überstunden", "veto": _v_crunch},
+    {"key": "igaming", "label": "iGaming/Glücksspiel", "veto": _v_igaming},
+    {"key": "free_to_play", "label": "Free-to-Play/Monetarisierung", "veto": _v_f2p},
+    {"key": "qa_only", "label": "Reine QA-/Test-Rolle", "veto": _v_qa_only},
+    {"key": "outsourcing", "label": "Outsourcing/Publisher-Agentur", "veto": _v_outsourcing},
+    {"key": "praesenz_5tage", "label": "Präsenzpflicht 5 Tage/Woche", "veto": _v_praesenz5},
+    {"key": "relocation_ausland", "label": "Relocation ins Ausland Pflicht", "veto": _v_reloc_ausland},
+    {"key": "provision", "label": "Provisionsbasierte Vergütung", "veto": _v_provision},
+    {"key": "kaltakquise", "label": "Kaltakquise", "veto": _v_kaltakquise},
+    {"key": "legacy_only", "label": "Reine Legacy-/Wartungs-Codebasis", "veto": _v_legacy_only},
 ]
 
 
