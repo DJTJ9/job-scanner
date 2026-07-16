@@ -251,3 +251,18 @@ def test_hero_grid_is_three_equal_columns():
     css = Path("jobscanner/web/static/style.css").read_text()
     hero_rule = css.split(".onboarding-hero {")[1].split("}")[0]
     assert "grid-template-columns: repeat(3, 1fr)" in hero_rule
+
+
+def test_wizard_step_two_has_back_link_to_previous(owner_client):
+    resp = owner_client.get("/wizard/skills")
+    assert 'href="/wizard/basis">← Zurück' in resp.text
+
+
+def test_wizard_first_step_has_no_back_link(owner_client):
+    resp = owner_client.get("/wizard/basis")
+    assert "← Zurück" not in resp.text
+
+
+def test_wizard_has_cancel_to_home(owner_client):
+    resp = owner_client.get("/wizard/basis")
+    assert 'href="/">Abbrechen → Startseite' in resp.text

@@ -434,6 +434,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "city_suggestions": scoring.CITY_SUGGESTIONS,
             "employment_options": scoring.EMPLOYMENT_OPTIONS,
             "language_options": scoring.LANGUAGE_OPTIONS,
+            "prev_step": STEP_ORDER[STEP_ORDER.index(step) - 1] if STEP_ORDER.index(step) > 0 else None,
         })
 
     @app.post("/wizard/llm-refine")

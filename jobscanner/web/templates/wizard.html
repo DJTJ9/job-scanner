@@ -102,8 +102,10 @@
       {% endfor %}
     {% endif %}
   {% endif %}
+  {% if prev_step %}<a class="btn btn-secondary" href="/wizard/{{ prev_step }}">← Zurück</a>{% endif %}
   <button type="submit" class="btn btn-primary">{{ "Profil anlegen" if step == "gewichte" else "Weiter" }}</button>
 </form>
+<p><a class="link" href="/">Abbrechen → Startseite</a></p>
 
 {% if step == "skills" and request.session.get("role") == "owner" %}
 <form method="post" action="/wizard/llm-refine" class="panel">
