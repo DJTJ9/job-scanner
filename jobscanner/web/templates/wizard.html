@@ -1,13 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Neues Profil — Bob der Job-Bot{% endblock %}
 {% block content %}
+<div class="hero-landscape-band"><img class="bob-avatar" src="/static/img/bob/bob-pose-lupe.png" alt="Bob"></div>
 <h1>◈ Neues Profil</h1>
-<div class="tiefenmesser">
+<div class="path-progress">
+  {% set markers = ["marker-start", "marker-profil", "marker-bewerbung", "marker-erfolg", "marker-favorit", "marker-empfehlung", "marker-ziel"] %}
   {% for s in step_order %}
     {% set idx = loop.index0 %}
     {% set current_idx = step_order.index(step) %}
-    <span class="mark {{ 'active' if s == step else ('done' if idx < current_idx else '') }}">
-      {{ '●' if s == step else ('✓' if idx < current_idx else '○') }} {{ step_labels.get(s, s) }}
+    <span class="path-step {{ 'active' if s == step else ('done' if idx < current_idx else '') }}">
+      <img class="path-icon" src="/static/img/bob/{{ markers[idx] }}.png" alt="">
+      {% if s == step %}<img class="path-icon" src="/static/img/bob/bob-pose-lupe.png" alt="Bob" style="margin-top:-8px">{% endif %}
+      {{ step_labels.get(s, s) }}
     </span>
   {% endfor %}
 </div>
