@@ -4,8 +4,9 @@
 <h1>◈ JOB-SCANNER</h1>
 {% if not profile_exists %}
 <div class="onboarding-hero">
-  <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-bot">🤖 Wer bin ich und was kann ich?</button>
-  <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-wizard">📋 Wer bist du und was möchtest du finden?</button>
+  <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-bot">🤖 Wer bin ich?</button>
+  <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-was-kann">💡 Was kann ich?</button>
+  <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-wizard">📋 Wer bist du?</button>
 </div>
 {% endif %}
 {% if profile_exists %}
@@ -14,8 +15,9 @@
     <h2>Profile</h2>
     {% if profile_exists %}
     <div class="onboarding-corner">
-      <button type="button" class="onboarding-icon-btn" data-onboarding-open="onboarding-bot" aria-label="Wer bin ich und was kann ich?">🤖</button>
-      <button type="button" class="onboarding-icon-btn" data-onboarding-open="onboarding-wizard" aria-label="Wer bist du und was möchtest du finden?">📋</button>
+      <button type="button" class="onboarding-icon-btn" data-onboarding-open="onboarding-bot" aria-label="Wer bin ich?">🤖</button>
+      <button type="button" class="onboarding-icon-btn" data-onboarding-open="onboarding-was-kann" aria-label="Was kann ich?">💡</button>
+      <button type="button" class="onboarding-icon-btn" data-onboarding-open="onboarding-wizard" aria-label="Wer bist du?">📋</button>
     </div>
     {% endif %}
   </div>

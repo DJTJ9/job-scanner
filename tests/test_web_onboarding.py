@@ -45,9 +45,11 @@ def test_hero_buttons_render_when_no_profile(member_client):
     resp = member_client.get("/")
     assert "onboarding-hero" in resp.text
     assert 'data-onboarding-open="onboarding-bot"' in resp.text
+    assert 'data-onboarding-open="onboarding-was-kann"' in resp.text
     assert 'data-onboarding-open="onboarding-wizard"' in resp.text
-    assert "Wer bin ich und was kann ich?" in resp.text
-    assert "Wer bist du und was möchtest du finden?" in resp.text
+    assert "🤖 Wer bin ich?" in resp.text
+    assert "💡 Was kann ich?" in resp.text
+    assert "📋 Wer bist du?" in resp.text
 
 
 def test_corner_icons_render_when_profile_exists_not_hero(owner_client):
@@ -172,7 +174,7 @@ def test_guide_panel_renders_hidden_and_links_to_teach_lesson(member_client):
 
 def test_hero_wizard_button_uses_clipboard_icon(member_client):
     resp = member_client.get("/")
-    assert "📋 Wer bist du und was möchtest du finden?" in resp.text
+    assert "📋 Wer bist du?" in resp.text
     assert "🧭" not in resp.text  # altes Icon vollständig ersetzt (Hero + Corner)
 
 
@@ -227,3 +229,25 @@ def test_drawer_and_panels_absent_pre_auth():
     resp = client.get("/login")
     assert "data-drawer-open" not in resp.text
     assert 'id="onboarding-bot"' not in resp.text
+
+
+def test_hero_has_three_equal_onboarding_buttons(member_client):
+    resp = member_client.get("/")
+    assert "onboarding-hero" in resp.text
+    assert 'data-onboarding-open="onboarding-bot">🤖 Wer bin ich?' in resp.text
+    assert 'data-onboarding-open="onboarding-was-kann">💡 Was kann ich?' in resp.text
+    assert 'data-onboarding-open="onboarding-wizard">📋 Wer bist du?' in resp.text
+
+
+def test_corner_has_three_onboarding_icons(owner_client):
+    resp = owner_client.get("/")
+    assert "onboarding-corner" in resp.text
+    assert 'data-onboarding-open="onboarding-bot"' in resp.text
+    assert 'data-onboarding-open="onboarding-was-kann"' in resp.text
+    assert 'data-onboarding-open="onboarding-wizard"' in resp.text
+
+
+def test_hero_grid_is_three_equal_columns():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    hero_rule = css.split(".onboarding-hero {")[1].split("}")[0]
+    assert "grid-template-columns: repeat(3, 1fr)" in hero_rule
