@@ -2,11 +2,27 @@
 {% block title %}Profile — Job-Scanner{% endblock %}
 {% block content %}
 <h1>◈ JOB-SCANNER</h1>
+{% if not profile_exists %}
+<div class="onboarding-hero">
+  <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-bot">🤖 Wer bin ich und was kann ich?</button>
+  <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-wizard">🧭 Wer bist du und was möchtest du finden?</button>
+</div>
+{% endif %}
 <div class="panel" data-profile-exists="{{ profile_exists|lower }}">
-  <h2>Profile</h2>
+  <div class="onboarding-header">
+    <h2>Profile</h2>
+    {% if profile_exists %}
+    <div class="onboarding-corner">
+      <button type="button" class="onboarding-icon-btn" data-onboarding-open="onboarding-bot" aria-label="Wer bin ich und was kann ich?">🤖</button>
+      <button type="button" class="onboarding-icon-btn" data-onboarding-open="onboarding-wizard" aria-label="Wer bist du und was möchtest du finden?">🧭</button>
+    </div>
+    {% endif %}
+  </div>
   {% for p in profiles %}
     <p><a class="link" href="/dashboard/{{ p.id }}">{{ p.name }}</a>{% if p.is_default %} (Standard){% endif %}</p>
   {% endfor %}
   <a class="btn btn-secondary" href="/wizard/new">+ Neues Profil</a>
 </div>
+{% include "_onboarding_bot.html" %}
+{% include "_onboarding_wizard.html" %}
 {% endblock %}
