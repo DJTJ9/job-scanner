@@ -168,3 +168,17 @@ def test_guide_panel_renders_hidden_and_links_to_teach_lesson(member_client):
     assert 'id="onboarding-guide" class="panel onboarding-panel panel-hidden"' in resp.text
     assert "job-scanner-nutzen/lessons/job-scanner-nutzen.html" in resp.text
     assert 'data-onboarding-close="onboarding-guide"' in resp.text
+
+
+def test_hero_wizard_button_uses_clipboard_icon(member_client):
+    resp = member_client.get("/")
+    assert "📋 Wer bist du und was möchtest du finden?" in resp.text
+    assert "🧭" not in resp.text  # altes Icon vollständig ersetzt (Hero + Corner)
+
+
+def test_hero_buttons_have_filled_color_rules():
+    css = Path("jobscanner/web/static/style.css").read_text(encoding="utf-8")
+    assert '.onboarding-hero .btn[data-onboarding-open="onboarding-bot"]' in css
+    assert '.onboarding-hero .btn[data-onboarding-open="onboarding-wizard"]' in css
+    assert "var(--beute)" in css
+    assert "var(--signal)" in css
