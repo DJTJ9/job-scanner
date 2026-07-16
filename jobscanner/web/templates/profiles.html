@@ -1,14 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Profile — Job-Scanner{% endblock %}
 {% block content %}
-<h1>◈ JOB-SCANNER</h1>
-{% if not profile_exists %}
-<div class="onboarding-hero">
-  <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-bot">🤖 Wer bin ich?</button>
-  <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-was-kann">💡 Was kann ich?</button>
-  <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-wizard">📋 Wer bist du?</button>
+<div class="hero-landscape">
+  <h1>◈ BOB DER JOB-BOT</h1>
+  {% if not profile_exists %}
+  <div class="onboarding-hero">
+    <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-bot">🤖 Wer bin ich?</button>
+    <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-was-kann">💡 Was kann ich?</button>
+    <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-wizard">📋 Wer bist du?</button>
+  </div>
+  {% endif %}
 </div>
-{% endif %}
 {% if profile_exists %}
 <div class="panel" data-profile-exists="{{ profile_exists|lower }}">
   <div class="onboarding-header">
