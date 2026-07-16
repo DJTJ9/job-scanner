@@ -8,6 +8,7 @@
   <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-wizard">🧭 Wer bist du und was möchtest du finden?</button>
 </div>
 {% endif %}
+{% if profile_exists %}
 <div class="panel" data-profile-exists="{{ profile_exists|lower }}">
   <div class="onboarding-header">
     <h2>Profile</h2>
@@ -23,6 +24,7 @@
   {% endfor %}
   <a class="btn btn-secondary" href="/wizard/new">+ Neues Profil</a>
 </div>
+{% endif %}
 {% include "_onboarding_bot.html" %}
 {% include "_onboarding_wizard.html" %}
 {% include "_onboarding_lesson.html" %}
