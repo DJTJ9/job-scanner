@@ -213,6 +213,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         vote = form.get("vote")
         if vote in ("up", "down"):
             storage.add_feedback(profile_id, fingerprint, vote)
+            storage.log_event("feedback_gegeben", user_id=request.session.get("user_id"))
         else:
             vote = None
         if "application/json" in request.headers.get("accept", ""):
@@ -348,6 +349,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (redirect := require_user(request)) is not None:
             return redirect
         request.session["wizard"] = {"data": {}, "suggestions": {}}
+        storage.log_event("onboarding_start", user_id=request.session.get("user_id"))
         return RedirectResponse(f"/wizard/{STEP_ORDER[0]}", status_code=303)
 
     @app.get("/wizard/edit/{profile_id}")
@@ -469,6 +471,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 pid = storage.create_profile(name, data, queries=None,
                                             user_id=request.session.get("user_id"))
                 storage.save_criteria(pid, criteria)
+                storage.log_event("profil_erstellt", user_id=request.session.get("user_id"))
             if role != "owner":
                 storage.score_profile_deterministic(pid)
             request.session.pop("wizard", None)
