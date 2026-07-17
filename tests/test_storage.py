@@ -242,6 +242,44 @@ class TestVolllaufHelpers:
         assert storage.list_feedback(pid) == []
 
 
+class TestLearnReminder:
+    def _profile(self):
+        return storage.create_profile("Member-Profil", {"no_gos": []})
+
+    def test_never_learned_counts_all_votes(self, db):
+        pid = self._profile()
+        for i in range(3):
+            fp = storage.upsert_job(_job(title=f"Job {i}"))
+            storage.add_feedback(pid, fp, "up")
+        assert storage.learn_reminder_status(pid) == {"new_votes": 3, "due": False}
+
+    def test_due_once_threshold_reached(self, db):
+        pid = self._profile()
+        for i in range(storage._LEARN_REMINDER_THRESHOLD):
+            fp = storage.upsert_job(_job(title=f"Job {i}"))
+            storage.add_feedback(pid, fp, "up")
+        assert storage.learn_reminder_status(pid)["due"] is True
+
+    def test_touch_resets_counter(self, db):
+        pid = self._profile()
+        fp = storage.upsert_job(_job())
+        storage.add_feedback(pid, fp, "up")
+        storage.touch_learn_reminder(pid)
+        assert storage.learn_reminder_status(pid) == {"new_votes": 0, "due": False}
+
+    def test_votes_after_touch_count_again(self, db):
+        pid = self._profile()
+        storage.touch_learn_reminder(pid)
+        conn = storage._require_conn()
+        conn.execute(
+            "UPDATE profiles SET last_learn_reminder_at = '2020-01-01T00:00:00' WHERE id = ?",
+            (pid,))
+        conn.commit()
+        fp = storage.upsert_job(_job())
+        storage.add_feedback(pid, fp, "up")
+        assert storage.learn_reminder_status(pid) == {"new_votes": 1, "due": False}
+
+
 class TestRawJobs:
     def test_insert_raw_job_creates_pending_row(self, db):
         fp = storage.insert_raw_job("https://indeed.test/raw1", "indeed",

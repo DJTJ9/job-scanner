@@ -154,6 +154,8 @@ def init_db(path: str | Path) -> None:
     prof_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(profiles)")}
     if "user_id" not in prof_cols:
         _conn.execute("ALTER TABLE profiles ADD COLUMN user_id INTEGER REFERENCES users(id)")
+    if "last_learn_reminder_at" not in prof_cols:
+        _conn.execute("ALTER TABLE profiles ADD COLUMN last_learn_reminder_at TEXT")
     user_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(users)")}
     if "api_token_hash" not in user_cols:
         _conn.execute("ALTER TABLE users ADD COLUMN api_token_hash TEXT")
@@ -869,6 +871,35 @@ def list_feedback_with_jobs(profile_id: int) -> list[dict]:
             "tech_stack": json.loads(r["tech_stack_json"] or "[]"),
         })
     return out
+
+
+_LEARN_REMINDER_THRESHOLD = 10
+
+
+def learn_reminder_status(profile_id: int) -> dict:
+    """Neue Votes seit der letzten Member-Lern-Analyse (profiles.last_learn_reminder_at).
+    due=True ab _LEARN_REMINDER_THRESHOLD neuen Votes seit dem letzten touch (oder seit je,
+    falls noch nie gelernt wurde)."""
+    conn = _require_conn()
+    row = conn.execute(
+        "SELECT last_learn_reminder_at FROM profiles WHERE id = ?", (profile_id,)).fetchone()
+    since = row["last_learn_reminder_at"] if row else None
+    if since:
+        count = conn.execute(
+            "SELECT COUNT(*) AS c FROM feedback WHERE profile_id = ? AND created_at > ?",
+            (profile_id, since)).fetchone()["c"]
+    else:
+        count = conn.execute(
+            "SELECT COUNT(*) AS c FROM feedback WHERE profile_id = ?", (profile_id,)).fetchone()["c"]
+    return {"new_votes": count, "due": count >= _LEARN_REMINDER_THRESHOLD}
+
+
+def touch_learn_reminder(profile_id: int) -> None:
+    conn = _require_conn()
+    conn.execute(
+        "UPDATE profiles SET last_learn_reminder_at = datetime('now') WHERE id = ?",
+        (profile_id,))
+    conn.commit()
 
 
 def enqueue_jobs_for_rescore(profile_id: int) -> int:
