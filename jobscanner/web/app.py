@@ -6,6 +6,7 @@ from __future__ import annotations
 import hmac
 import subprocess
 import threading
+from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from jobscanner import config, nocodb_board, scoring, storage
-from jobscanner.web import llm_refine
+from jobscanner.web import llm_refine, mcp_api
 
 _DIR = Path(__file__).parent
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "data" / "jobs.db"
@@ -45,17 +46,26 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     if settings["owner_email"]:
         storage.seed_owner(settings["owner_email"], settings["password"])
 
-    app = FastAPI()
+    mcp_server = mcp_api.create_mcp_server()
+    mcp_asgi = mcp_server.streamable_http_app()
+
+    @asynccontextmanager
+    async def lifespan(app):
+        async with mcp_server.session_manager.run():
+            yield
+
+    app = FastAPI(lifespan=lifespan)
 
     @app.middleware("http")
     async def log_pageview(request: Request, call_next):
-        if not request.url.path.startswith("/static/"):
+        if not request.url.path.startswith(("/static/", "/mcp")):
             storage.log_event("pageview", user_id=request.session.get("user_id"),
                               meta={"path": request.url.path})
         return await call_next(request)
 
     app.add_middleware(SessionMiddleware, secret_key=settings["session_secret"])
     app.mount("/static", StaticFiles(directory=_DIR / "static"), name="static")
+    app.mount("/mcp", mcp_api.TokenAuthMiddleware(mcp_asgi))
     templates = Jinja2Templates(directory=_DIR / "templates")
     templates.env.globals["asset_version"] = _read_asset_version(_DIR)
 

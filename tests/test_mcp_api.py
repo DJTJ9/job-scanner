@@ -203,3 +203,50 @@ class TestToolLogic:
         with pytest.raises(ValueError):
             mcp_api.push_jobs_data(user, [{"url": "https://ok.test", "portal": "a",
                                            "raw_text": ""}])
+
+
+_MCP_HEADERS = {"Accept": "application/json, text/event-stream",
+                "Content-Type": "application/json"}
+
+
+def _rpc(method, rpc_id, params=None):
+    return {"jsonrpc": "2.0", "id": rpc_id, "method": method, "params": params or {}}
+
+
+class TestMcpTransport:
+    def test_mcp_without_token_401(self, client):
+        with client:
+            resp = client.post("/mcp", json=_rpc("tools/list", 1), headers=_MCP_HEADERS)
+        assert resp.status_code == 401
+
+    def test_mcp_wrong_token_401(self, client):
+        with client:
+            resp = client.post("/mcp", json=_rpc("tools/list", 1),
+                               headers={**_MCP_HEADERS,
+                                        "Authorization": "Bearer bob_" + "f" * 48})
+        assert resp.status_code == 401
+
+    def test_mcp_tools_list_with_valid_token(self, client, member):
+        with client:
+            resp = client.post("/mcp", json=_rpc("tools/list", 1),
+                               headers={**_MCP_HEADERS,
+                                        "Authorization": f"Bearer {member['token']}"})
+        assert resp.status_code == 200
+        names = {t["name"] for t in resp.json()["result"]["tools"]}
+        assert names == {"get_my_profile", "pull_pending_jobs", "push_batch", "push_jobs"}
+
+    def test_mcp_tool_call_scoped_to_token_user(self, client, member):
+        pid = storage.create_profile("Member-Sicht", {"no_gos": []},
+                                     user_id=member["id"])
+        storage.save_criteria(pid, [{"key": "remote", "label": "Remote", "weight": 5}])
+        storage.create_profile("Fremdes Profil", {"no_gos": []}, user_id=999)
+        with client:
+            resp = client.post(
+                "/mcp",
+                json=_rpc("tools/call", 2,
+                          {"name": "get_my_profile", "arguments": {}}),
+                headers={**_MCP_HEADERS,
+                         "Authorization": f"Bearer {member['token']}"})
+        assert resp.status_code == 200
+        assert "Member-Sicht" in resp.text
+        assert "Fremdes Profil" not in resp.text
