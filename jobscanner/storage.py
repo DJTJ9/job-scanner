@@ -110,6 +110,12 @@ CREATE TABLE IF NOT EXISTS events (
     event_type TEXT NOT NULL,
     meta_json TEXT
 );
+CREATE TABLE IF NOT EXISTS member_feedback (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 """
 
 _UPDATABLE = {
@@ -873,6 +879,16 @@ def log_event(event_type: str, user_id: int | None = None, meta: dict | None = N
         "VALUES (strftime('%s', 'now'), ?, ?, ?)",
         (user_id, event_type, json.dumps(meta or {}, ensure_ascii=False)))
     conn.commit()
+
+
+def create_member_feedback(user_id: int, text: str) -> int:
+    conn = _require_conn()
+    cur = conn.execute(
+        "INSERT INTO member_feedback (user_id, text, created_at) VALUES (?, ?, datetime('now'))",
+        (user_id, text),
+    )
+    conn.commit()
+    return cur.lastrowid
 
 
 _FUNNEL_STEPS = ("onboarding_start", "profil_erstellt", "feedback_gegeben")
