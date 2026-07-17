@@ -112,10 +112,19 @@
 <p><a class="link" href="/">Abbrechen → Startseite</a></p>
 
 {% if step == "skills" and request.session.get("role") == "owner" %}
-<form method="post" action="/wizard/llm-refine" class="panel">
+<form method="post" action="/wizard/llm-refine" class="panel" id="llm-refine-form">
   <label for="freetext">Optional: Freitext/CV für LLM-Verfeinerung</label>
   <textarea id="freetext" name="freetext" rows="4"></textarea>
-  <button type="submit" class="btn btn-secondary">Vorschläge holen</button>
+  <button type="submit" class="btn btn-secondary" id="llm-refine-btn">Vorschläge holen</button>
+  <span id="llm-refine-spinner" style="display:none" aria-live="polite">🐙 Bob denkt… (bis zu 30&nbsp;s)</span>
 </form>
+<script>
+  document.getElementById('llm-refine-form').addEventListener('submit', function () {
+    var btn = document.getElementById('llm-refine-btn');
+    btn.disabled = true;
+    btn.textContent = 'Bob denkt…';
+    document.getElementById('llm-refine-spinner').style.display = 'inline';
+  });
+</script>
 {% endif %}
 {% endblock %}
