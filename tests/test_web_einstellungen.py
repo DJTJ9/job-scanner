@@ -49,6 +49,21 @@ def test_settings_has_token_button(member):
     assert "API-Token erzeugen" in body
 
 
+def test_settings_has_bob_befehle_buttons(member):
+    body = member.get("/einstellungen").text
+    assert "claude-cli://open?q=%2Fbob%3Abob-scan" in body
+    assert "claude-cli://open?q=%2Fbob%3Abob-score" in body
+    assert "/bob:bob-scan" in body
+    assert "/bob:bob-score" in body
+
+
+def test_settings_bob_befehle_have_copy_fallback(member):
+    body = member.get("/einstellungen").text
+    assert body.count('class="copy-btn"') >= 2
+    assert 'data-copy="/bob:bob-scan"' in body
+    assert 'data-copy="/bob:bob-score"' in body
+
+
 def test_password_post_renders_settings_success(member):
     resp = member.post("/account/passwort", data={
         "current_password": "pw", "new_password": "neupw1",

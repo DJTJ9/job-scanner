@@ -47,6 +47,28 @@
     <form method="post" action="/profiles/api-token">
       <button type="submit" class="btn btn-secondary">API-Token erzeugen</button>
     </form>
+
+    <div class="tiefenlinie"></div>
+    <h2>Bob-Befehle</h2>
+    <p>Direkt in Claude Code starten — Befehl öffnet sich vorausgefüllt, Enter drücken.</p>
+    <div class="bob-befehle-grid">
+      <div class="panel">
+        <h3>🔍 bob-scan</h3>
+        <p class="job-meta">Neue Jobs suchen</p>
+        <a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-scan">→ In Claude Code</a>
+        <div class="copy-block"><code>/bob:bob-scan</code>
+          <button type="button" class="copy-btn" data-copy="/bob:bob-scan" aria-label="Befehl kopieren">⧉</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>⭐ bob-score</h3>
+        <p class="job-meta">Wartende Jobs bewerten</p>
+        <a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-score">→ In Claude Code</a>
+        <div class="copy-block"><code>/bob:bob-score</code>
+          <button type="button" class="copy-btn" data-copy="/bob:bob-score" aria-label="Befehl kopieren">⧉</button>
+        </div>
+      </div>
+    </div>
   </section>
 </div>
 {% endblock %}

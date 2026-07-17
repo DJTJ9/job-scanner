@@ -412,3 +412,4 @@ body.has-drawer.drawer-collapsed .site-footer { margin-left: 56px; }
 .tab:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .tab-panel { display: none; }
 .tab-panel.tab-panel-active { display: block; }
+.bob-befehle-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1rem 0; }
