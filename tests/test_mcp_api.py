@@ -250,3 +250,29 @@ class TestMcpTransport:
         assert resp.status_code == 200
         assert "Member-Sicht" in resp.text
         assert "Fremdes Profil" not in resp.text
+
+
+class TestTokenUi:
+    def _login(self, client):
+        client.post("/login", data={"email": "owner@test.de", "password": "geheim123"})
+
+    def test_api_token_route_requires_login(self, client):
+        resp = client.post("/profiles/api-token", follow_redirects=False)
+        assert resp.status_code == 303
+        assert resp.headers["location"] == "/login"
+
+    def test_api_token_shown_once_then_gone(self, client):
+        self._login(client)
+        resp = client.post("/profiles/api-token")
+        assert resp.status_code == 200
+        assert "bob_" in resp.text
+        resp2 = client.get("/")
+        assert "bob_" not in resp2.text          # Einmal-Anzeige: danach nur Hash in DB
+        assert "API-Token erzeugen" in resp2.text  # Button bleibt
+
+    def test_generated_token_works_against_mcp(self, client):
+        import re
+        self._login(client)
+        resp = client.post("/profiles/api-token")
+        token = re.search(r"bob_[0-9a-f]{48}", resp.text).group(0)
+        assert storage.get_user_by_api_token(token)["email"] == "owner@test.de"

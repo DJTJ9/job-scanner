@@ -194,6 +194,18 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         storage.delete_profile(profile_id)
         return RedirectResponse("/", status_code=303)
 
+    @app.post("/profiles/api-token")
+    def create_api_token_route(request: Request):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        token = storage.create_api_token(request.session["user_id"])
+        profiles = storage.list_profiles(active_only=True,
+                                          user_id=request.session.get("user_id"))
+        return templates.TemplateResponse(request, "profiles.html", {
+            "profiles": profiles,
+            "profile_exists": len(profiles) > 0,
+            "api_token": token})
+
     _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet")
     _FUNNEL_STEPS = (("onboarding_start", "Onboarding-Start"),
                      ("profil_erstellt", "Profil erstellt"),
