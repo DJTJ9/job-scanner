@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
 import sqlite3
 from pathlib import Path
 
@@ -101,6 +102,7 @@ CREATE TABLE IF NOT EXISTS users (
     pw_hash TEXT NOT NULL,
     salt TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'member',
+    api_token_hash TEXT,
     created_at TEXT
 );
 CREATE TABLE IF NOT EXISTS events (
@@ -148,6 +150,9 @@ def init_db(path: str | Path) -> None:
     prof_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(profiles)")}
     if "user_id" not in prof_cols:
         _conn.execute("ALTER TABLE profiles ADD COLUMN user_id INTEGER REFERENCES users(id)")
+    user_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(users)")}
+    if "api_token_hash" not in user_cols:
+        _conn.execute("ALTER TABLE users ADD COLUMN api_token_hash TEXT")
     _conn.commit()
 
 
@@ -221,6 +226,31 @@ def seed_owner(email: str, password: str) -> int | None:
     conn.execute("UPDATE profiles SET user_id = ? WHERE user_id IS NULL", (uid,))
     conn.commit()
     return uid
+
+
+def create_api_token(user_id: int) -> str:
+    """Erzeugt ein API-Token für den Member-MCP-Zugang und speichert nur den SHA-256-Hash.
+    Ersetzt ein evtl. vorhandenes Token (ein Token pro User). Gibt den Klartext zurück —
+    der einzige Moment, in dem er existiert (Einmal-Anzeige im UI)."""
+    conn = _require_conn()
+    token = "bob_" + secrets.token_hex(24)
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    conn.execute("UPDATE users SET api_token_hash = ? WHERE id = ?", (token_hash, user_id))
+    conn.commit()
+    return token
+
+
+def get_user_by_api_token(token: str) -> dict | None:
+    """User-Lookup per Token-Klartext. Bewusst deterministischer SHA-256 statt
+    pbkdf2+Salt (pw_hash-Pattern): der Lookup kennt den User nicht vorab und braucht
+    eine direkte Hash-Query; 24 Random-Bytes machen Rainbow-Tables irrelevant."""
+    if not token:
+        return None
+    conn = _require_conn()
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    row = conn.execute(
+        "SELECT * FROM users WHERE api_token_hash = ?", (token_hash,)).fetchone()
+    return dict(row) if row else None
 
 
 def upsert_job(job: Job) -> str:
