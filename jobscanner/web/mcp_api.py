@@ -1,4 +1,4 @@
-"""MCP-Server für den BYO-Member-Zugang: 4 Tools, alle auf den Bearer-Token-User gescoped.
+"""MCP-Server für den BYO-Member-Zugang: 6 Tools, alle auf den Bearer-Token-User gescoped.
 Tool-Logik ist von FastMCP getrennt gehalten (plain functions), damit sie ohne
 MCP-Protokoll-Roundtrip testbar bleibt. raw_text in Jobs ist Fremdinhalt aus
 gescrapten Anzeigen — Prompt-Injection-Warnung gehört in die Member-Skills."""
@@ -191,6 +191,43 @@ def push_jobs_data(user: dict, listings: list) -> dict:
     return stats
 
 
+def get_my_votes_data(user: dict) -> dict:
+    profiles = []
+    for p in _user_profiles(user["id"]):
+        profiles.append({
+            "id": p["id"],
+            "name": p["name"],
+            "votes": storage.list_feedback_with_jobs(p["id"]),
+        })
+    return {"profiles": profiles}
+
+
+def apply_member_insights_data(user: dict, profile_id: int, kind: str,
+                               text: str = "", payload: dict | None = None) -> dict:
+    own = {p["id"]: p for p in _user_profiles(user["id"])}
+    if profile_id not in own:
+        raise ValueError("Profil gehört nicht zu diesem Token")
+    if kind not in ("preference", "weight"):
+        raise ValueError("kind muss 'preference' oder 'weight' sein")
+    payload = payload or {}
+    if kind == "preference":
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text darf für kind='preference' nicht leer sein")
+    else:
+        key = payload.get("key")
+        new_weight = payload.get("new_weight")
+        valid_keys = {c["key"] for c in storage.list_criteria(profile_id)}
+        if key not in valid_keys:
+            raise ValueError(f"Unbekanntes Kriterium: {key}")
+        if not isinstance(new_weight, int) or not (0 <= new_weight <= 5):
+            raise ValueError("new_weight muss 0-5 sein")
+    insight_id = storage.add_insight(profile_id, kind, text, payload, source="member")
+    storage.confirm_insight(insight_id)
+    storage.score_profile_deterministic(profile_id)
+    storage.touch_learn_reminder(profile_id)
+    return {"insight_id": insight_id, "status": "confirmed"}
+
+
 def create_mcp_server() -> FastMCP:
     """Ein FastMCP-Server pro create_app()-Aufruf (kein Modul-Singleton — der
     session_manager eines FastMCP ist nicht re-runnable, Tests erzeugen viele Apps).
@@ -235,6 +272,19 @@ def create_mcp_server() -> FastMCP:
         extrahierte Content-Fingerprints passiert serverseitig, Quelle wird als
         member:<id> markiert."""
         return push_jobs_data(_require_user(), listings)
+
+    @server.tool()
+    def get_my_votes() -> dict:
+        """Feintuning-Votes (↑/↓) mit vollem Job-Kontext der eigenen Profile — Datenbasis
+        für Muster-/Widerspruchs-Erkennung durch den Member-Claude selbst."""
+        return get_my_votes_data(_require_user())
+
+    @server.tool()
+    def apply_member_insights(profile_id: int, kind: str, text: str = "",
+                              payload: dict | None = None) -> dict:
+        """Bestätigte Erkenntnis übernehmen (kind='preference'|'weight') + sofortiges
+        deterministisches Rescore aller extrahierten Jobs für dieses Profil. Kein LLM."""
+        return apply_member_insights_data(_require_user(), profile_id, kind, text, payload or {})
 
     return server
 

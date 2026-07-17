@@ -222,6 +222,65 @@ class TestToolLogic:
                                            "raw_text": ""}])
 
 
+class TestGetMyVotes:
+    def test_scoped_to_token_user_with_job_context(self, client):
+        user, pid = _member_with_profile()
+        other, other_pid = _member_with_profile("votes-other@test.de")
+        fp = _mk_extracted_job("v1", title="Unity Dev")
+        storage.add_feedback(pid, fp, "up")
+        storage.add_feedback(other_pid, fp, "down")
+        out = mcp_api.get_my_votes_data(user)
+        assert [p["id"] for p in out["profiles"]] == [pid]
+        assert out["profiles"][0]["votes"] == [
+            {"vote": "up", "fingerprint": fp, "title": "Unity Dev", "company": "Firma-v1",
+             "location": "Hamburg", "remote_flag": "remote", "employment_type": "Festanstellung",
+             "requirements": ["C#"], "tech_stack": ["Unity"]}]
+
+
+class TestApplyMemberInsights:
+    def test_rejects_foreign_profile(self, client):
+        user, _pid = _member_with_profile()
+        _other, other_pid = _member_with_profile("insights-other@test.de")
+        with pytest.raises(ValueError, match="geh"):
+            mcp_api.apply_member_insights_data(
+                user, other_pid, "preference", text="Remote bevorzugt")
+
+    def test_rejects_unknown_kind(self, client):
+        user, pid = _member_with_profile()
+        with pytest.raises(ValueError, match="kind"):
+            mcp_api.apply_member_insights_data(user, pid, "location_boost", text="x")
+
+    def test_preference_appends_to_profile_and_confirms(self, client):
+        user, pid = _member_with_profile()
+        out = mcp_api.apply_member_insights_data(
+            user, pid, "preference", text="Bevorzugt Remote, aber Hamburg ok")
+        assert out["status"] == "confirmed"
+        profile = storage.get_profile(pid)
+        assert "Bevorzugt Remote, aber Hamburg ok" in profile["data"]["preferences"]
+        insight = storage.list_insights(pid, status="confirmed")[0]
+        assert insight["kind"] == "preference" and insight["source"] == "member"
+
+    def test_weight_updates_criterion_and_rejects_unknown_key(self, client):
+        user, pid = _member_with_profile()
+        with pytest.raises(ValueError, match="Kriterium"):
+            mcp_api.apply_member_insights_data(
+                user, pid, "weight", payload={"key": "nicht_da", "new_weight": 4})
+        mcp_api.apply_member_insights_data(
+            user, pid, "weight", payload={"key": "remote", "new_weight": 2})
+        criteria = {c["key"]: c["weight"] for c in storage.list_criteria(pid)}
+        assert criteria["remote"] == 2
+
+    def test_triggers_deterministic_rescore_and_touches_reminder(self, client):
+        user, pid = _member_with_profile()
+        fp = _mk_extracted_job("ins1")
+        storage.add_feedback(pid, fp, "up")
+        assert storage.learn_reminder_status(pid)["new_votes"] == 1
+        mcp_api.apply_member_insights_data(
+            user, pid, "weight", payload={"key": "remote", "new_weight": 1})
+        assert storage.get_job_score(pid, fp) is not None
+        assert storage.learn_reminder_status(pid)["new_votes"] == 0
+
+
 _MCP_HEADERS = {"Accept": "application/json, text/event-stream",
                 "Content-Type": "application/json"}
 
@@ -258,7 +317,8 @@ class TestMcpTransport:
                                         "Authorization": f"Bearer {member['token']}"})
         assert resp.status_code == 200
         names = {t["name"] for t in resp.json()["result"]["tools"]}
-        assert names == {"get_my_profile", "pull_pending_jobs", "push_batch", "push_jobs"}
+        assert names == {"get_my_profile", "pull_pending_jobs", "push_batch", "push_jobs",
+                          "get_my_votes", "apply_member_insights"}
 
     def test_mcp_tool_call_scoped_to_token_user(self, client, member):
         pid = storage.create_profile("Member-Sicht", {"no_gos": []},
