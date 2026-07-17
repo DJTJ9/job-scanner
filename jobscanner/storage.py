@@ -293,12 +293,16 @@ def _raw_fingerprint(url: str) -> str:
 
 
 def insert_raw_job(url: str, portal: str, raw_text: str, today: str,
-                   role: str = "", is_neighbor: bool = False) -> str:
-    """Speichert einen unextrahierten Job aus der Discover-Phase (kein Groq mehr im Pfad)."""
+                   role: str = "", is_neighbor: bool = False,
+                   via: str | None = None) -> str:
+    """Speichert einen unextrahierten Job aus der Discover-Phase (kein Groq mehr im Pfad).
+    via markiert die Einlieferquelle (z.B. 'member:<user_id>' beim MCP-push_jobs)."""
     conn = _require_conn()
     fp = _raw_fingerprint(url)
     row = conn.execute("SELECT sources_json FROM jobs WHERE fingerprint = ?", (fp,)).fetchone()
     source = {"portal": portal, "url": url, "found_at": today}
+    if via:
+        source["via"] = via
     if row is None:
         conn.execute(
             """INSERT INTO jobs (fingerprint, title, company, location, remote_flag,
@@ -350,6 +354,40 @@ def list_unscored_extracted(limit: int | None = None) -> list[dict]:
         sql += f" LIMIT {int(limit)}"
     out = []
     for r in conn.execute(sql):
+        out.append({
+            "fingerprint": r["fingerprint"],
+            "title": r["title"],
+            "company": r["company"],
+            "location": r["location"] or "",
+            "employment_type": r["employment_type"] or "",
+            "requirements": json.loads(r["requirements_json"] or "[]"),
+            "tech_stack": json.loads(r["tech_stack_json"] or "[]"),
+        })
+    return out
+
+
+def list_unscored_for_profiles(profile_ids: list[int], limit: int | None = None) -> list[dict]:
+    """Extrahierte Jobs, denen für mindestens eines der gegebenen Profile der
+    job_scores-Eintrag fehlt — der user-scoped to_score-Zweig des MCP-pull_pending_jobs.
+    Item-Shape identisch zu list_unscored_extracted."""
+    conn = _require_conn()
+    if not profile_ids:
+        return []
+    placeholders = ",".join("?" for _ in profile_ids)
+    sql = (
+        "SELECT DISTINCT jobs.fingerprint, jobs.title, jobs.company, jobs.location, "
+        "jobs.employment_type, jobs.requirements_json, jobs.tech_stack_json "
+        "FROM jobs JOIN profiles ON profiles.id IN (" + placeholders + ") "
+        "WHERE jobs.extraction_status = 'extracted' "
+        "AND NOT EXISTS (SELECT 1 FROM job_scores "
+        "                WHERE job_scores.profile_id = profiles.id "
+        "                AND job_scores.fingerprint = jobs.fingerprint) "
+        "ORDER BY jobs.id"
+    )
+    if limit is not None:
+        sql += f" LIMIT {int(limit)}"
+    out = []
+    for r in conn.execute(sql, list(profile_ids)):
         out.append({
             "fingerprint": r["fingerprint"],
             "title": r["title"],
@@ -889,11 +927,14 @@ def rescore_profile(profile_id: int) -> list[str]:
     return changed
 
 
-def score_profile_deterministic(profile_id: int) -> int:
+def score_profile_deterministic(profile_id: int, only_missing: bool = False) -> int:
     """LLM-freies Scoring eines Member-Profils über den kompletten extrahierten Job-Pool:
     wendet den Weights-/No-Go-Katalog (scoring.score_job_deterministic) an und schreibt je Job
     einen job_scores-Eintrag. Gibt die Anzahl bewerteter Jobs zurück. Kein jobs-Tabellen-Update
-    (Member-Profile sind nie is_default) und kein LLM-Aufruf."""
+    (Member-Profile sind nie is_default) und kein LLM-Aufruf.
+    only_missing=True bewertet nur Jobs OHNE bestehenden job_scores-Eintrag dieses Profils —
+    damit überschreibt das Auto-Scoring nach einem MCP-Extraktion-Push keine per push_batch
+    gelieferten Member-LLM-Scores."""
     conn = _require_conn()
     profile = get_profile(profile_id)
     if profile is None:
@@ -901,8 +942,16 @@ def score_profile_deterministic(profile_id: int) -> int:
     profile_data = profile["data"]
     active_no_gos = profile_data.get("no_gos", [])
     criteria = list_criteria(profile_id)
-    rows = conn.execute(
-        "SELECT * FROM jobs WHERE extraction_status = 'extracted'").fetchall()
+    if only_missing:
+        rows = conn.execute(
+            """SELECT * FROM jobs WHERE extraction_status = 'extracted'
+               AND NOT EXISTS (SELECT 1 FROM job_scores
+                               WHERE job_scores.profile_id = ?
+                               AND job_scores.fingerprint = jobs.fingerprint)""",
+            (profile_id,)).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM jobs WHERE extraction_status = 'extracted'").fetchall()
     count = 0
     for row in rows:
         job = _row_to_job(row)
