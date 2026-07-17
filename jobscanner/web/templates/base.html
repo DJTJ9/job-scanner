@@ -19,6 +19,8 @@
     {% if request.session.get("user_id") %}
       <span class="link">{{ request.session.get("email") }}</span>
       <a class="link" href="/logout">Abmelden</a>
+    {% else %}
+      <a class="link" href="/login">Anmelden</a>
     {% endif %}
   </header>
   {% if request.session.get("user_id") %}
@@ -50,6 +52,10 @@
     <a class="link" href="/impressum">Impressum</a>
     <span class="footer-sep">·</span>
     <a class="link" href="/datenschutz">Datenschutz</a>
+    <span class="footer-sep">·</span>
+    <a class="link" href="/mitmachen">Mitmachen</a>
+    <span class="footer-sep">·</span>
+    <a class="link" href="https://github.com/DJTJ9/job-scanner">Code auf GitHub</a>
     {% if request.session.get("user_id") %}
     <span class="footer-sep">·</span>
     <a class="link" href="/account/passwort">Passwort ändern</a>
