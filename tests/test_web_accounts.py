@@ -138,3 +138,54 @@ def test_datenschutz_public_without_login(app):
     resp = c.get("/datenschutz")
     assert resp.status_code == 200
     assert "Datenschutz" in resp.text
+
+
+def _owner_client(app):
+    c = TestClient(app)
+    c.post("/login", data={"email": "owner@test.de", "password": "ownerpw"})
+    return c
+
+
+def test_password_page_requires_login(app):
+    c = TestClient(app)
+    resp = c.get("/account/passwort", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/login"
+
+
+def test_password_change_success(app):
+    c = _owner_client(app)
+    resp = c.post("/account/passwort", data={
+        "current_password": "ownerpw", "new_password": "neupw1",
+        "new_password_repeat": "neupw1"}, follow_redirects=False)
+    assert resp.status_code == 200
+    assert "geändert" in resp.text
+    assert storage.verify_password("owner@test.de", "neupw1") is not None
+
+
+def test_password_change_wrong_current(app):
+    c = _owner_client(app)
+    resp = c.post("/account/passwort", data={
+        "current_password": "falsch", "new_password": "neupw1",
+        "new_password_repeat": "neupw1"}, follow_redirects=False)
+    assert resp.status_code == 400
+    assert "falsch" in resp.text
+    assert storage.verify_password("owner@test.de", "ownerpw") is not None
+
+
+def test_password_change_mismatch(app):
+    c = _owner_client(app)
+    resp = c.post("/account/passwort", data={
+        "current_password": "ownerpw", "new_password": "neupw1",
+        "new_password_repeat": "anders"}, follow_redirects=False)
+    assert resp.status_code == 400
+    assert "überein" in resp.text
+
+
+def test_password_change_too_short(app):
+    c = _owner_client(app)
+    resp = c.post("/account/passwort", data={
+        "current_password": "ownerpw", "new_password": "kurz",
+        "new_password_repeat": "kurz"}, follow_redirects=False)
+    assert resp.status_code == 400
+    assert "mindestens" in resp.text

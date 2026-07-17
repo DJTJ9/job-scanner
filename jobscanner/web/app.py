@@ -111,6 +111,40 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def datenschutz_view(request: Request):
         return templates.TemplateResponse(request, "datenschutz.html", {})
 
+    @app.get("/account/passwort")
+    def account_password_form(request: Request):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        return templates.TemplateResponse(
+            request, "account_password.html", {"error": None, "success": None})
+
+    @app.post("/account/passwort")
+    def account_password_submit(
+        request: Request,
+        current_password: str = Form(...),
+        new_password: str = Form(...),
+        new_password_repeat: str = Form(...),
+    ):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        email = request.session.get("email")
+
+        def _err(msg):
+            return templates.TemplateResponse(
+                request, "account_password.html",
+                {"error": msg, "success": None}, status_code=400)
+
+        if storage.verify_password(email, current_password) is None:
+            return _err("Aktuelles Passwort ist falsch")
+        if new_password != new_password_repeat:
+            return _err("Passwörter stimmen nicht überein")
+        if len(new_password) < 6:
+            return _err("Neues Passwort muss mindestens 6 Zeichen haben")
+        storage.set_password(request.session.get("user_id"), new_password)
+        return templates.TemplateResponse(
+            request, "account_password.html",
+            {"error": None, "success": "Passwort geändert"})
+
     @app.get("/register")
     def register_form(request: Request):
         return templates.TemplateResponse(request, "register.html", {"error": None})
