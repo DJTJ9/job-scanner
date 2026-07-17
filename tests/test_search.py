@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 import requests
 
 from jobscanner.search import (PortalSearchProvider, ArbeitsagenturSearchProvider,
-                               discover_urls, provider_for)
+                               discover_urls, provider_for, classify_location)
 from jobscanner import browser
 
 HTML = """
@@ -172,6 +172,13 @@ class TestJoobleSearchProvider:
         assert "Junior AI Engineer" in provider.descriptions["https://jooble.org/desc/456"]
         assert post.call_args[0][0].endswith("guid789")
 
+    def test_sends_deutschland_as_location_filter(self, monkeypatch):
+        from jobscanner.search import JoobleSearchProvider
+        monkeypatch.setenv("JOOBLE_API_KEY", "guid789")
+        with patch("jobscanner.search.requests.post", return_value=self._resp()) as post:
+            JoobleSearchProvider().search("AI Engineer", limit=5)
+        assert post.call_args.kwargs["json"]["location"] == "Deutschland"
+
     def test_empty_without_key(self, monkeypatch):
         from jobscanner.search import JoobleSearchProvider
         monkeypatch.delenv("JOOBLE_API_KEY", raising=False)
@@ -207,3 +214,32 @@ def test_portal_search_passes_search_cost_to_fetch():
     with patch("jobscanner.search.browser.fetch", return_value=None) as fetch:
         PortalSearchProvider(portal).search("Unity")
     assert fetch.call_args.kwargs["cost"] == browser.FC_COST_SEARCH
+
+
+class TestClassifyLocation:
+    def test_plz_pattern_is_de(self):
+        assert classify_location("22765 Hamburg") is False
+
+    def test_de_city_is_de(self):
+        assert classify_location("München") is False
+
+    def test_deutschland_substring_is_de(self):
+        assert classify_location("Berlin, Deutschland") is False
+
+    def test_germany_substring_is_de(self):
+        assert classify_location("Munich, Germany") is False
+
+    def test_de_country_code_token_is_de(self):
+        assert classify_location("Musterstadt, DE") is False
+
+    def test_empty_is_de(self):
+        assert classify_location("") is False
+
+    def test_remote_is_de(self):
+        assert classify_location("Remote") is False
+
+    def test_foreign_city_without_digits_is_ausland(self):
+        assert classify_location("New York") is True
+
+    def test_foreign_country_is_ausland(self):
+        assert classify_location("London, United Kingdom") is True

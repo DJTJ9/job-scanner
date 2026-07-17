@@ -26,6 +26,38 @@ _ADZUNA_API = "https://api.adzuna.com/v1/api/jobs/de/search/1"
 _JOOBLE_API = "https://jooble.org/api/"
 ENV_FILE = Path("/root/projekte/telegram-bot-army/.env")
 
+_PLZ_RE = re.compile(r"\b\d{5}\b")
+_DE_TOKEN_RE = re.compile(r"\bde\b")
+_DE_CITIES = {
+    "berlin", "hamburg", "münchen", "munich", "köln", "cologne", "frankfurt",
+    "stuttgart", "düsseldorf", "dortmund", "essen", "leipzig", "bremen",
+    "dresden", "hannover", "nürnberg", "duisburg", "bochum", "wuppertal",
+    "bielefeld", "bonn", "münster", "karlsruhe", "mannheim", "augsburg",
+    "wiesbaden", "mönchengladbach", "gelsenkirchen", "braunschweig",
+    "chemnitz", "kiel", "aachen", "halle", "magdeburg", "freiburg",
+    "krefeld", "lübeck", "mainz", "erfurt", "rostock", "kassel", "potsdam",
+    "saarbrücken", "heidelberg", "darmstadt", "würzburg", "regensburg",
+    "ingolstadt", "jena", "trier", "koblenz", "oldenburg", "osnabrück",
+    "leverkusen", "wolfsburg", "göttingen", "reutlingen",
+}
+
+
+def classify_location(location: str) -> bool:
+    """True = eindeutig nicht Deutschland ('Ausland'), False = DE oder uneindeutig.
+    Uneindeutige Fälle (leer, 'Remote') gelten als DE — im Zweifel nicht verstecken."""
+    norm = (location or "").strip().lower()
+    if not norm or "remote" in norm or "home office" in norm or "homeoffice" in norm:
+        return False
+    if _PLZ_RE.search(norm):
+        return False
+    if "deutschland" in norm or "germany" in norm:
+        return False
+    if _DE_TOKEN_RE.search(norm):
+        return False
+    if any(city in norm for city in _DE_CITIES):
+        return False
+    return True
+
 
 def _load_env() -> None:
     if ENV_FILE.exists():
@@ -124,7 +156,7 @@ class JoobleSearchProvider:
             return []
         try:
             resp = requests.post(_JOOBLE_API + key,
-                                 json={"keywords": query, "location": ""},
+                                 json={"keywords": query, "location": "Deutschland"},
                                  timeout=_TIMEOUT)
             resp.raise_for_status()
         except requests.RequestException:
