@@ -45,4 +45,38 @@ document.addEventListener("DOMContentLoaded", () => {
       if (panel) panel.classList.add("panel-hidden");
     });
   });
+
+  const feedbackPanel = document.getElementById("feedback-panel");
+  document.querySelectorAll("[data-feedback-toggle]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (feedbackPanel) feedbackPanel.classList.toggle("panel-hidden");
+    });
+  });
+  document.querySelectorAll("[data-feedback-close]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (feedbackPanel) feedbackPanel.classList.add("panel-hidden");
+    });
+  });
+  document.querySelectorAll("[data-feedback-submit]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const textarea = feedbackPanel.querySelector("[data-feedback-text]");
+      const text = textarea ? textarea.value.trim() : "";
+      if (!text) return;
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          const body = feedbackPanel.querySelector(".feedback-panel-body");
+          if (body && data.message) {
+            body.innerHTML = "";
+            const p = document.createElement("p");
+            p.textContent = data.message;
+            body.appendChild(p);
+          }
+        });
+    });
+  });
 });
