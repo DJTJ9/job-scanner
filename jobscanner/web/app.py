@@ -265,6 +265,20 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return JSONResponse({"vote": vote, "fingerprint": fingerprint})
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
 
+    _FEEDBACK_CONFIRMATION = "Bob hat's notiert. Danke!"
+
+    @app.post("/api/feedback")
+    async def member_feedback_route(request: Request):
+        user_id = request.session.get("user_id")
+        if user_id is None:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        body = await request.json()
+        text = (body.get("text") or "").strip()
+        if not text:
+            return JSONResponse({"error": "Text fehlt"}, status_code=400)
+        storage.create_member_feedback(user_id, text)
+        return JSONResponse({"message": _FEEDBACK_CONFIRMATION})
+
     def _launch_feedback_agent(pass_name: str, analysis_id: int) -> None:
         try:
             subprocess.Popen(
