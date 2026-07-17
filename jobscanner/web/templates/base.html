@@ -43,6 +43,15 @@
   {% include "_onboarding_lesson.html" %}
   {% include "_feedback_widget.html" %}
   {% endif %}
+  <footer class="site-footer">
+    <a class="link" href="/impressum">Impressum</a>
+    <span class="footer-sep">·</span>
+    <a class="link" href="/datenschutz">Datenschutz</a>
+    {% if request.session.get("user_id") %}
+    <span class="footer-sep">·</span>
+    <a class="link" href="/account/passwort">Passwort ändern</a>
+    {% endif %}
+  </footer>
   <script src="/static/app.js?v={{ asset_version }}" defer></script>
 </body>
 </html>

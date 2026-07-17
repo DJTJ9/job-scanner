@@ -80,3 +80,20 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
+// Passwort-Stärke-Gauge (Tiefenlinie-Form): füllt sich veto→signal→beute
+document.querySelectorAll("[data-strength-input]").forEach(function (input) {
+  var gauge = document.querySelector("[data-strength-gauge]");
+  if (!gauge) return;
+  var bar = gauge.querySelector("span");
+  input.addEventListener("input", function () {
+    var v = input.value;
+    var score = 0;
+    if (v.length >= 6) score++;
+    if (v.length >= 10) score++;
+    if (/[0-9]/.test(v) && /[a-zA-Z]/.test(v)) score++;
+    var level = Math.min(score, 3);
+    gauge.setAttribute("data-level", String(level));
+    bar.style.width = (level / 3 * 100) + "%";
+  });
+});

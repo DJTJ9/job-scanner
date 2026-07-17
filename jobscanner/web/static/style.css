@@ -227,3 +227,46 @@ body.has-drawer.drawer-collapsed .topbar, body.has-drawer.drawer-collapsed .page
 }
 .feedback-textarea { min-height: 80px; resize: vertical; }
 .feedback-submit { background: var(--bob-lila); color: var(--gischt); font-weight: 600; border: none; }
+
+/* Rechtstexte + Passwort-Ändern */
+.site-footer {
+  text-align: center;
+  padding: 1.5rem;
+  border-top: 1px solid var(--wasser);
+  font-size: 0.85rem;
+}
+.footer-sep { color: var(--wasser); margin: 0 0.5rem; }
+body.has-drawer .site-footer { margin-left: 240px; }
+body.has-drawer.drawer-collapsed .site-footer { margin-left: 56px; }
+.logbuch { max-width: 640px; margin: 2rem auto; }
+.logbuch h1 { margin: 0.5rem 0 0; }
+.logbuch .hinweis { font-size: 0.8rem; color: var(--wasser); margin-top: 1.5rem; }
+.logbuch .success-msg { color: var(--beute); font-weight: 600; }
+.tiefenlinie {
+  height: 2px;
+  margin: 0.75rem 0 1.25rem;
+  background: repeating-linear-gradient(
+    90deg, var(--signal) 0 6px, transparent 6px 12px);
+  opacity: 0.7;
+}
+.staerke-gauge {
+  height: 4px;
+  margin-top: 0.4rem;
+  background: var(--tiefe);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.staerke-gauge > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--veto);
+  transition: width 0.2s ease, background 0.2s ease;
+}
+.staerke-gauge[data-level="2"] > span { background: var(--signal); }
+.staerke-gauge[data-level="3"] > span { background: var(--beute); }
+
+@media (max-width: 900px) {
+  body.has-drawer .site-footer,
+  body.has-drawer.drawer-collapsed .site-footer { margin-left: 0; }
+}
