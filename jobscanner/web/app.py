@@ -14,6 +14,7 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.sessions import SessionMiddleware
 
 from jobscanner import config, nocodb_board, scoring, storage
@@ -530,7 +531,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         wizard = _wizard_state(request)
         if freetext.strip():
             try:
-                wizard["suggestions"] = llm_refine.suggest_from_freetext(freetext)
+                wizard["suggestions"] = await run_in_threadpool(
+                    llm_refine.suggest_from_freetext, freetext)
             except Exception as exc:
                 wizard["suggestions"] = {"error": str(exc)}
         request.session["wizard"] = wizard
