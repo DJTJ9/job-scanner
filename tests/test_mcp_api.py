@@ -101,3 +101,105 @@ class TestScopedQueries:
         storage.score_profile_deterministic(pid, only_missing=True)
         assert storage.get_job_score(pid, fp1)["score"] == 99      # nicht überschrieben
         assert storage.get_job_score(pid, fp2) is not None          # Lücke gefüllt
+
+
+from jobscanner.web import mcp_api
+
+
+def _member_with_profile(email="scoped@test.de"):
+    uid = storage.create_user(email, "pw")
+    pid = storage.create_profile(f"Profil-{email}", {"no_gos": []}, user_id=uid)
+    storage.save_criteria(pid, [{"key": "remote", "label": "Remote", "weight": 5}])
+    return storage.get_user(uid), pid
+
+
+class TestToolLogic:
+    def test_get_my_profile_scoped_to_token_user(self, client):
+        user, pid = _member_with_profile()
+        _other, other_pid = _member_with_profile("other@test.de")
+        out = mcp_api.get_my_profile_data(user)
+        ids = [p["id"] for p in out["profiles"]]
+        assert pid in ids and other_pid not in ids
+        assert out["profiles"][0]["criteria"] == [
+            {"key": "remote", "label": "Remote", "weight": 5}]
+
+    def test_pull_pending_includes_raw_and_own_unscored(self, client):
+        user, pid = _member_with_profile()
+        storage.insert_raw_job("https://m.test/raw", "adzuna", "Rohtext", "2026-07-17")
+        fp = _mk_extracted_job("p1")
+        out = mcp_api.pull_pending_jobs_data(user, limit=10)
+        assert [j["raw_text"] for j in out["jobs"]] == ["Rohtext"]
+        assert [j["fingerprint"] for j in out["to_score"]] == [fp]
+
+    def test_push_batch_rejects_foreign_profile(self, client):
+        user, _pid = _member_with_profile()
+        _other, other_pid = _member_with_profile("fremd@test.de")
+        fp = _mk_extracted_job("p2")
+        entry = {"fingerprint": fp, "scores": {str(other_pid): {
+            "veto": None, "kriterien": {"remote": {"punkte": 5, "grund": "x"}}}}}
+        with pytest.raises(ValueError, match="geh"):
+            mcp_api.push_batch_data(user, [entry])
+        assert storage.get_job_score(other_pid, fp) is None
+
+    def test_push_batch_rejects_out_of_range_punkte(self, client):
+        user, pid = _member_with_profile()
+        fp = _mk_extracted_job("p3")
+        entry = {"fingerprint": fp, "scores": {str(pid): {
+            "veto": None, "kriterien": {"remote": {"punkte": 11, "grund": "x"}}}}}
+        with pytest.raises(ValueError, match="0-10"):
+            mcp_api.push_batch_data(user, [entry])
+
+    def test_push_batch_applies_extraction_and_scores(self, client):
+        user, pid = _member_with_profile()
+        raw_fp = storage.insert_raw_job("https://m.test/x1", "adzuna",
+                                        "Unity Dev bei ACME", "2026-07-17")
+        entry = {"fingerprint": raw_fp,
+                 "extraction": {"title": "Unity Dev", "company": "ACME",
+                                "location": "Hamburg", "remote": "remote",
+                                "employment_type": "Festanstellung", "language": "de",
+                                "salary": "", "requirements": ["C#"], "tech_stack": ["Unity"]},
+                 "scores": {str(pid): {"veto": None, "kriterien": {
+                     "remote": {"punkte": 8, "grund": "voll remote"}}}}}
+        stats = mcp_api.push_batch_data(user, [entry])
+        assert stats["extracted"] == 1 and stats["scored"] == 1
+        jobs = storage.list_jobs()
+        assert len(jobs) == 1 and jobs[0].title == "Unity Dev"
+        score_row = storage.get_job_score(pid, jobs[0].fingerprint)
+        assert score_row is not None and score_row["score"] is not None
+        assert jobs[0].score is None  # jobs-Tabelle (Owner-Spalten) bleibt unberührt
+
+    def test_push_batch_auto_scores_other_member_profiles(self, client):
+        user, _pid = _member_with_profile()
+        other, other_pid = _member_with_profile("auto@test.de")
+        raw_fp = storage.insert_raw_job("https://m.test/x2", "adzuna", "Text", "2026-07-17")
+        entry = {"fingerprint": raw_fp,
+                 "extraction": {"title": "Godot Dev", "company": "ACME2",
+                                "location": "", "remote": "remote", "employment_type": "",
+                                "language": "de", "salary": "",
+                                "requirements": [], "tech_stack": []},
+                 "scores": {}}
+        mcp_api.push_batch_data(user, [entry])
+        new_fp = storage.list_jobs()[0].fingerprint
+        assert storage.get_job_score(other_pid, new_fp) is not None
+
+    def test_push_jobs_dedups_and_marks_member_source(self, client):
+        import json as _json
+        user, _pid = _member_with_profile()
+        listings = [{"url": "https://m.test/j1", "portal": "adzuna", "raw_text": "Anzeige 1"},
+                    {"url": "https://m.test/j1", "portal": "adzuna", "raw_text": "Anzeige 1"}]
+        stats = mcp_api.push_jobs_data(user, listings)
+        assert stats == {"inserted": 1, "duplicates": 1}
+        pending = storage.list_pending_extraction()
+        assert len(pending) == 1
+        conn = storage._require_conn()
+        row = conn.execute("SELECT sources_json FROM jobs WHERE fingerprint = ?",
+                           (pending[0]["fingerprint"],)).fetchone()
+        assert _json.loads(row["sources_json"])[0]["via"] == f"member:{user['id']}"
+
+    def test_push_jobs_rejects_bad_listing(self, client):
+        user, _pid = _member_with_profile()
+        with pytest.raises(ValueError):
+            mcp_api.push_jobs_data(user, [{"url": "ftp://x", "portal": "a", "raw_text": "t"}])
+        with pytest.raises(ValueError):
+            mcp_api.push_jobs_data(user, [{"url": "https://ok.test", "portal": "a",
+                                           "raw_text": ""}])
