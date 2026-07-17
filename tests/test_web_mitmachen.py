@@ -65,3 +65,24 @@ def test_footer_has_mitmachen_and_github_links(client):
     body = client.get("/mitmachen").text
     assert 'href="/mitmachen"' in body
     assert "github.com/DJTJ9/job-scanner" in body
+
+
+def test_mitmachen_css_classes_present_and_reuse_theme():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    for cls in (".tauch-hero", ".tauchprofil", ".tauchprofil-linie",
+                ".tauchprofil-fuellung", ".station", ".station-marke", ".copy-block"):
+        assert cls in css
+    assert "--abgrund" in css
+    assert "var(--beute)" in css.split(".station-marke-ziel")[1].split("}")[0]
+
+
+def test_mitmachen_css_adds_no_new_keyframes():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert css.count("@keyframes") == 2
+
+
+def test_mitmachen_css_respects_reduced_motion():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    block = css.split(".tauchprofil-fuellung")[1]
+    assert "prefers-reduced-motion" in css
+    assert "transition" in block

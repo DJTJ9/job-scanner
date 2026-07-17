@@ -7,6 +7,7 @@
   --beute: #22D3A8;
   --veto: #F0665C;
   --bob-lila: #9B6BF2;
+  --abgrund: #050D1A;
 }
 * { box-sizing: border-box; }
 body {
@@ -269,4 +270,82 @@ body.has-drawer.drawer-collapsed .site-footer { margin-left: 56px; }
 @media (max-width: 900px) {
   body.has-drawer .site-footer,
   body.has-drawer.drawer-collapsed .site-footer { margin-left: 0; }
+}
+/* ---- /mitmachen: Tauchprofil ---- */
+.tauch-hero {
+  display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;
+  background: var(--abgrund);
+  border-radius: 10px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+}
+.tauch-hero-text { flex: 1 1 20rem; }
+.tauch-hero-text h1 {
+  font-family: "Chakra Petch", sans-serif; font-weight: 600;
+  font-size: 2rem; line-height: 1.2; margin: 0 0 0.75rem;
+}
+.tauch-hero-bild { flex: 0 1 16rem; max-width: 100%; height: auto; }
+.tauch-intro { opacity: 0.85; margin-bottom: 1.5rem; }
+
+.tauchprofil { position: relative; padding-left: 3.5rem; }
+.tauchprofil-linie {
+  position: absolute; left: 1.25rem; top: 0.4rem; bottom: 0.4rem; width: 2px;
+  background: rgba(234, 242, 251, 0.15);
+}
+.tauchprofil-fuellung {
+  display: block; width: 100%; height: 100%;
+  background: var(--signal);
+  transform: scaleY(0); transform-origin: top;
+  transition: transform 0.6s ease-out;
+}
+.tauchprofil-fuellung[data-fuellstand="1"] { transform: scaleY(0.25); }
+.tauchprofil-fuellung[data-fuellstand="2"] { transform: scaleY(0.5); }
+.tauchprofil-fuellung[data-fuellstand="3"] { transform: scaleY(0.75); }
+.tauchprofil-fuellung[data-fuellstand="4"] { transform: scaleY(1); }
+
+.station {
+  position: relative; margin-bottom: 2.5rem;
+  opacity: 0; transform: translateY(0.5rem);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+.station.sichtbar { opacity: 1; transform: none; }
+.station::before {
+  content: ""; position: absolute; left: -2.6rem; top: 0.45rem;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--signal); box-shadow: 0 0 0 3px var(--tiefe);
+}
+.station h3 {
+  font-family: "Chakra Petch", sans-serif; font-weight: 600;
+  margin: 0.2rem 0 0.6rem;
+}
+.station-marke {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.85rem;
+  color: var(--signal); letter-spacing: 0.04em;
+}
+.station-marke-ziel { color: var(--beute); }
+.station:last-child::before { background: var(--beute); }
+.station-hinweis { font-size: 0.9rem; opacity: 0.75; }
+
+.copy-block {
+  display: flex; align-items: stretch; gap: 0.5rem;
+  background: var(--abgrund); border: 1px solid rgba(234, 242, 251, 0.12);
+  border-radius: 6px; padding: 0.6rem 0.75rem; margin: 0.5rem 0;
+  overflow-x: auto;
+}
+.copy-block code {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.9rem;
+  flex: 1 1 auto; white-space: nowrap;
+}
+.copy-btn {
+  flex: 0 0 auto; background: none; border: none; cursor: pointer;
+  color: var(--signal); font-size: 1rem; padding: 0 0.25rem;
+}
+.copy-btn:hover { color: var(--gischt); }
+.copy-btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.copy-btn.kopiert { color: var(--beute); }
+.tauch-ziel { border-top: 1px solid rgba(234, 242, 251, 0.12); padding-top: 1rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tauchprofil-fuellung { transition: none; transform: scaleY(1); }
+  .station { opacity: 1; transform: none; transition: none; }
 }
