@@ -7,8 +7,10 @@
 <nav class="tabs" data-toplevel-tabs>
   <button type="button" class="tab active" data-tab-target="kontakte">Job-Angebote</button>
   <button type="button" class="tab" data-tab-target="feintuning">Feintuning</button>
-  {% if request.session.get("role") == "owner" %}
+  {% if request.session.get("role") in ("owner", "member") %}
   <button type="button" class="tab" data-tab-target="lernen">Lernen</button>
+  {% endif %}
+  {% if request.session.get("role") == "owner" %}
   <a class="tab" href="/dashboard/{{ profile.id }}/metriken">Metriken</a>
   {% endif %}
 </nav>
@@ -24,10 +26,11 @@
     <button type="submit" class="btn btn-primary">Speichern</button>
   </form>
 </div>
-{% if request.session.get("role") == "owner" %}
+{% if request.session.get("role") in ("owner", "member") %}
 <div class="panel panel-hidden" data-tab-panel="lernen"
      data-analysis-status="{{ analysis.status if analysis else '' }}">
   <h2>Lernen</h2>
+  {% if request.session.get("role") == "owner" %}
   {% if not analysis or analysis.status == 'finalized' %}
     <p class="job-meta">
       {% if analysis %}Letzte Analyse abgeschlossen.{% endif %}
@@ -86,6 +89,25 @@
           <button type="submit" class="btn btn-secondary">entfernen</button></form>
       </div>
     {% endfor %}
+  {% endif %}
+  {% else %}
+  {% if learn_reminder.due %}
+  <p><span class="chip">Neue Analyse verfügbar — {{ learn_reminder.new_votes }} neue Votes seit letzter Analyse</span></p>
+  <p class="job-meta">öffnet dein Claude Code, dort läuft das Gespräch</p>
+  {% endif %}
+  <p><a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-learn">Öffne /bob:bob-learn in Claude Code →</a></p>
+  <div class="copy-block"><code>/bob:bob-learn</code>
+    <button type="button" class="copy-btn" data-copy="/bob:bob-learn" aria-label="Befehl kopieren">⧉</button>
+  </div>
+  {% if active_insights %}
+  <h3>Aktive Erkenntnisse</h3>
+  {% for ins in active_insights %}
+    <div class="insight-card">
+      {% if ins.kind == 'preference' %}🅟 „{{ ins.text }}"{% elif ins.kind == 'weight' %}⚖ {{ ins.payload.key }} → {{ ins.payload.new_weight }}{% endif %}
+      <span class="mono">{{ ins.created_at }}</span>
+    </div>
+  {% endfor %}
+  {% endif %}
   {% endif %}
 </div>
 {% endif %}

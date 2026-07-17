@@ -511,3 +511,56 @@ def test_dashboard_renders_proposed_insights(client):
     resp = client.get(f"/dashboard/{pid}")
     assert "Bevorzugt Remote + kleine Studios" in resp.text
     assert "Übernehmen &amp; Jobs neu bewerten" in resp.text or "Übernehmen & Jobs neu bewerten" in resp.text
+
+
+@pytest.fixture
+def member_client(tmp_path, monkeypatch):
+    monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "geheim123")
+    monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
+    monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
+    app = create_app(db_path=tmp_path / "jobs.db")
+    c = TestClient(app)
+    uid = storage.create_user("member@test.de", "memberpw", role="member")
+    pid = storage.create_profile("Member-Profil", {"no_gos": []}, user_id=uid)
+    storage.save_criteria(pid, [{"key": "remote", "label": "Remote", "weight": 5}])
+    c.post("/login", data={"email": "member@test.de", "password": "memberpw"})
+    return c, pid
+
+
+class TestDashboardMemberLernen:
+    def test_lernen_tab_visible_metriken_hidden(self, member_client):
+        c, pid = member_client
+        resp = c.get(f"/dashboard/{pid}")
+        assert 'data-tab-target="lernen"' in resp.text
+        assert "/metriken" not in resp.text
+
+    def test_panel_is_read_only_no_analyze_or_confirm_form(self, member_client):
+        c, pid = member_client
+        resp = c.get(f"/dashboard/{pid}")
+        assert "Votes analysieren" not in resp.text
+        assert "/insights/" not in resp.text
+
+    def test_reminder_badge_hidden_below_threshold(self, member_client):
+        c, pid = member_client
+        fp = storage.upsert_job(Job(title="Job A", company="ACME", location="Hamburg"))
+        storage.add_feedback(pid, fp, "up")
+        resp = c.get(f"/dashboard/{pid}")
+        assert "Neue Analyse verfügbar" not in resp.text
+
+    def test_reminder_badge_shown_at_threshold(self, member_client):
+        c, pid = member_client
+        for i in range(storage._LEARN_REMINDER_THRESHOLD):
+            fp = storage.upsert_job(Job(title=f"Job {i}", company="ACME", location="Hamburg"))
+            storage.add_feedback(pid, fp, "up")
+        resp = c.get(f"/dashboard/{pid}")
+        assert "Neue Analyse verfügbar" in resp.text
+
+    def test_shows_confirmed_insights_without_reject_form(self, member_client):
+        c, pid = member_client
+        from jobscanner.web import mcp_api
+        user = storage.get_user_by_email("member@test.de")
+        mcp_api.apply_member_insights_data(
+            user, pid, "preference", text="Bevorzugt Remote, aber Hamburg ok")
+        resp = c.get(f"/dashboard/{pid}")
+        assert "Bevorzugt Remote, aber Hamburg ok" in resp.text
+        assert "entfernen" not in resp.text

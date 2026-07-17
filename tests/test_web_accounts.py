@@ -111,7 +111,9 @@ def test_member_dashboard_hides_owner_only_controls(app):
     c = TestClient(app)
     _register(c)
     dash = _wizard_profile(c, "Mein-Profil")
-    assert 'data-tab-target="lernen">Lernen' not in c.get(dash).text  # owner-only Tab
+    dash_text = c.get(dash).text
+    assert "/metriken" not in dash_text  # Metriken bleibt owner-exklusiv
+    assert "Votes analysieren" not in dash_text  # Owner-Analyse-Maschine bleibt owner-exklusiv
     # Member-Wizard-skills-Seite ohne LLM-Verfeinerungs-Form:
     c.get("/wizard/new")
     c.post("/wizard/basis", data={"name": "X", "level": "j", "experience_years": "0"})

@@ -264,6 +264,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "proposed_insights": storage.list_insights(profile_id, status="proposed"),
             "active_insights": storage.list_insights(profile_id, status="confirmed"),
             "vote_count": len(feedback),
+            "learn_reminder": storage.learn_reminder_status(profile_id),
         })
 
     @app.get("/dashboard/{profile_id}/metriken")
