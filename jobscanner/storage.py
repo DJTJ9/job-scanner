@@ -981,6 +981,16 @@ def create_member_feedback(user_id: int, text: str) -> int:
     return cur.lastrowid
 
 
+def list_member_feedback() -> list[dict]:
+    conn = _require_conn()
+    rows = conn.execute(
+        "SELECT mf.id, mf.text, mf.created_at, u.email AS user_email "
+        "FROM member_feedback mf JOIN users u ON u.id = mf.user_id "
+        "ORDER BY mf.id DESC"
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 _FUNNEL_STEPS = ("onboarding_start", "profil_erstellt", "feedback_gegeben")
 
 

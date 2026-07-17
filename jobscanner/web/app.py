@@ -348,6 +348,14 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         storage.create_member_feedback(user_id, text)
         return JSONResponse({"message": _FEEDBACK_CONFIRMATION})
 
+    @app.get("/admin/feedback")
+    def admin_feedback_view(request: Request):
+        if (resp := require_owner(request)) is not None:
+            return resp
+        return templates.TemplateResponse(request, "admin_feedback.html", {
+            "feedback_entries": storage.list_member_feedback(),
+        })
+
     def _launch_feedback_agent(pass_name: str, analysis_id: int) -> None:
         try:
             subprocess.Popen(

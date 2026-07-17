@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Feedback — Bob der Job-Bot{% endblock %}
+{% block content %}
+<div class="hero-landscape-band"><img class="bob-avatar" src="/static/img/bob/bob-pose-daumen-hoch.png" alt="Bob"></div>
+<h1>◈ BOB DER JOB-BOT — Feedback <a class="link" href="/">◂ zurück</a></h1>
+<div class="panel">
+  {% if feedback_entries %}
+    {% for entry in feedback_entries %}
+      <div class="funnel-row" style="align-items:flex-start; flex-direction:column; gap:0.25rem; padding:0.75rem 0; border-bottom:1px solid var(--wasser);">
+        <span class="mono" style="opacity:0.7; font-size:0.85em;">#{{ entry.id }} · {{ entry.user_email }} · {{ entry.created_at }}</span>
+        <span>{{ entry.text }}</span>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>Noch kein Feedback vorhanden.</p>
+  {% endif %}
+</div>
+{% endblock %}
