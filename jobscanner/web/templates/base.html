@@ -8,7 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
 </head>
-<body>
+<body{% if request.session.get("user_id") %} class="has-drawer"{% endif %}>
   <header class="topbar">
     <span class="topbar-left">
       {% if request.session.get("user_id") %}
@@ -24,11 +24,12 @@
   {% if request.session.get("user_id") %}
   <nav class="drawer panel-hidden" id="drawer">
     <button type="button" class="drawer-close" data-drawer-close aria-label="Menü schließen">✕</button>
-    <a class="drawer-item" href="/">⌂ Startseite</a>
-    <button type="button" class="drawer-item" data-onboarding-open="onboarding-bot">🤖 Wer bin ich?</button>
-    <button type="button" class="drawer-item" data-onboarding-open="onboarding-was-kann">💡 Was kann ich?</button>
-    <button type="button" class="drawer-item" data-onboarding-open="onboarding-wizard">📋 Wer bist du?</button>
-    <a class="drawer-item" href="/wizard/new">＋ Neues Profil</a>
+    <a class="drawer-item" href="/">⌂ <span class="drawer-item-label">Startseite</span></a>
+    <button type="button" class="drawer-item" data-onboarding-open="onboarding-bot">🤖 <span class="drawer-item-label">Wer bin ich?</span></button>
+    <button type="button" class="drawer-item" data-onboarding-open="onboarding-was-kann">💡 <span class="drawer-item-label">Was kann ich?</span></button>
+    <button type="button" class="drawer-item" data-onboarding-open="onboarding-wizard">📋 <span class="drawer-item-label">Wer bist du?</span></button>
+    <a class="drawer-item" href="/wizard/new">＋ <span class="drawer-item-label">Neues Profil</span></a>
+    <button type="button" class="drawer-collapse" data-drawer-collapse aria-label="Sidebar einklappen">«</button>
   </nav>
   {% endif %}
   <main class="page">
