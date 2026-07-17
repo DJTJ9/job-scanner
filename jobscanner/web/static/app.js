@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // /mitmachen: Befehle kopieren
+  // Befehle kopieren (geteilt: /anleitung)
   document.querySelectorAll("[data-copy]").forEach(btn => {
     btn.addEventListener("click", async () => {
       try {
@@ -94,30 +94,6 @@ document.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => { btn.textContent = alt; btn.classList.remove("kopiert"); }, 1200);
     });
   });
-
-  // /mitmachen: Tiefenlinie füllt sich beim Scrollen, Stationen blenden ein
-  const profil = document.querySelector("[data-tauchprofil]");
-  if (profil) {
-    const fuellung = profil.querySelector("[data-tauchprofil-fuellung]");
-    const stationen = Array.from(profil.querySelectorAll("[data-station]"));
-    const ruhig = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (ruhig || !("IntersectionObserver" in window)) {
-      stationen.forEach(s => s.classList.add("sichtbar"));
-      if (fuellung) fuellung.dataset.fuellstand = String(stationen.length);
-    } else {
-      let erreicht = 0;
-      const beobachter = new IntersectionObserver(eintraege => {
-        eintraege.forEach(e => {
-          if (!e.isIntersecting) return;
-          e.target.classList.add("sichtbar");
-          erreicht = Math.max(erreicht, stationen.indexOf(e.target) + 1);
-          if (fuellung) fuellung.dataset.fuellstand = String(erreicht);
-          beobachter.unobserve(e.target);
-        });
-      }, { rootMargin: "0px 0px -25% 0px" });
-      stationen.forEach(s => beobachter.observe(s));
-    }
-  }
 });
 
 // Passwort-Stärke-Gauge (Tiefenlinie-Form): füllt sich veto→signal→beute

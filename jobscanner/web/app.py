@@ -126,10 +126,6 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def datenschutz_view(request: Request):
         return templates.TemplateResponse(request, "datenschutz.html", {})
 
-    @app.get("/mitmachen")
-    def mitmachen_view(request: Request):
-        return templates.TemplateResponse(request, "mitmachen.html", {})
-
     @app.get("/anleitung")
     def anleitung_view(request: Request):
         return templates.TemplateResponse(request, "anleitung.html", {})
