@@ -103,6 +103,14 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         request.session.clear()
         return RedirectResponse("/login", status_code=303)
 
+    @app.get("/impressum")
+    def impressum_view(request: Request):
+        return templates.TemplateResponse(request, "impressum.html", {})
+
+    @app.get("/datenschutz")
+    def datenschutz_view(request: Request):
+        return templates.TemplateResponse(request, "datenschutz.html", {})
+
     @app.get("/register")
     def register_form(request: Request):
         return templates.TemplateResponse(request, "register.html", {"error": None})

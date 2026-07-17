@@ -123,3 +123,18 @@ def test_owner_dashboard_shows_lernen_tab(app):
     c.post("/login", data={"email": "owner@test.de", "password": "ownerpw"})
     pid = storage.get_profile_by_name("Tjark")["id"]
     assert "Lernen" in c.get(f"/dashboard/{pid}").text
+
+
+def test_impressum_public_without_login(app):
+    c = TestClient(app)
+    resp = c.get("/impressum")
+    assert resp.status_code == 200
+    assert "Angaben gemäß § 5 TMG" in resp.text
+    assert "Reeseberg 178" in resp.text
+
+
+def test_datenschutz_public_without_login(app):
+    c = TestClient(app)
+    resp = c.get("/datenschutz")
+    assert resp.status_code == 200
+    assert "Datenschutz" in resp.text
