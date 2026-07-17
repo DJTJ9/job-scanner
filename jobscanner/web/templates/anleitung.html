@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% block title %}Anleitung — Bob der Job-Bot{% endblock %}
+{% block content %}
+
+<section class="anl-hero">
+  <div class="anl-hero-text">
+    <h1>In 5 Minuten mit Bob verbunden</h1>
+    <p>Diese Anleitung führt dich Schritt für Schritt: von „noch nichts installiert"
+      bis „Bob bewertet Jobs mit deinem eigenen Claude". Kein Download, keine
+      Server-Einrichtung — nur fünf Schritte, jeder mit Bild.</p>
+    <a class="btn btn-secondary" href="#schritt-1">Los geht's ↓</a>
+  </div>
+  <img class="anl-hero-bild" src="/static/img/bob/bob-pose-laptop.png" alt="Bob mit Laptop">
+</section>
+
+<div class="anl-prereq">
+  <h2>Bevor du startest — zwei Dinge</h2>
+  <ul>
+    <li><strong>Ein Claude-Abo.</strong> Claude Pro reicht. Ohne Abo kannst du Claude
+      Code nicht nutzen.</li>
+    <li><strong>Den Invite-Code aus dem Discord-Post.</strong> Damit legst du in
+      Schritt&nbsp;2 deinen Account an.</li>
+  </ul>
+  <p class="anl-prereq-time">⏱ Dauer insgesamt: ca. 5–10 Minuten.</p>
+</div>
+
+<!-- SCHRITT 1 -->
+<section class="anl-step" id="schritt-1">
+  <div class="anl-step-head">
+    <span class="anl-step-num">1</span>
+    <h2>Claude Code installieren</h2>
+  </div>
+  <p>Claude Code ist das Terminal-Programm, in dem Bob als Plugin läuft. Öffne dein
+    Terminal und führe <em>einen</em> der Befehle aus — je nach Betriebssystem.</p>
+
+  <div class="anl-terminal">
+    <div class="anl-terminal-bar">
+      <span class="anl-dot"></span><span class="anl-dot"></span><span class="anl-dot"></span>
+      <span class="anl-terminal-title">Windows · PowerShell</span>
+    </div>
+    <div class="anl-terminal-body">
+      <code>irm https://claude.ai/install.ps1 | iex</code>
+      <button type="button" class="copy-btn" data-copy="irm https://claude.ai/install.ps1 | iex" aria-label="Befehl kopieren">⧉</button>
+    </div>
+  </div>
+
+  <div class="anl-terminal">
+    <div class="anl-terminal-bar">
+      <span class="anl-dot"></span><span class="anl-dot"></span><span class="anl-dot"></span>
+      <span class="anl-terminal-title">macOS / Linux · Terminal</span>
+    </div>
+    <div class="anl-terminal-body">
+      <code>curl -fsSL https://claude.ai/install.sh | bash</code>
+      <button type="button" class="copy-btn" data-copy="curl -fsSL https://claude.ai/install.sh | bash" aria-label="Befehl kopieren">⧉</button>
+    </div>
+  </div>
+
+  <p class="anl-note">💡 Nach der Installation einmal <code>claude</code> eingeben und dich
+    mit deinem Claude-Abo anmelden — Claude Code führt dich dabei durch den Login.</p>
+</section>
+
+<!-- SCHRITT 2 -->
+<section class="anl-step" id="schritt-2">
+  <div class="anl-step-head">
+    <span class="anl-step-num">2</span>
+    <h2>Account bei Bob anlegen</h2>
+  </div>
+  <p>Öffne die Registrierung und trage Email, ein Passwort und den
+    <strong>Invite-Code aus Discord</strong> ein.</p>
+
+  <figure class="anl-shot">
+    <img src="/static/img/anleitung/01-register.png" alt="Registrierungs-Formular mit Feldern für Email, Passwort und Invite-Code">
+    <figcaption>Das Registrierungs-Formular. Der Invite-Code steht im Discord-Post.</figcaption>
+  </figure>
+
+  <p><a class="btn btn-secondary" href="/register">→ Zur Registrierung</a></p>
+  <p class="anl-note">💡 Nach dem Klick auf „Konto anlegen" bist du direkt eingeloggt und
+    landest auf deiner Startseite.</p>
+</section>
+
+<!-- SCHRITT 3 -->
+<section class="anl-step" id="schritt-3">
+  <div class="anl-step-head">
+    <span class="anl-step-num">3</span>
+    <h2>API-Token holen</h2>
+  </div>
+  <p>Das Token verbindet später dein Claude mit Bob. Auf deiner Startseite findest du
+    den Abschnitt <strong>„API-Token für Claude"</strong> — klick dort auf
+    <strong>„API-Token erzeugen"</strong>.</p>
+
+  <figure class="anl-shot">
+    <img src="/static/img/anleitung/03-token.png" alt="API-Token-Abschnitt mit erzeugtem Token und Button zum Erzeugen">
+    <figcaption>Dein Token erscheint genau einmal. Der hier gezeigte Token ist ein Platzhalter.</figcaption>
+  </figure>
+
+  <p class="anl-warn">⚠️ <strong>Sofort kopieren!</strong> Das Token wird nur ein einziges
+    Mal angezeigt. Verloren? Kein Problem — erzeuge einfach ein neues; das alte wird
+    dabei ungültig.</p>
+</section>
+
+<!-- SCHRITT 4 -->
+<section class="anl-step" id="schritt-4">
+  <div class="anl-step-head">
+    <span class="anl-step-num">4</span>
+    <h2>Bob mit deinem Claude verbinden</h2>
+  </div>
+  <p>Starte <code>claude</code> und gib die beiden Befehle nacheinander ein. Der erste
+    fügt Bobs Plugin-Quelle hinzu, der zweite installiert das Plugin.</p>
+
+  <div class="anl-terminal">
+    <div class="anl-terminal-bar">
+      <span class="anl-dot"></span><span class="anl-dot"></span><span class="anl-dot"></span>
+      <span class="anl-terminal-title">in Claude Code</span>
+    </div>
+    <div class="anl-terminal-body">
+      <code>/plugin marketplace add DJTJ9/bob-member-kit</code>
+      <button type="button" class="copy-btn" data-copy="/plugin marketplace add DJTJ9/bob-member-kit" aria-label="Befehl kopieren">⧉</button>
+    </div>
+  </div>
+
+  <div class="anl-terminal">
+    <div class="anl-terminal-bar">
+      <span class="anl-dot"></span><span class="anl-dot"></span><span class="anl-dot"></span>
+      <span class="anl-terminal-title">in Claude Code</span>
+    </div>
+    <div class="anl-terminal-body">
+      <code>/plugin install bob@bob-kit</code>
+      <button type="button" class="copy-btn" data-copy="/plugin install bob@bob-kit" aria-label="Befehl kopieren">⧉</button>
+    </div>
+  </div>
+
+  <p>Beim Installieren fragt Claude nach deinem <strong>API-Token</strong> (aus
+    Schritt&nbsp;3) — einfügen, fertig. Die Felder für Adzuna- und Jooble-Keys kannst du
+    <strong>leer lassen</strong>; die braucht nur die optionale eigene Suche.</p>
+  <p class="anl-note">💡 Nach dem Installieren Claude einmal neu starten, damit das Plugin
+    geladen wird.</p>
+</section>
+
+<!-- SCHRITT 5 -->
+<section class="anl-step" id="schritt-5">
+  <div class="anl-step-head">
+    <span class="anl-step-num">5</span>
+    <h2>Loslegen</h2>
+  </div>
+  <p>Jetzt kannst du Bob arbeiten lassen:</p>
+
+  <div class="anl-terminal">
+    <div class="anl-terminal-bar">
+      <span class="anl-dot"></span><span class="anl-dot"></span><span class="anl-dot"></span>
+      <span class="anl-terminal-title">in Claude Code</span>
+    </div>
+    <div class="anl-terminal-body">
+      <code>/bob:bob-score</code>
+      <button type="button" class="copy-btn" data-copy="/bob:bob-score" aria-label="Befehl kopieren">⧉</button>
+    </div>
+  </div>
+
+  <p>Dein Claude holt wartende Stellenanzeigen, wertet sie aus und bewertet sie gegen
+    deine Profile. Die Ergebnisse erscheinen sofort in deinem Dashboard auf dieser
+    Website.</p>
+
+  <p><strong>Optional — eigene Jobs suchen:</strong> Wenn du kostenlose Keys von
+    <a class="link" href="https://developer.adzuna.com" target="_blank" rel="noopener">Adzuna</a>
+    und <a class="link" href="https://jooble.org/api/about" target="_blank" rel="noopener">Jooble</a>
+    hinterlegst (per <code>/plugin</code> in der Bob-Konfiguration), suchst du mit
+    <code>/bob:bob-scan</code> selbst neue Jobs und lieferst sie ein.</p>
+</section>
+
+<!-- DIAGRAMM -->
+<section class="anl-diagram-wrap">
+  <h2>Wie Bob und dein Claude zusammenarbeiten</h2>
+  <p>Damit du weißt, was passiert: dein Claude spricht über eine verschlüsselte
+    Verbindung mit dem Bob-Server. Job-Rohtexte und deine Kriterien kommen zu dir,
+    Bewertungen gehen zurück.</p>
+  <div class="anl-diagram">
+    <svg viewBox="0 0 720 210" role="img" aria-label="Ablaufdiagramm: Dein Claude verbindet sich per MCP über HTTPS mit dem Bob-Server, der auf die gemeinsame Job-Datenbank zugreift">
+      <defs>
+        <marker id="arrowR" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L7,3 L0,6 Z" fill="var(--signal)"></path>
+        </marker>
+        <marker id="arrowL" markerWidth="9" markerHeight="9" refX="1" refY="3" orient="auto">
+          <path d="M7,0 L0,3 L7,6 Z" fill="var(--beute)"></path>
+        </marker>
+      </defs>
+      <!-- Knoten -->
+      <rect class="anl-node anl-node-you" x="10" y="70" width="180" height="70" rx="10"></rect>
+      <text class="anl-node-t" x="100" y="100">Dein Claude</text>
+      <text class="anl-node-s" x="100" y="122">(Claude Code + Plugin)</text>
+
+      <rect class="anl-node" x="270" y="70" width="180" height="70" rx="10"></rect>
+      <text class="anl-node-t" x="360" y="100">Bob-Server</text>
+      <text class="anl-node-s" x="360" y="122">job-scanner.thinkshark.de</text>
+
+      <rect class="anl-node anl-node-db" x="530" y="70" width="180" height="70" rx="10"></rect>
+      <text class="anl-node-t" x="620" y="100">Gemeinsame</text>
+      <text class="anl-node-t" x="620" y="118">Job-Datenbank</text>
+
+      <!-- Pfeile links: Claude <-> Server -->
+      <line class="anl-arrow" x1="192" y1="92" x2="268" y2="92" marker-end="url(#arrowR)"></line>
+      <line class="anl-arrow anl-arrow-back" x1="268" y1="118" x2="192" y2="118" marker-end="url(#arrowL)"></line>
+      <text class="anl-edge" x="230" y="60">MCP / HTTPS</text>
+      <text class="anl-edge anl-edge-out" x="230" y="84">Jobs + Kriterien →</text>
+      <text class="anl-edge anl-edge-in" x="230" y="140">← Bewertungen</text>
+
+      <!-- Pfeile rechts: Server <-> DB -->
+      <line class="anl-arrow" x1="452" y1="105" x2="528" y2="105" marker-end="url(#arrowR)"></line>
+    </svg>
+  </div>
+  <p class="anl-note">🔒 Dein Token authentifiziert jede Verbindung. Deine Bewertungen
+    sind privat — andere Member sehen sie nicht.</p>
+</section>
+
+<!-- SICHERHEIT -->
+<section class="anl-step">
+  <div class="anl-step-head">
+    <span class="anl-step-num">🔒</span>
+    <h2>Sicherheit — kurz &amp; ehrlich</h2>
+  </div>
+  <ul class="anl-list">
+    <li><strong>Dein API-Token ist persönlich.</strong> Nicht teilen, nicht in Code
+      committen. Claude legt es sicher ab (Schlüsselbund bzw. Credentials-Datei), nicht
+      in einem öffentlichen Repo.</li>
+    <li><strong>Adzuna-/Jooble-Keys liegen im Klartext</strong> in deiner
+      <code>~/.claude/settings.json</code> — ein bewusster Kompromiss, damit die eigene
+      Suche funktioniert. Es sind kostenlose Keys ohne Zugriff auf Bob-Daten; leg dort
+      nichts Wertvolleres ab.</li>
+    <li><strong>Alles ist einsehbar.</strong> Das komplette Plugin ist öffentlich lesbar:
+      <a class="link" href="https://github.com/DJTJ9/bob-member-kit" target="_blank" rel="noopener">bob-member-kit ↗</a>.</li>
+  </ul>
+</section>
+
+<!-- FAQ -->
+<section class="anl-step">
+  <div class="anl-step-head">
+    <span class="anl-step-num">?</span>
+    <h2>Wenn etwas klemmt</h2>
+  </div>
+
+  <details class="anl-faq">
+    <summary>Fehler „401" / „Unauthorized" beim ersten Bob-Befehl</summary>
+    <p>Das Token wird nicht erkannt. Erzeuge auf deiner Startseite ein neues Token
+      (Schritt&nbsp;3) und trag es per <code>/plugin</code> in der Bob-Konfiguration neu
+      ein. Achte darauf, das komplette Token (<code>bob_</code> + lange Zeichenfolge)
+      ohne Leerzeichen einzufügen.</p>
+  </details>
+
+  <details class="anl-faq">
+    <summary>Die Befehle <code>/bob:bob-score</code> / <code>/bob:bob-scan</code> gibt es nicht</summary>
+    <p>Das Plugin ist noch nicht geladen. Beende Claude Code und starte es neu. Prüfen
+      kannst du es mit <code>/plugin</code> — dort muss <code>bob</code> als installiert
+      erscheinen.</p>
+  </details>
+
+  <details class="anl-faq">
+    <summary>„Marketplace nicht gefunden" bei Schritt 4</summary>
+    <p>Tippfehler im Befehl. Er lautet exakt
+      <code>/plugin marketplace add DJTJ9/bob-member-kit</code> — am besten oben den
+      Kopier-Button benutzen.</p>
+  </details>
+
+  <details class="anl-faq">
+    <summary><code>/bob:bob-scan</code> sagt, es fehlen Keys</summary>
+    <p>Die eigene Suche braucht kostenlose Keys von
+      <a class="link" href="https://developer.adzuna.com" target="_blank" rel="noopener">Adzuna</a>
+      und/oder <a class="link" href="https://jooble.org/api/about" target="_blank" rel="noopener">Jooble</a>.
+      Trag sie per <code>/plugin</code> in der Bob-Konfiguration ein. Nur bewerten willst
+      du? Dann brauchst du sie nicht — nutze einfach <code>/bob:bob-score</code>.</p>
+  </details>
+</section>
+
+<!-- CHECKLISTE -->
+<section class="anl-step anl-check-wrap">
+  <div class="anl-step-head">
+    <span class="anl-step-num">✓</span>
+    <h2>Geschafft? So sieht Erfolg aus</h2>
+  </div>
+  <ul class="anl-check">
+    <li>✅ <code>/plugin install bob@bob-kit</code> lief durch und fragte nach deinem Token.</li>
+    <li>✅ <code>/bob:bob-score</code> startet ohne „401" und läuft durch.</li>
+    <li>✅ In deinem Dashboard erscheinen bewertete Jobs.</li>
+  </ul>
+  <p class="anl-outro">Wenn alle drei Haken sitzen, bist du fertig — und jede Bewertung,
+    die du fährst, macht die Treffer für alle Member besser. 🚀</p>
+  <p><a class="btn btn-secondary" href="/">Zu meinem Dashboard</a>
+     <a class="link" href="/mitmachen">Übersichtsseite „Mitmachen"</a></p>
+</section>
+
+{% endblock %}
