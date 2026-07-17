@@ -1,82 +1,44 @@
-"""Tests für neighbors.py — Groq-Nachbarrollen-Generierung + Cache mit TTL."""
+"""Tests für neighbors.py — Claude-Nachbarrollen-Generierung + Cache mit TTL."""
 import json
 
-import pytest
-
 from jobscanner import neighbors
-
-
-class FakeMessage:
-    def __init__(self, content):
-        self.content = content
-
-
-class FakeChoice:
-    def __init__(self, content):
-        self.message = FakeMessage(content)
-
-
-class FakeCompletion:
-    def __init__(self, content):
-        self.choices = [FakeChoice(content)]
-
-
-class FakeCompletions:
-    def __init__(self, content):
-        self._content = content
-
-    def create(self, **kwargs):
-        return FakeCompletion(self._content)
-
-
-class FakeChat:
-    def __init__(self, content):
-        self.completions = FakeCompletions(content)
-
-
-class FakeGroqClient:
-    def __init__(self, api_key=None, content="[]"):
-        self.chat = FakeChat(content)
-
 
 _PROFILE = {"target_roles": ["Unity/Games Programmer"], "skills": ["Unity", "C#"]}
 _CORE_ROLES = {"unity_games", "ai_engineer", "tools_workflow"}
 
-_NEIGHBOR_JSON = json.dumps([
+# claude_json gibt die BEREITS GEPARSTE Liste zurück (nicht mehr einen JSON-String)
+_NEIGHBOR_LIST = [
     {"name": "gameplay_engineer",
      "terms": {"de": ["Gameplay Programmierer"], "en": ["Gameplay Engineer"]}},
     {"name": "unity_games", "terms": {"de": ["Sollte gefiltert werden"], "en": []}},
-])
+]
 
 
-def test_generate_neighbor_roles_parses_groq_json(monkeypatch):
-    monkeypatch.setenv("GROQ_API_KEY", "test-key")
-    monkeypatch.setattr(neighbors, "Groq", lambda api_key=None: FakeGroqClient(content=_NEIGHBOR_JSON))
+def test_generate_neighbor_roles_parses_claude_json(monkeypatch):
+    monkeypatch.setattr(neighbors, "claude_json",
+                        lambda system, prompt: _NEIGHBOR_LIST)
     result = neighbors.generate_neighbor_roles(_PROFILE, _CORE_ROLES)
     assert result["gameplay_engineer"]["terms"]["de"] == ["Gameplay Programmierer"]
 
 
 def test_generate_neighbor_roles_filters_core_role_collisions(monkeypatch):
-    monkeypatch.setenv("GROQ_API_KEY", "test-key")
-    monkeypatch.setattr(neighbors, "Groq", lambda api_key=None: FakeGroqClient(content=_NEIGHBOR_JSON))
+    monkeypatch.setattr(neighbors, "claude_json",
+                        lambda system, prompt: _NEIGHBOR_LIST)
     result = neighbors.generate_neighbor_roles(_PROFILE, _CORE_ROLES)
     assert "unity_games" not in result
 
 
-def test_generate_neighbor_roles_returns_empty_on_invalid_json(monkeypatch):
-    monkeypatch.setenv("GROQ_API_KEY", "test-key")
-    monkeypatch.setattr(neighbors, "Groq", lambda api_key=None: FakeGroqClient(content="kein json"))
+def test_generate_neighbor_roles_returns_empty_on_parse_error(monkeypatch):
+    def boom(system, prompt):
+        raise ValueError("kein json")
+    monkeypatch.setattr(neighbors, "claude_json", boom)
     assert neighbors.generate_neighbor_roles(_PROFILE, _CORE_ROLES) == {}
 
 
-def test_generate_neighbor_roles_returns_empty_on_api_error(monkeypatch):
-    monkeypatch.setenv("GROQ_API_KEY", "test-key")
-
-    class Boom:
-        def __init__(self, api_key=None):
-            raise RuntimeError("groq down")
-
-    monkeypatch.setattr(neighbors, "Groq", Boom)
+def test_generate_neighbor_roles_returns_empty_on_call_error(monkeypatch):
+    def boom(system, prompt):
+        raise RuntimeError("claude down")
+    monkeypatch.setattr(neighbors, "claude_json", boom)
     assert neighbors.generate_neighbor_roles(_PROFILE, _CORE_ROLES) == {}
 
 

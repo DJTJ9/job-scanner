@@ -1,26 +1,14 @@
-"""Entdecker-Suchprofile: Groq-generierte Nachbarrollen mit Datei-Cache (TTL 7 Tage)."""
+"""Entdecker-Suchprofile: Claude-generierte Nachbarrollen mit Datei-Cache (TTL 7 Tage)."""
 from __future__ import annotations
 
 import datetime as _dt
 import json
-import os
 from pathlib import Path
 
-from groq import Groq
+from jobscanner.claude_llm import claude_json
 
-ENV_FILE = Path("/root/projekte/telegram-bot-army/.env")
-_MODEL = "llama-3.3-70b-versatile"
 _CACHE_FILE = Path(__file__).parent.parent / "data" / "neighbor_cache.json"
 _TTL_DAYS = 7
-
-
-def _load_env() -> None:
-    if ENV_FILE.exists():
-        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, _, v = line.partition("=")
-                os.environ.setdefault(k.strip(), v.strip())
 
 
 def _read_cache(cache_path: Path) -> dict:
@@ -43,28 +31,18 @@ def _is_stale(entry: dict, today: str) -> bool:
 
 
 def generate_neighbor_roles(profile: dict, core_roles: set[str]) -> dict:
-    _load_env()
     try:
-        client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
         profile_text = (
             f"Zielrollen: {', '.join(profile.get('target_roles', []))}\n"
             f"Skills: {', '.join(profile.get('skills', []))}"
         )
-        resp = client.chat.completions.create(
-            model=_MODEL,
-            messages=[
-                {"role": "system", "content": (
-                    "Du schlägst semantisch verwandte Berufsrollen für ein Bewerberprofil vor. "
-                    "Antworte NUR als JSON-Array, maximal 3 Einträge, Format: "
-                    '[{"name": "kurzer_key", "terms": {"de": ["...", "..."], '
-                    '"en": ["...", "..."]}}]. Maximal 2 Suchbegriffe pro Sprache.'
-                )},
-                {"role": "user", "content": profile_text},
-            ],
-            max_tokens=400,
+        system = (
+            "Du schlägst semantisch verwandte Berufsrollen für ein Bewerberprofil vor. "
+            "Antworte NUR als JSON-Array, ohne Vor-/Nachtext, maximal 3 Einträge, Format: "
+            '[{"name": "kurzer_key", "terms": {"de": ["...", "..."], '
+            '"en": ["...", "..."]}}]. Maximal 2 Suchbegriffe pro Sprache.'
         )
-        content = resp.choices[0].message.content.strip()
-        roles = json.loads(content)
+        roles = claude_json(system=system, prompt=profile_text)
     except Exception:
         return {}
     result: dict = {}
