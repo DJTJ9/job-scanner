@@ -225,7 +225,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "error": None, "success": None, "api_token": token,
             "active_tab": "token"})
 
-    _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet")
+    _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet", "ausland")
     _FUNNEL_STEPS = (("onboarding_start", "Onboarding-Start"),
                      ("profil_erstellt", "Profil erstellt"),
                      ("feedback_gegeben", "Feedback gegeben"))
@@ -239,16 +239,18 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if tab not in _DASHBOARD_TABS:
             tab = "aktiv"
         feedback = storage.get_feedback_map(profile_id)
-        aktiv, no_go, bewertet = [], [], []
+        aktiv, no_go, bewertet, ausland = [], [], [], []
         for entry in storage.list_jobs_with_scores(profile_id):
             fp = entry["job"].fingerprint
             if feedback.get(fp) == "down":
                 bewertet.append(entry)
+            elif entry["is_ausland"]:
+                ausland.append(entry)
             elif entry["category"] == "No-Go":
                 no_go.append(entry)
             else:
                 aktiv.append(entry)
-        entries_by_tab = {"aktiv": aktiv, "no_go": no_go, "bewertet": bewertet}
+        entries_by_tab = {"aktiv": aktiv, "no_go": no_go, "bewertet": bewertet, "ausland": ausland}
         analysis = storage.get_latest_analysis(profile_id)
         return templates.TemplateResponse(request, "dashboard.html", {
             "profile": profile,
@@ -256,7 +258,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "entries": entries_by_tab[tab],
             "feedback": feedback,
             "tab": tab,
-            "counts": {"aktiv": len(aktiv), "no_go": len(no_go), "bewertet": len(bewertet)},
+            "counts": {"aktiv": len(aktiv), "no_go": len(no_go), "bewertet": len(bewertet),
+                       "ausland": len(ausland)},
             "analysis": analysis,
             "proposed_insights": storage.list_insights(profile_id, status="proposed"),
             "active_insights": storage.list_insights(profile_id, status="confirmed"),

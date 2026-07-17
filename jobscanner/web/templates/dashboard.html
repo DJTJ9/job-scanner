@@ -94,6 +94,7 @@
   <nav class="tabs">
     <a class="tab {{ 'active' if tab == 'aktiv' else '' }}" href="?tab=aktiv">Aktiv <span class="mono">({{ counts.aktiv }})</span></a>
     <a class="tab {{ 'active' if tab in ('no_go', 'bewertet') else '' }}" href="?tab=no_go">Aussortiert <span class="mono">({{ counts.no_go }})</span></a>
+    <a class="tab {{ 'active' if tab == 'ausland' else '' }}" href="?tab=ausland">Ausland <span class="mono">({{ counts.ausland }})</span></a>
   </nav>
   {% if tab in ('no_go', 'bewertet') %}
     <nav class="subtabs">

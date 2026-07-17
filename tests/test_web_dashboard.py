@@ -268,6 +268,37 @@ def test_dashboard_unscored_job_appears_in_aktiv_tab(client):
     assert "Unscored Job" in resp.text
 
 
+def test_dashboard_ausland_tab_excludes_foreign_jobs_from_aktiv(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    storage.upsert_job(Job(title="DE Job", company="A", location="Hamburg",
+                           first_seen="2026-07-11"))
+    storage.upsert_job(Job(title="Ausland Job", company="B", location="New York",
+                           first_seen="2026-07-11"))
+    resp = client.get(f"/dashboard/{pid}")
+    assert "DE Job" in resp.text
+    assert "Ausland Job" not in resp.text
+
+
+def test_dashboard_ausland_tab_shows_foreign_jobs(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    storage.upsert_job(Job(title="DE Job", company="A", location="Hamburg",
+                           first_seen="2026-07-11"))
+    storage.upsert_job(Job(title="Ausland Job", company="B", location="New York",
+                           first_seen="2026-07-11"))
+    resp = client.get(f"/dashboard/{pid}", params={"tab": "ausland"})
+    assert "Ausland Job" in resp.text
+    assert "DE Job" not in resp.text
+
+
+def test_dashboard_shows_ausland_tab_with_count(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    storage.upsert_job(Job(title="Ausland Job", company="B", location="New York",
+                           first_seen="2026-07-11"))
+    resp = client.get(f"/dashboard/{pid}")
+    assert "Ausland" in resp.text
+    assert "(1)" in resp.text
+
+
 def test_dashboard_shows_tab_navigation_with_counts(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     fp_nogo = storage.upsert_job(Job(title="NoGo Job", company="B", location="Hamburg",
