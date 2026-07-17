@@ -179,6 +179,17 @@ def create_user(email: str, password: str, role: str = "member") -> int:
     return cur.lastrowid
 
 
+def set_password(user_id: int, new_password: str) -> None:
+    """Setzt das Passwort eines bestehenden Users neu (neuer Salt + Hash).
+    Wiederverwendbar für Self-Service-Änderung und Owner-CLI-Reset."""
+    conn = _require_conn()
+    salt = os.urandom(16)
+    conn.execute(
+        "UPDATE users SET pw_hash = ?, salt = ? WHERE id = ?",
+        (_hash_password(new_password, salt), salt.hex(), user_id))
+    conn.commit()
+
+
 def get_user(user_id: int) -> dict | None:
     conn = _require_conn()
     row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()

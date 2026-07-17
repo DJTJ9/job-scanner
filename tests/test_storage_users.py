@@ -53,3 +53,20 @@ def test_list_profiles_filters_by_user(db):
     db.create_profile("B-Profil", {}, user_id=b)
     ids = [p["id"] for p in db.list_profiles(user_id=a)]
     assert ids == [pa]
+
+
+def test_set_password_changes_hash_and_verify(db):
+    uid = db.create_user("dave@example.com", "altpw")
+    old_hash = db.get_user(uid)["pw_hash"]
+    db.set_password(uid, "neupw")
+    new_hash = db.get_user(uid)["pw_hash"]
+    assert new_hash != old_hash
+    assert db.verify_password("dave@example.com", "neupw") is not None
+    assert db.verify_password("dave@example.com", "altpw") is None
+
+
+def test_set_password_rotates_salt(db):
+    uid = db.create_user("erin@example.com", "pw")
+    old_salt = db.get_user(uid)["salt"]
+    db.set_password(uid, "pw")  # gleiches Passwort, neuer Salt
+    assert db.get_user(uid)["salt"] != old_salt
