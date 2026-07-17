@@ -16,6 +16,21 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", () => { if (drawer) drawer.classList.add("panel-hidden"); });
   });
 
+  const collapseBtn = document.querySelector("[data-drawer-collapse]");
+  const applyDrawerCollapsed = (collapsed) => {
+    if (drawer) drawer.classList.toggle("drawer-collapsed", collapsed);
+    document.body.classList.toggle("drawer-collapsed", collapsed);
+    if (collapseBtn) collapseBtn.textContent = collapsed ? "»" : "«";
+  };
+  if (drawer) applyDrawerCollapsed(localStorage.getItem("drawer_collapsed") === "1");
+  if (collapseBtn) {
+    collapseBtn.addEventListener("click", () => {
+      const next = !drawer.classList.contains("drawer-collapsed");
+      applyDrawerCollapsed(next);
+      localStorage.setItem("drawer_collapsed", next ? "1" : "0");
+    });
+  }
+
   document.querySelectorAll("[data-onboarding-open]").forEach((trigger) => {
     trigger.addEventListener("click", () => {
       if (drawer) drawer.classList.add("panel-hidden");
