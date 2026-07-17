@@ -171,6 +171,31 @@ class TestStorage:
         assert storage.get_job(fp).is_neighbor is True
         storage.close()
 
+    def test_init_db_migrates_pre_is_ausland_schema(self, tmp_path):
+        import sqlite3
+        db_path = tmp_path / "old.db"
+        conn = sqlite3.connect(db_path)
+        conn.execute("""
+            CREATE TABLE jobs (
+                id INTEGER PRIMARY KEY, fingerprint TEXT UNIQUE NOT NULL,
+                title TEXT NOT NULL, company TEXT NOT NULL, location TEXT,
+                remote_flag TEXT, employment_type TEXT, language TEXT, salary_text TEXT,
+                role TEXT, is_neighbor INTEGER DEFAULT 0, requirements_json TEXT,
+                tech_stack_json TEXT, sources_json TEXT, first_seen TEXT, last_seen TEXT,
+                archive_path TEXT, score INTEGER, score_reason TEXT, category TEXT,
+                status TEXT DEFAULT 'neu', nocodb_row_id INTEGER, raw_text TEXT,
+                extraction_status TEXT DEFAULT 'extracted'
+            )
+        """)
+        conn.commit()
+        conn.close()
+        storage.init_db(db_path)
+        pid = storage.create_profile("Testi", {}, is_default=True)
+        storage.upsert_job(_job())
+        entries = storage.list_jobs_with_scores(pid)
+        assert entries[0]["is_ausland"] is False
+        storage.close()
+
     def test_list_jobs_filters(self, db):
         storage.upsert_job(_job())
         storage.upsert_job(_job(title="Unreal Developer", language="en"))
@@ -284,6 +309,15 @@ class TestRawJobs:
         merged = storage.get_job(existing_fp)
         urls = {s["url"] for s in merged.sources}
         assert urls == {"https://indeed.test/1", "https://stepstone.test/1"}
+
+    def test_apply_extraction_sets_is_ausland_for_foreign_location(self, db):
+        pid = storage.create_profile("Testi", {}, is_default=True)
+        raw_fp = storage.insert_raw_job("https://a.test/1", "indeed", "Text", "2026-07-12")
+        job = Job(title="Remote Dev", company="ACME", location="New York",
+                  first_seen="2026-07-12", last_seen="2026-07-12")
+        storage.apply_extraction(raw_fp, job)
+        entries = storage.list_jobs_with_scores(pid)
+        assert entries[0]["is_ausland"] is True
 
     def test_list_jobs_with_scores_excludes_pending_extraction(self, db):
         pid = storage.create_profile("Testi", {}, is_default=True)

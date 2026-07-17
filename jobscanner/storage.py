@@ -11,6 +11,7 @@ from pathlib import Path
 
 from jobscanner import config, scoring
 from jobscanner.models import Job
+from jobscanner.search import classify_location
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -37,7 +38,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     status TEXT DEFAULT 'neu',
     nocodb_row_id INTEGER,
     raw_text TEXT,
-    extraction_status TEXT DEFAULT 'extracted'
+    extraction_status TEXT DEFAULT 'extracted',
+    is_ausland INTEGER DEFAULT 0
 )
 """
 
@@ -146,6 +148,8 @@ def init_db(path: str | Path) -> None:
         _conn.execute("ALTER TABLE jobs ADD COLUMN raw_text TEXT")
     if "extraction_status" not in existing_cols:
         _conn.execute("ALTER TABLE jobs ADD COLUMN extraction_status TEXT DEFAULT 'extracted'")
+    if "is_ausland" not in existing_cols:
+        _conn.execute("ALTER TABLE jobs ADD COLUMN is_ausland INTEGER DEFAULT 0")
     _conn.executescript(_SCHEMA_PROFILES)
     prof_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(profiles)")}
     if "user_id" not in prof_cols:
@@ -262,15 +266,16 @@ def upsert_job(job: Job) -> str:
             """INSERT INTO jobs (fingerprint, title, company, location, remote_flag,
                    employment_type, language, salary_text, role, is_neighbor, requirements_json,
                    tech_stack_json, sources_json, first_seen, last_seen, archive_path,
-                   score, score_reason, category, status, nocodb_row_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   score, score_reason, category, status, nocodb_row_id, is_ausland)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (fp, job.title, job.company, job.location, job.remote_flag,
              job.employment_type, job.language, job.salary_text, job.role, int(job.is_neighbor),
              json.dumps(job.requirements, ensure_ascii=False),
              json.dumps(job.tech_stack, ensure_ascii=False),
              json.dumps(job.sources, ensure_ascii=False),
              job.first_seen, job.last_seen, job.archive_path,
-             job.score, job.score_reason, job.category, job.status, job.nocodb_row_id),
+             job.score, job.score_reason, job.category, job.status, job.nocodb_row_id,
+             int(classify_location(job.location))),
         )
     else:
         existing = json.loads(row["sources_json"] or "[]")
@@ -420,24 +425,27 @@ def apply_extraction(raw_fingerprint: str, job: Job) -> str:
             """UPDATE jobs SET title = ?, company = ?, location = ?, remote_flag = ?,
                    employment_type = ?, language = ?, salary_text = ?, requirements_json = ?,
                    tech_stack_json = ?, sources_json = ?, last_seen = ?,
-                   extraction_status = 'extracted'
+                   extraction_status = 'extracted', is_ausland = ?
                WHERE fingerprint = ?""",
             (job.title, job.company, job.location, job.remote_flag, job.employment_type,
              job.language, job.salary_text, json.dumps(job.requirements, ensure_ascii=False),
              json.dumps(job.tech_stack, ensure_ascii=False),
-             json.dumps(merged, ensure_ascii=False), job.last_seen, new_fp))
+             json.dumps(merged, ensure_ascii=False), job.last_seen,
+             int(classify_location(job.location)), new_fp))
         if raw_fingerprint != new_fp:
             conn.execute("DELETE FROM jobs WHERE fingerprint = ?", (raw_fingerprint,))
     else:
         conn.execute(
             """UPDATE jobs SET fingerprint = ?, title = ?, company = ?, location = ?,
                    remote_flag = ?, employment_type = ?, language = ?, salary_text = ?,
-                   requirements_json = ?, tech_stack_json = ?, extraction_status = 'extracted'
+                   requirements_json = ?, tech_stack_json = ?, extraction_status = 'extracted',
+                   is_ausland = ?
                WHERE fingerprint = ?""",
             (new_fp, job.title, job.company, job.location, job.remote_flag,
              job.employment_type, job.language, job.salary_text,
              json.dumps(job.requirements, ensure_ascii=False),
-             json.dumps(job.tech_stack, ensure_ascii=False), raw_fingerprint))
+             json.dumps(job.tech_stack, ensure_ascii=False),
+             int(classify_location(job.location)), raw_fingerprint))
     conn.commit()
     return new_fp
 
@@ -816,6 +824,7 @@ def list_jobs_with_scores(profile_id: int) -> list[dict]:
             "reason": row["profile_reason"],
             "category": row["profile_category"],
             "breakdown": json.loads(row["profile_breakdown_json"] or "{}"),
+            "is_ausland": bool(row["is_ausland"]),
         }
         for row in rows
     ]

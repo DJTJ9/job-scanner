@@ -39,6 +39,20 @@ def test_list_jobs_with_scores_none_when_unscored():
     assert entries[0]["breakdown"] == {}
 
 
+def test_list_jobs_with_scores_exposes_is_ausland_true_for_foreign_location():
+    pid = storage.create_profile("Testi", {"skills": []})
+    storage.upsert_job(_mk_job(location="New York"))
+    entries = storage.list_jobs_with_scores(pid)
+    assert entries[0]["is_ausland"] is True
+
+
+def test_list_jobs_with_scores_exposes_is_ausland_false_for_de_location():
+    pid = storage.create_profile("Testi", {"skills": []})
+    storage.upsert_job(_mk_job())
+    entries = storage.list_jobs_with_scores(pid)
+    assert entries[0]["is_ausland"] is False
+
+
 def test_list_jobs_with_scores_sorted_by_score_desc_nulls_last():
     pid = storage.create_profile("Testi", {"skills": []})
     fp_low = storage.upsert_job(_mk_job(company="Niedrig", first_seen="2026-07-01"))
