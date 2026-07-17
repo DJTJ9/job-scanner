@@ -188,13 +188,30 @@ class TestToolLogic:
         listings = [{"url": "https://m.test/j1", "portal": "adzuna", "raw_text": "Anzeige 1"},
                     {"url": "https://m.test/j1", "portal": "adzuna", "raw_text": "Anzeige 1"}]
         stats = mcp_api.push_jobs_data(user, listings)
-        assert stats == {"inserted": 1, "duplicates": 1}
+        assert stats == {"inserted": 1, "duplicates_url": 1, "duplicates_content": 0}
         pending = storage.list_pending_extraction()
         assert len(pending) == 1
         conn = storage._require_conn()
         row = conn.execute("SELECT sources_json FROM jobs WHERE fingerprint = ?",
                            (pending[0]["fingerprint"],)).fetchone()
         assert _json.loads(row["sources_json"])[0]["via"] == f"member:{user['id']}"
+
+    def test_push_jobs_skips_content_duplicate_from_other_portal(self, client):
+        user, _pid = _member_with_profile()
+        _mk_extracted_job("cd1", title="Unity Dev")  # fp = make_fingerprint("Firma-cd1", "Unity Dev", "Hamburg")
+        listings = [{"url": "https://jooble.test/x9", "portal": "jooble",
+                     "raw_text": "Anzeige", "title": "Unity Dev",
+                     "company": "Firma-cd1", "location": "Hamburg"}]
+        stats = mcp_api.push_jobs_data(user, listings)
+        assert stats == {"inserted": 0, "duplicates_url": 0, "duplicates_content": 1}
+        assert storage.list_pending_extraction() == []
+
+    def test_push_jobs_missing_structured_fields_falls_back_to_url_only(self, client):
+        user, _pid = _member_with_profile()
+        listings = [{"url": "https://m.test/legacy", "portal": "adzuna",
+                     "raw_text": "Anzeige ohne strukturierte Felder"}]
+        stats = mcp_api.push_jobs_data(user, listings)
+        assert stats == {"inserted": 1, "duplicates_url": 0, "duplicates_content": 0}
 
     def test_push_jobs_rejects_bad_listing(self, client):
         user, _pid = _member_with_profile()

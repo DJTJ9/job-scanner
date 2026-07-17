@@ -12,6 +12,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
 from jobscanner import dedup, extract, scoring, storage
+from jobscanner.models import make_fingerprint
 
 _current_user: ContextVar[dict | None] = ContextVar("mcp_current_user", default=None)
 
@@ -165,14 +166,24 @@ def push_jobs_data(user: dict, listings: list) -> dict:
 
     known = dedup.known_source_urls()
     today = _dt.date.today().isoformat()
-    stats = {"inserted": 0, "duplicates": 0}
+    stats = {"inserted": 0, "duplicates_url": 0, "duplicates_content": 0}
     for listing in listings:
         portal = listing["portal"].strip()
         url = dedup.canonicalize_url(listing["url"].strip(), portal)
         if url in known:
             dedup.touch_known(known[url], today)
-            stats["duplicates"] += 1
+            stats["duplicates_url"] += 1
             continue
+        title = listing.get("title")
+        company = listing.get("company")
+        location = listing.get("location")
+        if (isinstance(title, str) and title.strip()
+                and isinstance(company, str) and company.strip()):
+            content_fp = make_fingerprint(
+                company, title, location if isinstance(location, str) else "")
+            if storage.get_job(content_fp) is not None:
+                stats["duplicates_content"] += 1
+                continue
         fp = storage.insert_raw_job(url, portal, listing["raw_text"][:_MAX_RAW_CHARS],
                                     today, via=f"member:{user['id']}")
         known[url] = fp
@@ -219,8 +230,10 @@ def create_mcp_server() -> FastMCP:
 
     @server.tool()
     def push_jobs(listings: list[dict]) -> dict:
-        """Neue Roh-Listings einliefern: [{url, portal, raw_text}]. Dedup gegen
-        bekannte URLs passiert serverseitig, Quelle wird als member:<id> markiert."""
+        """Neue Roh-Listings einliefern: [{url, portal, raw_text, title?, company?, location?}].
+        Dedup gegen bekannte URLs UND (bei vorhandenen title/company) gegen bereits
+        extrahierte Content-Fingerprints passiert serverseitig, Quelle wird als
+        member:<id> markiert."""
         return push_jobs_data(_require_user(), listings)
 
     return server
