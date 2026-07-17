@@ -219,6 +219,14 @@ class TestMcpTransport:
             resp = client.post("/mcp", json=_rpc("tools/list", 1), headers=_MCP_HEADERS)
         assert resp.status_code == 401
 
+    def test_mcp_exact_path_not_redirected(self, client):
+        # Ohne den Pfad-Rewrite in log_pageview käme hier ein 307 auf /mcp/ —
+        # hinter Caddy würde der Redirect auf http:// downgraden.
+        with client:
+            resp = client.post("/mcp", json=_rpc("tools/list", 1), headers=_MCP_HEADERS,
+                               follow_redirects=False)
+        assert resp.status_code == 401
+
     def test_mcp_wrong_token_401(self, client):
         with client:
             resp = client.post("/mcp", json=_rpc("tools/list", 1),

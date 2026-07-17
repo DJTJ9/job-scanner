@@ -58,6 +58,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.middleware("http")
     async def log_pageview(request: Request, call_next):
+        if request.scope["path"] == "/mcp":
+            # Exakt "/mcp" würde der Router per 307 auf "/mcp/" umleiten, bevor die
+            # Token-Auth läuft — hinter Caddy verliert der Redirect das https-Schema.
+            request.scope["path"] = "/mcp/"
         if not request.url.path.startswith(("/static/", "/mcp")):
             storage.log_event("pageview", user_id=request.session.get("user_id"),
                               meta={"path": request.url.path})
