@@ -17,11 +17,19 @@ _DEFAULT_MODEL = "claude-haiku-4-5"
 
 
 def _extract_json(text: str):
-    """Fallback: ersten {…}- oder […]-Block aus verrauschter Ausgabe parsen."""
+    """Fallback: ersten {…}- oder […]-Block aus verrauschter Ausgabe parsen.
+
+    claude wickelt JSON gern in einen ```json-Codeblock. Bei einem Array greift das
+    gierige `\\{.*\\}`-Muster dann fälschlich die inneren Objekte (→ "Extra data");
+    darum wird ein Muster, dessen Treffer nicht als JSON parst, übersprungen statt
+    den Fehler durchzureichen — das nächste Muster (`\\[.*\\]`) fängt das Array."""
     for pattern in (r"\{.*\}", r"\[.*\]"):
         match = re.search(pattern, text, re.DOTALL)
         if match:
-            return json.loads(match.group(0))
+            try:
+                return json.loads(match.group(0))
+            except json.JSONDecodeError:
+                continue
     raise ValueError(f"Keine JSON-Struktur in claude-Ausgabe: {text[:200]!r}")
 
 

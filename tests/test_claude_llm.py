@@ -32,6 +32,28 @@ def test_claude_json_extracts_object_from_noisy_output(monkeypatch):
     assert claude_llm.claude_json("sys", "prompt") == {"a": 1}
 
 
+def test_claude_json_extracts_array_from_markdown_fence(monkeypatch):
+    # Reales claude-Verhalten: JSON-Array in einen ```json-Codeblock gewickelt.
+    fenced = (
+        '```json\n'
+        '[\n'
+        '  {"name": "a", "terms": {"de": ["x"], "en": ["y"]}},\n'
+        '  {"name": "b", "terms": {"de": ["z"], "en": ["w"]}}\n'
+        ']\n'
+        '```\n'
+    )
+    monkeypatch.setattr(subprocess, "run", _fake_run(fenced))
+    result = claude_llm.claude_json("sys", "prompt")
+    assert isinstance(result, list)
+    assert [r["name"] for r in result] == ["a", "b"]
+
+
+def test_claude_json_extracts_object_from_markdown_fence(monkeypatch):
+    monkeypatch.setattr(subprocess, "run",
+                        _fake_run('```json\n{"ok": true}\n```\n'))
+    assert claude_llm.claude_json("sys", "prompt") == {"ok": True}
+
+
 def test_claude_json_raises_on_unparseable(monkeypatch):
     monkeypatch.setattr(subprocess, "run", _fake_run("kein json hier"))
     with pytest.raises(ValueError):
