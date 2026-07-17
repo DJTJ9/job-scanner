@@ -274,9 +274,9 @@ class TestTokenUi:
         resp = client.post("/profiles/api-token")
         assert resp.status_code == 200
         assert "bob_" in resp.text
-        resp2 = client.get("/")
-        assert "bob_" not in resp2.text          # Einmal-Anzeige: danach nur Hash in DB
-        assert "API-Token erzeugen" in resp2.text  # Button bleibt
+        resp2 = client.get("/einstellungen")
+        assert "bob_" not in resp2.text
+        assert "API-Token erzeugen" in resp2.text
 
     def test_generated_token_works_against_mcp(self, client):
         import re

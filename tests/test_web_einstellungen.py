@@ -47,3 +47,39 @@ def test_settings_has_token_button(member):
     body = member.get("/einstellungen").text
     assert 'action="/profiles/api-token"' in body
     assert "API-Token erzeugen" in body
+
+
+def test_password_post_renders_settings_success(member):
+    resp = member.post("/account/passwort", data={
+        "current_password": "pw", "new_password": "neupw1",
+        "new_password_repeat": "neupw1"}, follow_redirects=False)
+    assert resp.status_code == 200
+    assert "geändert" in resp.text
+    assert 'data-tab="profil"' in resp.text
+
+
+def test_password_post_error_renders_settings(member):
+    resp = member.post("/account/passwort", data={
+        "current_password": "falsch", "new_password": "neupw1",
+        "new_password_repeat": "neupw1"}, follow_redirects=False)
+    assert resp.status_code == 400
+    assert "falsch" in resp.text
+    assert 'data-tab="profil"' in resp.text
+
+
+def test_token_post_renders_settings_with_token(member):
+    resp = member.post("/profiles/api-token", follow_redirects=False)
+    assert resp.status_code == 200
+    assert "bob_" in resp.text
+    assert 'data-tab="token"' in resp.text
+
+
+def test_startseite_has_no_token_panel(member):
+    body = member.get("/").text
+    assert "API-Token erzeugen" not in body
+
+
+def test_password_get_redirects_to_settings_when_logged_in(member):
+    resp = member.get("/account/passwort", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/einstellungen"

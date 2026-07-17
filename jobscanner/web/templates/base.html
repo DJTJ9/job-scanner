@@ -17,7 +17,7 @@
       <span class="brand"><img class="bob-avatar" style="height:28px" src="/static/img/bob/bob-pose-winken.png" alt="Bob"> BOB DER JOB-BOT</span>
     </span>
     {% if request.session.get("user_id") %}
-      <span class="link">{{ request.session.get("email") }}</span>
+      <a class="link" href="/einstellungen">{{ request.session.get("email") }}</a>
       <a class="link" href="/logout">Abmelden</a>
     {% else %}
       <a class="link" href="/login">Anmelden</a>
@@ -31,6 +31,7 @@
     <button type="button" class="drawer-item" data-onboarding-open="onboarding-was-kann">💡 <span class="drawer-item-label">Was kann ich?</span></button>
     <button type="button" class="drawer-item" data-onboarding-open="onboarding-wizard">📋 <span class="drawer-item-label">Wer bist du?</span></button>
     <a class="drawer-item" href="/wizard/new">＋ <span class="drawer-item-label">Neues Profil</span></a>
+    <a class="drawer-item" href="/einstellungen">⚙ <span class="drawer-item-label">Einstellungen</span></a>
     {% if request.session.get("role") == "owner" %}
     <a class="drawer-item" href="/admin/feedback">✉ <span class="drawer-item-label">Feedback</span></a>
     {% endif %}
@@ -56,10 +57,6 @@
     <a class="link" href="/anleitung">Anleitung</a>
     <span class="footer-sep">·</span>
     <a class="link" href="https://github.com/DJTJ9/job-scanner">Code auf GitHub</a>
-    {% if request.session.get("user_id") %}
-    <span class="footer-sep">·</span>
-    <a class="link" href="/account/passwort">Passwort ändern</a>
-    {% endif %}
   </footer>
   <script src="/static/app.js?v={{ asset_version }}" defer></script>
 </body>

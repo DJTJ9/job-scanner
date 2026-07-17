@@ -138,8 +138,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def account_password_form(request: Request):
         if (redirect := require_user(request)) is not None:
             return redirect
-        return templates.TemplateResponse(
-            request, "account_password.html", {"error": None, "success": None})
+        return RedirectResponse("/einstellungen", status_code=303)
 
     @app.post("/account/passwort")
     def account_password_submit(
@@ -154,8 +153,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
         def _err(msg):
             return templates.TemplateResponse(
-                request, "account_password.html",
-                {"error": msg, "success": None}, status_code=400)
+                request, "settings.html",
+                {"error": msg, "success": None, "api_token": None,
+                 "active_tab": "profil"}, status_code=400)
 
         if storage.verify_password(email, current_password) is None:
             return _err("Aktuelles Passwort ist falsch")
@@ -165,8 +165,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return _err("Neues Passwort muss mindestens 6 Zeichen haben")
         storage.set_password(request.session.get("user_id"), new_password)
         return templates.TemplateResponse(
-            request, "account_password.html",
-            {"error": None, "success": "Passwort geändert"})
+            request, "settings.html",
+            {"error": None, "success": "Passwort geändert", "api_token": None,
+             "active_tab": "profil"})
 
     @app.get("/einstellungen")
     def settings_view(request: Request, tab: str = "profil"):
@@ -220,12 +221,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (redirect := require_user(request)) is not None:
             return redirect
         token = storage.create_api_token(request.session["user_id"])
-        profiles = storage.list_profiles(active_only=True,
-                                          user_id=request.session.get("user_id"))
-        return templates.TemplateResponse(request, "profiles.html", {
-            "profiles": profiles,
-            "profile_exists": len(profiles) > 0,
-            "api_token": token})
+        return templates.TemplateResponse(request, "settings.html", {
+            "error": None, "success": None, "api_token": token,
+            "active_tab": "token"})
 
     _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet")
     _FUNNEL_STEPS = (("onboarding_start", "Onboarding-Start"),
