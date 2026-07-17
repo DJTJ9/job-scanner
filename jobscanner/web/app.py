@@ -168,6 +168,14 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             request, "account_password.html",
             {"error": None, "success": "Passwort geändert"})
 
+    @app.get("/einstellungen")
+    def settings_view(request: Request, tab: str = "profil"):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        return templates.TemplateResponse(request, "settings.html", {
+            "error": None, "success": None, "api_token": None,
+            "active_tab": tab if tab in ("profil", "token") else "profil"})
+
     @app.get("/register")
     def register_form(request: Request):
         return templates.TemplateResponse(request, "register.html", {"error": None})

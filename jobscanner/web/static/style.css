@@ -401,3 +401,14 @@ body.has-drawer.drawer-collapsed .site-footer { margin-left: 56px; }
 
 .anl-check-wrap { border-top: 1px solid rgba(234, 242, 251, 0.12); padding-top: 1.5rem; }
 .anl-outro { font-size: 1.02rem; }
+
+/* ---- /einstellungen: Reiter ---- */
+.settings-email { font-family: "IBM Plex Mono", monospace; opacity: 0.8; margin: 0.25rem 0 0; }
+.tab-bar { display: flex; gap: 0.5rem; border-bottom: 1px solid rgba(234, 242, 251, 0.14); margin-bottom: 1.25rem; }
+.tab { background: none; border: none; color: var(--gischt); font-family: "Chakra Petch", sans-serif;
+  font-size: 1rem; padding: 0.6rem 1rem; cursor: pointer; border-bottom: 2px solid transparent; opacity: 0.65; }
+.tab:hover { opacity: 0.9; }
+.tab.tab-active { opacity: 1; border-bottom-color: var(--signal); }
+.tab:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.tab-panel { display: none; }
+.tab-panel.tab-panel-active { display: block; }

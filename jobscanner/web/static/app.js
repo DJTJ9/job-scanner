@@ -94,6 +94,22 @@ document.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => { btn.textContent = alt; btn.classList.remove("kopiert"); }, 1200);
     });
   });
+
+  // /einstellungen: Reiter umschalten (kein Reload, URL-Hash sync)
+  const tabs = Array.from(document.querySelectorAll(".tab[data-tab]"));
+  if (tabs.length) {
+    const panels = document.querySelectorAll("[data-tab-panel]");
+    const activate = name => {
+      tabs.forEach(t => t.classList.toggle("tab-active", t.dataset.tab === name));
+      panels.forEach(p => p.classList.toggle("tab-panel-active", p.dataset.tabPanel === name));
+    };
+    tabs.forEach(t => t.addEventListener("click", () => {
+      activate(t.dataset.tab);
+      history.replaceState(null, "", "#" + t.dataset.tab);
+    }));
+    const hash = window.location.hash.replace("#", "");
+    if (hash === "profil" || hash === "token") activate(hash);
+  }
 });
 
 // Passwort-Stärke-Gauge (Tiefenlinie-Form): füllt sich veto→signal→beute

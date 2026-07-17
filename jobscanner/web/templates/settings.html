@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Einstellungen — Bob der Job-Bot{% endblock %}
+{% block content %}
+<div class="panel panel-narrow logbuch">
+  <a class="link" href="/">← Zurück</a>
+  <h1>EINSTELLUNGEN</h1>
+  <p class="settings-email">{{ request.session.get("email") }}</p>
+  <div class="tiefenlinie"></div>
+
+  <div class="tab-bar" role="tablist">
+    <button type="button" class="tab{% if active_tab == 'profil' %} tab-active{% endif %}"
+            data-tab="profil" role="tab">Profil</button>
+    <button type="button" class="tab{% if active_tab == 'token' %} tab-active{% endif %}"
+            data-tab="token" role="tab">API-Token</button>
+  </div>
+
+  <section class="tab-panel{% if active_tab == 'profil' %} tab-panel-active{% endif %}"
+           data-tab-panel="profil">
+    <h2>Passwort ändern</h2>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    {% if success %}<p class="success-msg">{{ success }}</p>{% endif %}
+    <form method="post" action="/account/passwort">
+      <label for="current_password">Aktuelles Passwort</label>
+      <input type="password" id="current_password" name="current_password" required>
+      <label for="new_password">Neues Passwort</label>
+      <input type="password" id="new_password" name="new_password" required
+             data-strength-input minlength="6">
+      <div class="staerke-gauge" data-strength-gauge><span></span></div>
+      <label for="new_password_repeat">Wiederholen</label>
+      <input type="password" id="new_password_repeat" name="new_password_repeat" required>
+      <button type="submit" class="btn btn-primary">Speichern</button>
+    </form>
+  </section>
+
+  <section class="tab-panel{% if active_tab == 'token' %} tab-panel-active{% endif %}"
+           data-tab-panel="token">
+    <h2>API-Token für Claude</h2>
+    {% if api_token %}
+    <p><strong>Dein neues Token — nur jetzt sichtbar, kopiere es sofort:</strong></p>
+    <p><code>{{ api_token }}</code></p>
+    <p>Danach Bob mit deinem Claude verbinden — <a class="link" href="/anleitung">volle Anleitung</a>:
+       Plugin installieren mit <code>/plugin install bob@bob-kit</code>, Token bei der Nachfrage einfügen.</p>
+    {% else %}
+    <p>Für den Bob-Member-Kit-Zugang mit deinem eigenen Claude-Abo. Ein neues Token
+       ersetzt das alte und wird nur einmalig angezeigt. Anleitung: <a class="link" href="/anleitung">/anleitung</a>.</p>
+    {% endif %}
+    <form method="post" action="/profiles/api-token">
+      <button type="submit" class="btn btn-secondary">API-Token erzeugen</button>
+    </form>
+  </section>
+</div>
+{% endblock %}
