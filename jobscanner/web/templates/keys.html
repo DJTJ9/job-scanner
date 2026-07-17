@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Adzuna- & Jooble-Keys — Bob der Job-Bot{% endblock %}
+{% block content %}
+<a class="link" href="/anleitung">← Zurück zur Anleitung</a>
+
+<section class="anl-hero">
+  <div class="anl-hero-text">
+    <h1>KOSTENLOSE JOB-KEYS HOLEN</h1>
+    <p>Mit eigenen Keys von Adzuna und Jooble suchst du per <code>/bob:bob-scan</code>
+      selbst neue Stellen. Beide bieten kostenlose APIs.</p>
+  </div>
+</section>
+
+<section class="anl-prereq">
+  <h2>Was sind Adzuna und Jooble?</h2>
+  <ul>
+    <li><strong>Adzuna</strong> — kostenloser Job-Such-Aggregator mit freier API.
+      Du brauchst zwei Werte: eine <strong>App ID</strong> und einen <strong>App Key</strong>.</li>
+    <li><strong>Jooble</strong> — kostenloser Job-Aggregator mit freier API. Du brauchst
+      einen einzelnen <strong>API-Key</strong>.</li>
+  </ul>
+</section>
+
+<!-- ADZUNA -->
+<section class="anl-step" id="keys-adzuna">
+  <div class="anl-step-head"><span class="anl-step-num">A</span><h2>Adzuna: App ID + App Key</h2></div>
+  <p>Konto auf <a class="link" href="https://developer.adzuna.com" target="_blank" rel="noopener">developer.adzuna.com</a>
+    anlegen → App registrieren → App ID + App Key ablesen.</p>
+  <figure class="anl-shot">
+    <img src="/static/img/keys/adzuna-landing.png" alt="Adzuna Developer-Portal Startseite">
+    <figcaption>Das Adzuna-Developer-Portal. Nach dem Login findest du App ID und App Key im Dashboard.</figcaption>
+  </figure>
+  <ol class="anl-list">
+    <li>Auf „Sign up" klicken und Konto anlegen.</li>
+    <li>Im Dashboard eine neue Application registrieren.</li>
+    <li><strong>Application ID</strong> und <strong>Application Key</strong> notieren.</li>
+  </ol>
+</section>
+
+<!-- JOOBLE -->
+<section class="anl-step" id="keys-jooble">
+  <div class="anl-step-head"><span class="anl-step-num">J</span><h2>Jooble: API-Key</h2></div>
+  <p>API-Key auf <a class="link" href="https://jooble.org/api/about" target="_blank" rel="noopener">jooble.org/api/about</a>
+    beantragen → Key ablesen.</p>
+  <figure class="anl-shot">
+    <img src="/static/img/keys/jooble-api.png" alt="Jooble API-Info-Seite">
+    <figcaption>Die Jooble-API-Seite. Über das Formular bekommst du deinen persönlichen API-Key.</figcaption>
+  </figure>
+  <ol class="anl-list">
+    <li>Seite öffnen und das API-Key-Formular ausfüllen.</li>
+    <li>Den zugeschickten <strong>API-Key</strong> notieren.</li>
+  </ol>
+</section>
+
+<section class="anl-outro">
+  <h2>Keys eintragen</h2>
+  <p>Trag die Werte per <code>/plugin</code> in der Bob-Konfiguration ein (Felder für
+    Adzuna App ID, Adzuna App Key und Jooble Key). Danach suchst du mit
+    <code>/bob:bob-scan</code> selbst neue Jobs und lieferst sie ein.</p>
+  <p><a class="btn btn-secondary" href="/anleitung">← Zurück zur Anleitung</a></p>
+</section>
+{% endblock %}

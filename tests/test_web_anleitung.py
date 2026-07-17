@@ -48,6 +48,11 @@ def test_anleitung_mentions_no_zip_and_no_bob_setup(client):
     assert "/bob-setup" not in body
 
 
+def test_anleitung_links_to_keys_guide(client):
+    body = client.get("/anleitung").text
+    assert 'href="/anleitung/keys"' in body
+
+
 def test_anleitung_referenced_screenshots_exist_on_disk():
     base = Path("jobscanner/web/static/img/anleitung")
     assert (base / "01-register.png").exists()
