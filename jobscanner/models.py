@@ -21,8 +21,8 @@ def _strip_legal_suffix(text: str) -> str:
 
 
 def make_fingerprint(company: str, title: str, location: str) -> str:
-    company_norm = _strip_legal_suffix(_norm(company))
-    return "|".join([company_norm, _norm(title), _norm(location)])
+    company_norm = _strip_legal_suffix(_norm(company or ""))
+    return "|".join([company_norm, _norm(title or ""), _norm(location or "")])
 
 
 @dataclass

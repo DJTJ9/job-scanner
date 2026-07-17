@@ -44,6 +44,10 @@ class TestFingerprint:
         assert make_fingerprint("AG", "Unity Developer", "Hamburg") != \
             make_fingerprint("", "Unity Developer", "Hamburg")
 
+    def test_none_values_treated_as_empty_string(self):
+        assert make_fingerprint(None, "Unity Developer", None) == \
+            make_fingerprint("", "Unity Developer", "")
+
 
 from jobscanner import storage
 
