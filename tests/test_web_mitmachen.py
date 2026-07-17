@@ -86,3 +86,11 @@ def test_mitmachen_css_respects_reduced_motion():
     block = css.split(".tauchprofil-fuellung")[1]
     assert "prefers-reduced-motion" in css
     assert "transition" in block
+
+
+def test_app_js_has_copy_and_tauchprofil_snippets():
+    js = Path("jobscanner/web/static/app.js").read_text()
+    assert "data-copy" in js
+    assert "data-tauchprofil" in js
+    assert "IntersectionObserver" in js
+    assert "prefers-reduced-motion" in js
