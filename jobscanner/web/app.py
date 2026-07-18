@@ -627,7 +627,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             data["languages"] = sorted(langs)
         elif step == "no_gos":
             if request.session.get("role") == "owner":
-                data["no_gos"] = _split(form.get("no_gos", ""))
+                nogos = set(_split(form.get("no_gos", "")))
+                nogos.update(form.getlist("suggested_no_gos"))
+                data["no_gos"] = sorted(nogos)
             else:
                 valid = {n["key"] for n in scoring.NO_GOS_CATALOG}
                 data["no_gos"] = [k for k in form.getlist("no_gos") if k in valid]

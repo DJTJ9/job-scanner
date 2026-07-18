@@ -74,6 +74,22 @@ def test_wizard_llm_refine_merges_suggested_skills(client, monkeypatch):
     assert set(profile["data"]["skills"]) == {"Python", "Groq"}
 
 
+def test_wizard_owner_no_gos_merges_suggested(client):
+    client.get("/wizard/new")
+    client.post("/wizard/basis", data={"name": "NoGoOwner", "level": "senior",
+                                       "experience_years": "3"})
+    client.post("/wizard/skills", data={"skills": "Python"})
+    client.post("/wizard/zielrollen", data={"target_roles": "Dev"})
+    client.post("/wizard/domaenen", data={"domains": []})
+    client.post("/wizard/ort_umfang", data={"cities": "Berlin", "languages": ["de"]})
+    client.post("/wizard/no_gos", data={"no_gos": "Zeitarbeit", "suggested_no_gos": ["Nachtschicht"]})
+    resp = client.post("/wizard/gewichte", data={}, follow_redirects=False)
+    assert resp.status_code in (200, 303)
+
+    profile = storage.get_profile_by_name("NoGoOwner")
+    assert set(profile["data"]["no_gos"]) == {"Zeitarbeit", "Nachtschicht"}
+
+
 def test_wizard_step_invalid_redirects_to_new(client):
     resp = client.get("/wizard/nonexistent", follow_redirects=False)
     assert resp.status_code == 303

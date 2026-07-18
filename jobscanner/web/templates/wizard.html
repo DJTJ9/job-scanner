@@ -77,6 +77,10 @@
     {% if role == "owner" %}
       <label for="no_gos">No-Gos (kommagetrennt)</label>
       <input type="text" id="no_gos" name="no_gos" value="{{ data.get('no_gos', []) | join(', ') }}">
+      {% for n in no_gos_catalog %}
+        <label class="chip"><input type="checkbox" name="suggested_no_gos" value="{{ n.label }}"
+          {{ 'checked' if n.label in data.get('no_gos', []) else '' }}>{{ n.label }}</label>
+      {% endfor %}
     {% else %}
       <p class="job-meta">Wähle aus, was für dich nicht in Frage kommt:</p>
       {% for n in no_gos_catalog %}
