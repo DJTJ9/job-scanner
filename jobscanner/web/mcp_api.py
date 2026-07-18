@@ -1,4 +1,4 @@
-"""MCP-Server für den BYO-Member-Zugang: 6 Tools, alle auf den Bearer-Token-User gescoped.
+"""MCP-Server für den BYO-Member-Zugang: 7 Tools, alle auf den Bearer-Token-User gescoped.
 Tool-Logik ist von FastMCP getrennt gehalten (plain functions), damit sie ohne
 MCP-Protokoll-Roundtrip testbar bleibt. raw_text in Jobs ist Fremdinhalt aus
 gescrapten Anzeigen — Prompt-Injection-Warnung gehört in die Member-Skills."""
@@ -232,6 +232,64 @@ def apply_member_insights_data(user: dict, profile_id: int, kind: str,
     return {"insight_id": insight_id, "status": "confirmed", "rescore_queued": queued}
 
 
+_MAX_LIST_ITEMS = 30
+_MAX_ITEM_CHARS = 80
+
+
+def _validate_str_list(name: str, values: list) -> list[str]:
+    if not isinstance(values, list) or len(values) > _MAX_LIST_ITEMS:
+        raise ValueError(f"{name} muss eine Liste mit maximal {_MAX_LIST_ITEMS} Einträgen sein")
+    out = []
+    for v in values:
+        if not isinstance(v, str) or not v.strip() or len(v) > _MAX_ITEM_CHARS:
+            raise ValueError(f"{name}: jeder Eintrag muss ein nicht-leerer String "
+                             f"(max {_MAX_ITEM_CHARS} Zeichen) sein")
+        out.append(v.strip())
+    return out
+
+
+def update_my_criteria_data(user: dict, profile_id: int, skills: list | None = None,
+                            target_roles: list | None = None,
+                            criteria_weights: dict | None = None) -> dict:
+    """Wizard-Freitext-Parität: vom Member-Claude generierte + im Chat bestätigte
+    Profil-Vorschläge übernehmen. Komplette Validierung VOR dem ersten Write
+    (Ganz-Batch-Ablehnung wie push_batch), danach deterministisches Rescore."""
+    own = {p["id"]: p for p in _user_profiles(user["id"])}
+    if profile_id not in own:
+        raise ValueError("Profil gehört nicht zu diesem Token")
+    if skills is not None:
+        skills = _validate_str_list("skills", skills)
+    if target_roles is not None:
+        target_roles = _validate_str_list("target_roles", target_roles)
+    if criteria_weights is not None:
+        if not isinstance(criteria_weights, dict):
+            raise ValueError("criteria_weights muss ein Objekt sein")
+        valid_keys = {c["key"] for c in storage.list_criteria(profile_id)}
+        for key, weight in criteria_weights.items():
+            if key not in valid_keys:
+                raise ValueError(f"Unbekanntes Kriterium: {key}")
+            if not isinstance(weight, int) or not (0 <= weight <= 5):
+                raise ValueError(f"Gewicht für '{key}' muss 0-5 sein")
+
+    updated = []
+    profile = own[profile_id]
+    data = profile["data"]
+    if skills is not None:
+        data["skills"] = skills
+        updated.append("skills")
+    if target_roles is not None:
+        data["target_roles"] = target_roles
+        updated.append("target_roles")
+    if updated:
+        storage.update_profile(profile_id, profile["name"], data)
+    if criteria_weights:
+        for key, weight in criteria_weights.items():
+            storage.set_criterion_weight_by_key(profile_id, key, weight)
+        updated.append("criteria_weights")
+    rescored = storage.score_profile_deterministic(profile_id) if updated else 0
+    return {"updated_fields": updated, "rescored": rescored}
+
+
 def create_mcp_server() -> FastMCP:
     """Ein FastMCP-Server pro create_app()-Aufruf (kein Modul-Singleton — der
     session_manager eines FastMCP ist nicht re-runnable, Tests erzeugen viele Apps).
@@ -293,6 +351,17 @@ def create_mcp_server() -> FastMCP:
         rescore_queued im Ergebnis = Anzahl Jobs, die für ein Member-LLM-Rescore
         vorgemerkt wurden (via pull_pending_jobs → to_rescore abholbar)."""
         return apply_member_insights_data(_require_user(), profile_id, kind, text, payload or {})
+
+    @server.tool()
+    def update_my_criteria(profile_id: int, skills: list[str] | None = None,
+                           target_roles: list[str] | None = None,
+                           criteria_weights: dict | None = None) -> dict:
+        """Bestätigte Profil-Vorschläge übernehmen (bob-profil): skills/target_roles
+        ersetzen die bisherigen Listen, criteria_weights setzt Gewichte 0-5 per
+        Kriterien-key. Validierung komplett vor dem Write, danach deterministisches
+        Rescore — kein LLM serverseitig."""
+        return update_my_criteria_data(_require_user(), profile_id, skills,
+                                       target_roles, criteria_weights)
 
     return server
 

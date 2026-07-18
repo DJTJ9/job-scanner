@@ -321,6 +321,51 @@ class TestRescoreQueueAndSparModus:
         assert storage.list_member_rescore([pid]) == []
 
 
+class TestUpdateMyCriteria:
+    def test_rejects_foreign_profile(self, client):
+        user, _pid = _member_with_profile("uc1@test.de")
+        _other, other_pid = _member_with_profile("uc1b@test.de")
+        with pytest.raises(ValueError, match="gehört nicht"):
+            mcp_api.update_my_criteria_data(user, other_pid, skills=["Unity"])
+
+    def test_rejects_unknown_criteria_key_without_writing(self, client):
+        user, pid = _member_with_profile("uc2@test.de")
+        with pytest.raises(ValueError, match="Unbekanntes Kriterium"):
+            mcp_api.update_my_criteria_data(
+                user, pid, skills=["Unity"],
+                criteria_weights={"gibt_es_nicht": 3})
+        # Ganz-Batch-Ablehnung: auch die gültigen skills wurden NICHT geschrieben
+        assert "skills" not in storage.get_profile(pid)["data"]
+
+    def test_rejects_out_of_range_weight(self, client):
+        user, pid = _member_with_profile("uc3@test.de")
+        with pytest.raises(ValueError, match="0-5"):
+            mcp_api.update_my_criteria_data(user, pid, criteria_weights={"remote": 9})
+
+    def test_rejects_non_string_list_entries(self, client):
+        user, pid = _member_with_profile("uc4@test.de")
+        with pytest.raises(ValueError, match="skills"):
+            mcp_api.update_my_criteria_data(user, pid, skills=["ok", 42])
+
+    def test_writes_fields_weights_and_rescores(self, client):
+        user, pid = _member_with_profile("uc5@test.de")
+        fp = _mk_extracted_job("uc")
+        out = mcp_api.update_my_criteria_data(
+            user, pid, skills=["Unity", "C#"], target_roles=["Game Developer"],
+            criteria_weights={"remote": 2})
+        data = storage.get_profile(pid)["data"]
+        assert data["skills"] == ["Unity", "C#"]
+        assert data["target_roles"] == ["Game Developer"]
+        assert storage.list_criteria(pid)[0]["weight"] == 2
+        assert out["rescored"] >= 1
+        assert storage.get_job_score(pid, fp) is not None
+
+    def test_noop_call_changes_nothing(self, client):
+        user, pid = _member_with_profile("uc6@test.de")
+        out = mcp_api.update_my_criteria_data(user, pid)
+        assert out["updated_fields"] == []
+
+
 _MCP_HEADERS = {"Accept": "application/json, text/event-stream",
                 "Content-Type": "application/json"}
 
@@ -358,7 +403,7 @@ class TestMcpTransport:
         assert resp.status_code == 200
         names = {t["name"] for t in resp.json()["result"]["tools"]}
         assert names == {"get_my_profile", "pull_pending_jobs", "push_batch", "push_jobs",
-                          "get_my_votes", "apply_member_insights"}
+                          "get_my_votes", "apply_member_insights", "update_my_criteria"}
 
     def test_mcp_tool_call_scoped_to_token_user(self, client, member):
         pid = storage.create_profile("Member-Sicht", {"no_gos": []},
