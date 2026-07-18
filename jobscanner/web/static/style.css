@@ -124,7 +124,9 @@ input[type="text"], input[type="password"], input[type="number"], textarea, sele
 .onboarding-header { display: flex; justify-content: space-between; align-items: center; }
 .onboarding-corner { display: flex; gap: 0.5rem; }
 .onboarding-icon-btn { background: transparent; border: 1px solid var(--signal); border-radius: 6px; font-size: 1.25rem; padding: 0.25rem 0.5rem; cursor: pointer; }
-.onboarding-panel { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); max-width: 420px; z-index: 10; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4); }
+.onboarding-panel { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); max-width: 520px; z-index: 10; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4); }
+.onboarding-panel { padding: 1.75rem; }
+.onboarding-footer { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin-top: 1.25rem; }
 .onboarding-avatar-wrap { display: flex; justify-content: center; margin-bottom: 1rem; }
 
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; }
@@ -228,7 +230,7 @@ body.has-drawer.drawer-collapsed .topbar, body.has-drawer.drawer-collapsed .page
 @media (prefers-reduced-motion: reduce) { .feedback-fab { animation: none; } }
 .feedback-panel {
   position: fixed; bottom: 5.5rem; right: 1.5rem; z-index: 15;
-  width: 320px; max-width: calc(100vw - 3rem);
+  width: 420px; max-width: calc(100vw - 3rem);
   border: 1px solid var(--bob-lila);
 }
 .feedback-panel-close {
@@ -236,7 +238,7 @@ body.has-drawer.drawer-collapsed .topbar, body.has-drawer.drawer-collapsed .page
   background: transparent; border: none; color: var(--gischt);
   font-size: 1rem; cursor: pointer;
 }
-.feedback-textarea { min-height: 80px; resize: vertical; }
+.feedback-textarea { min-height: 140px; resize: vertical; }
 .feedback-submit { background: var(--bob-lila); color: var(--gischt); font-weight: 600; border: none; }
 
 /* Rechtstexte + Passwort-Ändern */
