@@ -218,7 +218,6 @@ body.has-drawer.drawer-collapsed .topbar, body.has-drawer.drawer-collapsed .page
   .drawer.drawer-collapsed .drawer-item-label { display: inline; }
   .drawer-toggle, .drawer-close { display: block; }
   .drawer-collapse { display: none; }
-  .startseite-hero-bg { background-size: cover; }
   h1 { font-size: 1.5rem; }
 }
 
@@ -450,6 +449,9 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
 .hero-landscape { background: none; min-height: 0; }
 .profiles-panel { max-width: 640px; margin: 3rem auto; }
 .panel[data-profile-exists] { background: rgba(20, 40, 68, 0.82); backdrop-filter: blur(2px); }
+@media (max-width: 900px) {
+  .startseite-hero-bg { background-size: cover; }
+}
 .profile-row { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
 .profile-name { color: var(--gischt); font-weight: 600; font-size: 1.15rem; text-decoration: none; }
 .profile-name:hover { color: var(--signal); }
