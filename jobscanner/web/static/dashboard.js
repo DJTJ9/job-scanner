@@ -87,4 +87,10 @@ document.addEventListener("DOMContentLoaded", () => {
       finalize.submit();
     });
   }
+
+  const hash = window.location.hash.replace("#", "");
+  if (hash) {
+    const btn = document.querySelector(`[data-tab-target="${hash}"]`);
+    if (btn) btn.click();
+  }
 });

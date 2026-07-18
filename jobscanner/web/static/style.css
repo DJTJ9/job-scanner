@@ -440,3 +440,4 @@ body.has-drawer.drawer-collapsed .site-footer { margin-left: 56px; }
 .profile-name:hover { color: var(--signal); }
 .profile-edit { font-size: 0.85rem; opacity: 0.7; }
 .anleitung-cta { margin-right: 0.75rem; }
+.profil-name { color: var(--signal); font-weight: 700; }

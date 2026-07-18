@@ -564,3 +564,15 @@ class TestDashboardMemberLernen:
         resp = c.get(f"/dashboard/{pid}")
         assert "Bevorzugt Remote, aber Hamburg ok" in resp.text
         assert "entfernen" not in resp.text
+
+
+def test_lernen_actions_redirect_to_lernen_tab(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    for path in (
+        f"/dashboard/{pid}/apply",
+        f"/dashboard/{pid}/insights/9999/confirm",
+        f"/dashboard/{pid}/insights/9999/reject",
+    ):
+        resp = client.post(path, follow_redirects=False)
+        assert resp.status_code == 303
+        assert resp.headers["location"] == f"/dashboard/{pid}#lernen", path

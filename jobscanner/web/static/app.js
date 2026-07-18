@@ -4,7 +4,11 @@ document.addEventListener("DOMContentLoaded", () => {
   if (criteriaForm) {
     const btn = criteriaForm.querySelector(".btn-primary");
     criteriaForm.querySelectorAll("input[type=range]").forEach((slider) => {
-      slider.addEventListener("input", () => btn && btn.classList.add("dirty"));
+      slider.addEventListener("input", () => {
+        if (btn) btn.classList.add("dirty");
+        const out = slider.closest(".criterion")?.querySelector(".weight");
+        if (out) out.textContent = slider.value;
+      });
     });
   }
 

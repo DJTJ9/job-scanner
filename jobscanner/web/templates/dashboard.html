@@ -3,7 +3,7 @@
 {% block title %}{{ profile.name }} — Bob der Job-Bot{% endblock %}
 {% block content %}
 <div class="hero-landscape-band"></div>
-<h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> BOB DER JOB-BOT — Profil: {{ profile.name }} <a class="link" href="/">▾ wechseln</a></h1>
+<h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> BOB DER JOB-BOT — Profil: <span class="profil-name">{{ profile.name }}</span> <a class="link" href="/">▾ wechseln</a></h1>
 <nav class="tabs" data-toplevel-tabs>
   <button type="button" class="tab active" data-tab-target="kontakte">Job-Angebote</button>
   <button type="button" class="tab" data-tab-target="feintuning">Feintuning</button>

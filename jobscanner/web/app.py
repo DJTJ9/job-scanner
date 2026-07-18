@@ -421,7 +421,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return resp
         analysis_id = storage.create_analysis(profile_id)
         _launch_feedback_agent("analyze", analysis_id)
-        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+        return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
 
     @app.get("/dashboard/{profile_id}/analysis")
     def analysis_status(request: Request, profile_id: int):
@@ -458,7 +458,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if analysis is not None:
             storage.set_analysis_status(analysis["id"], "synthesizing")
             _launch_feedback_agent("synthesize", analysis["id"])
-        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+        return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
 
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/confirm")
     def confirm_insight_route(request: Request, profile_id: int, insight_id: int):
@@ -468,7 +468,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if resp is not None:
             return resp
         storage.confirm_insight(insight_id)
-        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+        return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
 
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/reject")
     def reject_insight_route(request: Request, profile_id: int, insight_id: int):
@@ -478,7 +478,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if resp is not None:
             return resp
         storage.reject_insight(insight_id)
-        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+        return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
 
     @app.post("/dashboard/{profile_id}/apply")
     def apply_insights(request: Request, profile_id: int):
@@ -512,7 +512,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                         except Exception:
                             pass
             threading.Thread(target=_push_changed, args=(changed,), daemon=True).start()
-        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+        return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
 
     STEP_ORDER = ["basis", "skills", "zielrollen", "domaenen", "ort_umfang", "no_gos", "gewichte"]
     STEP_LABELS = {
