@@ -16,6 +16,7 @@ import subprocess
 from pathlib import Path
 
 from jobscanner import browser, config, dedup, extract, market, neighbors, search, storage
+from jobscanner.scan_config import SCAN_PRESETS
 from jobscanner.search import SearchProvider
 
 _DEFAULT_DB = Path(__file__).parent.parent / "data" / "jobs.db"
@@ -23,10 +24,17 @@ _REPORT_PATH = Path(__file__).parent.parent / "data" / "last_discover_report.jso
 _NOTIFY_SCRIPT = Path("/root/projekte/telegram-bot-army/scripts/telegram_notify.py")
 
 
-def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
+def run(provider: SearchProvider | None = None, limit_per_query: int | None = None,
         db_path: str | Path | None = None, today: str | None = None,
         max_scrapes_per_portal: int | None = None,
-        profile_name: str = "default") -> dict:
+        profile_name: str = "default", scan_size: str = "mittel",
+        locations: list[str] | None = None, languages=None) -> dict:
+    preset = SCAN_PRESETS.get(scan_size, SCAN_PRESETS["mittel"])
+    if limit_per_query is None:
+        limit_per_query = preset.limit_per_query
+    if max_scrapes_per_portal is None:
+        max_scrapes_per_portal = preset.max_scrapes_per_portal
+    location = (locations or [None])[0] or None
     today = today or _dt.date.today().isoformat()
     storage.init_db(db_path or _DEFAULT_DB)
     browser.reset_credits()
@@ -63,16 +71,20 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
         portal_provider = provider or search.provider_for(portal)
         seen_urls: set[str] = set()
         capped = False
-        max_terms = portal.get("max_search_terms")
+        portal_cap = portal.get("max_search_terms")
+        caps = [c for c in (preset.max_search_terms, portal_cap) if c is not None]
+        max_terms = min(caps) if caps else None
         terms_searched = 0
         for role, role_langs in queries.items():
             if capped:
                 break
             if portal.get("skip_neighbor_roles") and role in neighbor_role_names:
                 continue
-            for terms in role_langs.values():
+            for lang, terms in role_langs.items():
                 if capped:
                     break
+                if languages is not None and lang not in languages:
+                    continue
                 for term in terms:
                     if capped:
                         break
@@ -85,7 +97,8 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                         break
                     terms_searched += 1
                     for url in search.discover_urls(portal, term, portal_provider,
-                                                    limit=limit_per_query):
+                                                    limit=limit_per_query,
+                                                    location=location):
                         url = dedup.canonicalize_url(url, portal["name"])
                         if (max_scrapes_per_portal is not None
                                 and stats["scraped"] >= max_scrapes_per_portal):
@@ -169,12 +182,17 @@ def main() -> None:
     parser.add_argument("--send-report", action="store_true",
                         help="Nur den Report des letzten Discover-Laufs versenden")
     parser.add_argument("--today", default=None)
+    parser.add_argument("--scan-size", default=config.default_scan_size(),
+                        choices=["klein", "mittel", "gross"])
+    parser.add_argument("--location", default=config.default_location())
     args = parser.parse_args()
     if args.send_report:
         print(json.dumps(send_report(args.db, today=args.today),
                          indent=2, ensure_ascii=False))
     else:
-        print(json.dumps(run(db_path=args.db, today=args.today),
+        print(json.dumps(run(db_path=args.db, today=args.today,
+                             scan_size=args.scan_size,
+                             locations=[args.location] if args.location else None),
                          indent=2, ensure_ascii=False))
 
 

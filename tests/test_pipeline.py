@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from jobscanner import pipeline, storage
+from jobscanner import pipeline, search, storage
 from jobscanner.pipeline import run
 
 PORTALS = [{"name": "indeed", "site": "indeed.de", "detail_url_pattern": "x",
@@ -93,7 +93,7 @@ def test_neighbor_role_jobs_get_is_neighbor_flag(env, monkeypatch):
                         {"vr_games": {"terms": {"de": ["VR Developer"]}}})
     url = "https://indeed.test/vr_games-VR Developer-0"
 
-    def discover(portal, term, provider, limit=10):
+    def discover(portal, term, provider, limit=10, location=None):
         # Term-abhängig, sonst würde die core-Rolle "unity_games" (dict-Reihenfolge
         # zuerst) dieselbe URL zuerst finden und als is_neighbor=False einbuchen.
         return [url] if term == "VR Developer" else []
@@ -147,6 +147,45 @@ def test_active_portal_custom_portal_joins_search_loop(env):
     with patch("jobscanner.search.discover_urls", return_value=[url]):
         report = _run(env, {url: "Rohtext"})
     assert f"custom:{pid}" in report["portals"]
+
+
+def test_language_filter_skips_unselected_lang(env, monkeypatch):
+    monkeypatch.setattr(pipeline.config, "load_queries",
+                        lambda: {"unity_games": {"de": ["Unity Entwickler Junior"],
+                                                 "en": ["Junior Unity Developer"]}})
+    seen_terms = []
+
+    def fake_discover(portal, term, provider, limit=10, location=None):
+        seen_terms.append(term)
+        return []
+
+    monkeypatch.setattr(search, "discover_urls", fake_discover)
+    _run(env, {}, languages={"de"})
+    assert seen_terms, "es wurde überhaupt gesucht"
+    assert "Unity Entwickler Junior" in seen_terms
+    assert "Junior Unity Developer" not in seen_terms
+
+
+def test_scan_size_klein_caps_scrapes(env, monkeypatch):
+    urls = [f"https://x/{i}" for i in range(50)]
+    monkeypatch.setattr(search, "discover_urls",
+                        lambda *a, location=None, **k: urls)
+    scrape_map = {u: "Rohtext" for u in urls}
+    report = _run(env, scrape_map, scan_size="klein")
+    for stats in report["portals"].values():
+        assert stats["scraped"] <= 20  # klein.max_scrapes_per_portal
+
+
+def test_location_threaded_to_discover(env, monkeypatch):
+    seen = {}
+
+    def fake_discover(portal, term, provider, limit=10, location=None):
+        seen["location"] = location
+        return []
+
+    monkeypatch.setattr(search, "discover_urls", fake_discover)
+    _run(env, {}, locations=["Berlin", "Remote"])
+    assert seen["location"] == "Berlin"   # erste = primäre
 
 
 class TestHybridRouting:

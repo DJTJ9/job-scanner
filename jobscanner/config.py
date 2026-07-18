@@ -64,3 +64,11 @@ def load_web_settings() -> dict:
 def firecrawl_budget() -> int:
     """Firecrawl-Credit-Deckel pro Lauf (Volllauf-Vorbereitung 2026-07-11)."""
     return int(os.environ.get("JOBSCANNER_FC_BUDGET", "100"))
+
+
+def default_scan_size() -> str:
+    return os.environ.get("JOBSCANNER_SCAN_SIZE", "mittel")
+
+
+def default_location() -> str:
+    return os.environ.get("JOBSCANNER_DEFAULT_LOCATION", "")
