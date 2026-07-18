@@ -43,7 +43,7 @@ h1, h2, .brand {
 .panel-narrow { max-width: 360px; margin: 3rem auto; }
 .error { color: var(--veto); }
 label { display: block; margin-top: 0.75rem; font-size: 0.9rem; }
-input[type="text"], input[type="password"], input[type="number"], textarea, select {
+input[type="text"], input[type="url"], input[type="password"], input[type="number"], textarea, select {
   width: 100%;
   padding: 0.5rem;
   margin-top: 0.25rem;
@@ -427,6 +427,9 @@ body.has-drawer.drawer-collapsed .site-footer { margin-left: 56px; }
 .tab-panel { display: none; }
 .tab-panel.tab-panel-active { display: block; }
 .bob-befehle-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.portale-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+.portale-table th, .portale-table td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--wasser); }
+.portale-table th { color: var(--gischt); }
 .lotung-kompatibel { border: 1px solid var(--beute); }
 .lotung-inkompatibel { border: 1px solid var(--veto); }
 .lotung-beute { background: var(--beute); color: var(--tiefe); }

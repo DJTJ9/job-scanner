@@ -3,7 +3,8 @@
 {% block content %}
 <h2>Neues Portal prüfen</h2>
 <form method="post" action="/portale/pruefen" class="panel">
-  <label>URL<input type="url" name="url" required></label>
+  <label>URL
+    <input type="url" name="url" required></label>
   <label><input type="radio" name="typ" value="career_page" checked> Career-Page (Watchlist)</label>
   <label><input type="radio" name="typ" value="portal"> Durchsuchbares Portal</label>
   <label>Such-URL-Vorlage (nur bei Portal, z.B. https://bar.de/jobs?q={query})
@@ -34,7 +35,7 @@
 {% endif %}
 
 <h2>Portale</h2>
-<table>
+<table class="portale-table">
   <tr><th>URL</th><th>Typ</th><th>Status</th></tr>
   {% for p in portale %}
   <tr><td>{{ p.url }}</td><td>{{ p.typ }}</td><td>{{ p.status }}</td></tr>
