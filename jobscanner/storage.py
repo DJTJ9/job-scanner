@@ -163,6 +163,9 @@ def init_db(path: str | Path) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     _conn = sqlite3.connect(path, check_same_thread=False)
+    _conn.execute("PRAGMA journal_mode=WAL")
+    _conn.execute("PRAGMA busy_timeout=5000")
+    _conn.execute("PRAGMA synchronous=NORMAL")
     _conn.row_factory = sqlite3.Row
     _conn.execute(_SCHEMA)
     existing_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(jobs)")}
@@ -187,6 +190,9 @@ def init_db(path: str | Path) -> None:
     user_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(users)")}
     if "api_token_hash" not in user_cols:
         _conn.execute("ALTER TABLE users ADD COLUMN api_token_hash TEXT")
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_extraction_status ON jobs(extraction_status)")
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)")
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_category ON jobs(category)")
     _conn.commit()
 
 
