@@ -164,7 +164,7 @@ input[type="text"], input[type="password"], input[type="number"], textarea, sele
   min-height: 320px;
 }
 .hero-landscape-band {
-  background: url("/static/img/bob/hero-landscape-band.png") center / cover no-repeat;
+  background: url("/static/img/bob/hero-landscape-full.png") center 65% / cover no-repeat;
   border-radius: 8px;
   padding: 1rem 1.5rem;
   margin-bottom: 1.5rem;
