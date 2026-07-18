@@ -967,18 +967,25 @@ def set_spar_modus(user_id: int, max_jobs: int | None, neighbor_roles: bool) -> 
     return count
 
 
-def enqueue_member_rescore(profile_id: int) -> int:
-    """Merkt alle bereits gescorten, extrahierten Jobs des Profils für ein
-    Member-LLM-Rescore vor (nach Learn-Insights; das deterministische Rescore läuft
-    separat sofort). Idempotent per INSERT OR IGNORE. Gibt Anzahl NEU vorgemerkter
-    Jobs zurück."""
+def enqueue_member_rescore(profile_id: int, max_jobs: int | None = None) -> int:
+    """Merkt die relevantesten gescorten, extrahierten Jobs des Profils für ein
+    Member-LLM-Rescore vor: Floor (keine No-Gos) + Rang (Score DESC) + optionaler
+    Cap (max_jobs, None = unbegrenzt). Idempotent per INSERT OR IGNORE; der Cap gilt
+    pro Enqueue. Gibt Anzahl NEU vorgemerkter Jobs zurück."""
     conn = _require_conn()
-    cur = conn.execute(
-        """INSERT OR IGNORE INTO member_rescore_queue (profile_id, fingerprint, created_at)
-           SELECT job_scores.profile_id, job_scores.fingerprint, datetime('now')
-           FROM job_scores JOIN jobs ON jobs.fingerprint = job_scores.fingerprint
-           WHERE job_scores.profile_id = ? AND jobs.extraction_status = 'extracted'""",
-        (profile_id,))
+    sql = (
+        "INSERT OR IGNORE INTO member_rescore_queue (profile_id, fingerprint, created_at) "
+        "SELECT job_scores.profile_id, job_scores.fingerprint, datetime('now') "
+        "FROM job_scores JOIN jobs ON jobs.fingerprint = job_scores.fingerprint "
+        "WHERE job_scores.profile_id = ? AND jobs.extraction_status = 'extracted' "
+        "AND job_scores.category != 'No-Go' "
+        "ORDER BY job_scores.score DESC"
+    )
+    params: list = [profile_id]
+    if max_jobs is not None:
+        sql += " LIMIT ?"
+        params.append(int(max_jobs))
+    cur = conn.execute(sql, params)
     conn.commit()
     return cur.rowcount
 

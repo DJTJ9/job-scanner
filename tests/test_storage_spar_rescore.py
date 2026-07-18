@@ -83,3 +83,36 @@ def test_set_criterion_weight_by_key():
     _uid, pid = _member_profile()
     storage.set_criterion_weight_by_key(pid, "remote", 1)
     assert storage.list_criteria(pid)[0]["weight"] == 1
+
+
+def _scored_job(pid, suffix, score, category):
+    fp = _extracted_job(suffix)
+    storage.upsert_job_score(pid, fp, score, "det", category, {"remote": {"punkte": score // 10}})
+    return fp
+
+
+def test_enqueue_floor_excludes_no_go():
+    _uid, pid = _member_profile()
+    ok = _scored_job(pid, "ok", 55, "Vielleicht")
+    _nogo = _scored_job(pid, "no", 0, "No-Go")
+    assert storage.enqueue_member_rescore(pid) == 1
+    fps = {i["fingerprint"] for i in storage.list_member_rescore([pid])}
+    assert fps == {ok}
+
+
+def test_enqueue_cap_keeps_top_scores():
+    _uid, pid = _member_profile()
+    hi = _scored_job(pid, "hi", 80, "Pass")
+    mid = _scored_job(pid, "mid", 60, "Vielleicht")
+    lo = _scored_job(pid, "lo", 45, "Vielleicht")
+    assert storage.enqueue_member_rescore(pid, max_jobs=2) == 2
+    fps = {i["fingerprint"] for i in storage.list_member_rescore([pid])}
+    assert fps == {hi, mid}
+    assert lo not in fps
+
+
+def test_enqueue_none_is_unbounded():
+    _uid, pid = _member_profile()
+    for s, suf in ((80, "a"), (60, "b"), (45, "c")):
+        _scored_job(pid, suf, s, "Vielleicht")
+    assert storage.enqueue_member_rescore(pid, max_jobs=None) == 3
