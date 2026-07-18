@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Profile — Bob der Job-Bot{% endblock %}
 {% block content %}
+<div class="startseite-hero-bg" aria-hidden="true"></div>
 <div class="hero-landscape">
   <h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> BOB DER JOB-BOT</h1>
   {% if not profile_exists %}
@@ -15,24 +16,18 @@
 <div class="panel" data-profile-exists="{{ profile_exists|lower }}">
   <div class="onboarding-header">
     <h2>Profile</h2>
-    {% if profile_exists %}
-    <div class="onboarding-corner">
-      <button type="button" class="onboarding-icon-btn" data-onboarding-open="onboarding-bot" aria-label="Wer bin ich?">🤖</button>
-      <button type="button" class="onboarding-icon-btn" data-onboarding-open="onboarding-was-kann" aria-label="Was kann ich?">💡</button>
-      <button type="button" class="onboarding-icon-btn" data-onboarding-open="onboarding-wizard" aria-label="Wer bist du?">📋</button>
-    </div>
-    {% endif %}
   </div>
   {% for p in profiles %}
-    <p>
-      <a class="link" href="/dashboard/{{ p.id }}">{{ p.name }}</a>{% if p.is_default %} (Standard){% endif %}
-      <a class="link" href="/wizard/edit/{{ p.id }}">Bearbeiten</a>
+    <p class="profile-row">
+      <a class="profile-name" href="/dashboard/{{ p.id }}">{{ p.name }}</a>{% if p.is_default %} <span class="job-meta">(Standard)</span>{% endif %}
+      <a class="link profile-edit" href="/wizard/edit/{{ p.id }}">Bearbeiten</a>
       <form method="post" action="/profiles/{{ p.id }}/delete" style="display:inline"
             onsubmit="return confirm('Profil „{{ p.name }}“ wirklich löschen?');">
         <button type="submit" class="link">Löschen</button>
       </form>
     </p>
   {% endfor %}
+  <a class="btn btn-primary anleitung-cta" href="/anleitung">📖 Zur Anleitung</a>
   <a class="btn btn-secondary" href="/wizard/new">+ Neues Profil</a>
 </div>
 {% endif %}

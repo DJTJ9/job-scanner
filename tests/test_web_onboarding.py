@@ -54,7 +54,6 @@ def test_hero_buttons_render_when_no_profile(member_client):
 
 def test_corner_icons_render_when_profile_exists_not_hero(owner_client):
     resp = owner_client.get("/")
-    assert "onboarding-corner" in resp.text
     assert "onboarding-hero" not in resp.text
 
 
@@ -237,14 +236,6 @@ def test_hero_has_three_equal_onboarding_buttons(member_client):
     assert 'data-onboarding-open="onboarding-bot">🤖 Wer bin ich?' in resp.text
     assert 'data-onboarding-open="onboarding-was-kann">💡 Was kann ich?' in resp.text
     assert 'data-onboarding-open="onboarding-wizard">📋 Wer bist du?' in resp.text
-
-
-def test_corner_has_three_onboarding_icons(owner_client):
-    resp = owner_client.get("/")
-    assert "onboarding-corner" in resp.text
-    assert 'data-onboarding-open="onboarding-bot"' in resp.text
-    assert 'data-onboarding-open="onboarding-was-kann"' in resp.text
-    assert 'data-onboarding-open="onboarding-wizard"' in resp.text
 
 
 def test_hero_grid_is_three_equal_columns():
