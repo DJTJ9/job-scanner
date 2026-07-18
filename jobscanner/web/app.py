@@ -140,6 +140,13 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return redirect
         return RedirectResponse("/einstellungen", status_code=303)
 
+    def _settings_extra(user_id):
+        """Context-Keys, die settings.html auf jedem Render braucht."""
+        user = storage.get_user(user_id)
+        own = storage.list_profiles(user_id=user_id)
+        spar = storage.get_spar_modus(own[0]["data"]) if own else dict(storage.SPAR_MODUS_DEFAULT)
+        return {"has_claude_kit": bool(user.get("api_token_hash")), "spar_modus": spar}
+
     @app.post("/account/passwort")
     def account_password_submit(
         request: Request,
@@ -155,7 +162,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return templates.TemplateResponse(
                 request, "settings.html",
                 {"error": msg, "success": None, "api_token": None,
-                 "active_tab": "profil"}, status_code=400)
+                 "active_tab": "profil",
+                 **_settings_extra(request.session["user_id"])}, status_code=400)
 
         if storage.verify_password(email, current_password) is None:
             return _err("Aktuelles Passwort ist falsch")
@@ -167,7 +175,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return templates.TemplateResponse(
             request, "settings.html",
             {"error": None, "success": "Passwort geändert", "api_token": None,
-             "active_tab": "profil"})
+             "active_tab": "profil",
+             **_settings_extra(request.session["user_id"])})
 
     @app.get("/einstellungen")
     def settings_view(request: Request, tab: str = "profil"):
@@ -175,7 +184,18 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return redirect
         return templates.TemplateResponse(request, "settings.html", {
             "error": None, "success": None, "api_token": None,
-            "active_tab": tab if tab in ("profil", "token") else "profil"})
+            "active_tab": tab if tab in ("profil", "token") else "profil",
+            **_settings_extra(request.session["user_id"])})
+
+    @app.post("/einstellungen/spar-modus")
+    def spar_modus_submit(request: Request, modus: str = Form("unbegrenzt"),
+                          max_jobs: int = Form(25), neighbor_roles: str = Form(None)):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        limit = max(1, min(int(max_jobs), 500)) if modus == "sparsam" else None
+        storage.set_spar_modus(request.session["user_id"], limit,
+                               neighbor_roles is not None)
+        return RedirectResponse("/einstellungen?tab=token", status_code=303)
 
     @app.get("/register")
     def register_form(request: Request):
@@ -223,7 +243,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         token = storage.create_api_token(request.session["user_id"])
         return templates.TemplateResponse(request, "settings.html", {
             "error": None, "success": None, "api_token": token,
-            "active_tab": "token"})
+            "active_tab": "token",
+            **_settings_extra(request.session["user_id"])})
 
     @app.get("/portale")
     def portale_view(request: Request):

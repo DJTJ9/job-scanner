@@ -50,6 +50,7 @@ def test_settings_has_token_button(member):
 
 
 def test_settings_has_bob_befehle_buttons(member):
+    member.post("/profiles/api-token")
     body = member.get("/einstellungen").text
     assert "claude-cli://open?q=%2Fbob%3Abob-scan" in body
     assert "claude-cli://open?q=%2Fbob%3Abob-score" in body
@@ -58,6 +59,7 @@ def test_settings_has_bob_befehle_buttons(member):
 
 
 def test_settings_bob_befehle_have_copy_fallback(member):
+    member.post("/profiles/api-token")
     body = member.get("/einstellungen").text
     assert body.count('class="copy-btn"') >= 2
     assert 'data-copy="/bob:bob-scan"' in body
@@ -98,3 +100,48 @@ def test_password_get_redirects_to_settings_when_logged_in(member):
     resp = member.get("/account/passwort", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/einstellungen"
+
+
+def test_settings_has_four_bob_command_cards(member):
+    body = member.get("/einstellungen").text
+    for cmd in ("bob-scan", "bob-score", "bob-learn", "bob-profil"):
+        assert f'data-copy="/bob:{cmd}"' in body
+
+
+def test_settings_without_token_shows_abo_hint_instead_of_deeplink(member):
+    body = member.get("/einstellungen").text
+    assert "Braucht eigenes Claude-Abo" in body
+    assert "claude-cli://open" not in body
+
+
+def test_settings_with_token_shows_deeplinks(member):
+    member.post("/profiles/api-token")
+    body = member.get("/einstellungen").text
+    assert "claude-cli://open?q=%2Fbob%3Abob-profil" in body
+    assert "Braucht eigenes Claude-Abo" not in body
+
+
+def test_spar_modus_form_renders_with_defaults(member):
+    body = member.get("/einstellungen").text
+    assert 'action="/einstellungen/spar-modus"' in body
+    assert 'name="modus"' in body
+    assert 'name="neighbor_roles"' in body
+
+
+def test_spar_modus_post_persists_to_profile(member):
+    storage.create_profile("M", {}, user_id=storage.get_user_by_email("m@test.de")["id"])
+    resp = member.post("/einstellungen/spar-modus", data={
+        "modus": "sparsam", "max_jobs": "25"}, follow_redirects=False)
+    assert resp.status_code == 303
+    uid = storage.get_user_by_email("m@test.de")["id"]
+    prof = storage.list_profiles(user_id=uid)[0]
+    assert storage.get_spar_modus(prof["data"]) == {"max_jobs": 25, "neighbor_roles": False}
+
+
+def test_spar_modus_post_unbegrenzt_resets_limit(member):
+    storage.create_profile("M2", {}, user_id=storage.get_user_by_email("m@test.de")["id"])
+    member.post("/einstellungen/spar-modus", data={
+        "modus": "unbegrenzt", "max_jobs": "25", "neighbor_roles": "on"})
+    uid = storage.get_user_by_email("m@test.de")["id"]
+    prof = storage.list_profiles(user_id=uid)[0]
+    assert storage.get_spar_modus(prof["data"]) == {"max_jobs": None, "neighbor_roles": True}

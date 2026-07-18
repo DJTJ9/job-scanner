@@ -50,25 +50,76 @@
 
     <div class="tiefenlinie"></div>
     <h2>Bob-Befehle</h2>
+    {% if has_claude_kit %}
     <p>Direkt in Claude Code starten — Befehl öffnet sich vorausgefüllt, Enter drücken.</p>
+    {% else %}
+    <p>Braucht eigenes Claude-Abo — dein Regel-Scoring läuft automatisch weiter.
+       Mit Claude-Abo: erst oben ein API-Token erzeugen, dann Plugin installieren
+       (<a class="link" href="/anleitung">Anleitung</a>).</p>
+    {% endif %}
     <div class="bob-befehle-grid">
       <div class="panel">
         <h3>🔍 bob-scan</h3>
         <p class="job-meta">Neue Jobs suchen</p>
+        {% if has_claude_kit %}
         <a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-scan">→ In Claude Code</a>
+        {% endif %}
         <div class="copy-block"><code>/bob:bob-scan</code>
           <button type="button" class="copy-btn" data-copy="/bob:bob-scan" aria-label="Befehl kopieren">⧉</button>
         </div>
       </div>
       <div class="panel">
         <h3>⭐ bob-score</h3>
-        <p class="job-meta">Wartende Jobs bewerten</p>
+        <p class="job-meta">Bewerten &amp; Rescoren</p>
+        {% if has_claude_kit %}
         <a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-score">→ In Claude Code</a>
+        {% endif %}
         <div class="copy-block"><code>/bob:bob-score</code>
           <button type="button" class="copy-btn" data-copy="/bob:bob-score" aria-label="Befehl kopieren">⧉</button>
         </div>
       </div>
+      <div class="panel">
+        <h3>🧠 bob-learn</h3>
+        <p class="job-meta">Aus Votes lernen</p>
+        {% if has_claude_kit %}
+        <a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-learn">→ In Claude Code</a>
+        {% endif %}
+        <div class="copy-block"><code>/bob:bob-learn</code>
+          <button type="button" class="copy-btn" data-copy="/bob:bob-learn" aria-label="Befehl kopieren">⧉</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>👤 bob-profil</h3>
+        <p class="job-meta">Profil per Chat schärfen</p>
+        {% if has_claude_kit %}
+        <a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-profil">→ In Claude Code</a>
+        {% endif %}
+        <div class="copy-block"><code>/bob:bob-profil</code>
+          <button type="button" class="copy-btn" data-copy="/bob:bob-profil" aria-label="Befehl kopieren">⧉</button>
+        </div>
+      </div>
     </div>
+
+    <div class="tiefenlinie"></div>
+    <h2>Spar-Modus</h2>
+    <p>Schützt dein Claude-Abo vor Überraschungsverbrauch — die Bob-Befehle respektieren diese Limits.</p>
+    <form method="post" action="/einstellungen/spar-modus">
+      <label><input type="radio" name="modus" value="unbegrenzt"
+             {% if spar_modus.max_jobs is none %}checked{% endif %}>
+             Unbegrenzt — Skills verarbeiten alles Wartende</label>
+      <label><input type="radio" name="modus" value="sparsam"
+             {% if spar_modus.max_jobs is not none %}checked{% endif %}>
+             Sparsam — maximal
+        <select name="max_jobs">
+          {% for n in (10, 25, 50, 100) %}
+          <option value="{{ n }}" {% if spar_modus.max_jobs == n %}selected{% endif %}>{{ n }}</option>
+          {% endfor %}
+        </select> Jobs pro bob-score-Lauf</label>
+      <label><input type="checkbox" name="neighbor_roles"
+             {% if spar_modus.neighbor_roles %}checked{% endif %}>
+             Entdecker-Nachbarrollen bei bob-scan generieren</label>
+      <button type="submit" class="btn btn-secondary">Speichern</button>
+    </form>
   </section>
 </div>
 {% endblock %}
