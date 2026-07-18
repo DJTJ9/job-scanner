@@ -37,6 +37,14 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
         (p for p in active_profiles if p["is_default"]), active_profiles[0])
 
     portals = config.load_portals()
+    custom_active = storage.list_custom_portals(status="active")
+    portals = portals + [
+        {"name": f"custom:{cp['id']}", "site": cp["url"],
+         "detail_url_pattern": cp["detail_url_pattern"],
+         "search_type": "html",
+         "search_url_template": cp["search_url_template"]}
+        for cp in custom_active if cp["typ"] == "portal"
+    ]
     core_queries = config.load_queries()
     profile = default_profile["data"]  # Neighbors laufen weiter nur fürs Default-Profil
     neighbor_roles = neighbors.get_neighbor_roles(
@@ -111,6 +119,19 @@ def run(provider: SearchProvider | None = None, limit_per_query: int = 10,
                             role=role, is_neighbor=role in neighbor_role_names)
                         known[url] = fp
                         report["new"] += 1
+    for cp in custom_active:
+        if cp["typ"] != "career_page":
+            continue
+        url = dedup.canonicalize_url(cp["url"], f"custom:{cp['id']}")
+        if url in known:
+            continue
+        raw_text = extract.fetch_raw_text(url)
+        if not raw_text:
+            report["errors"] += 1
+            continue
+        fp = storage.insert_raw_job(url, f"custom:{cp['id']}", raw_text, today)
+        known[url] = fp
+        report["new"] += 1
     fc_after = browser.credits_remaining()
     real = (fc_before - fc_after
             if fc_before is not None and fc_after is not None else None)

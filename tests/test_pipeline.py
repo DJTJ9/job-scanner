@@ -118,6 +118,37 @@ def test_run_writes_discover_report_json(env):
     assert report_data["date"] == "2026-07-10"
 
 
+def test_active_career_page_custom_portal_is_fetched(env):
+    storage.init_db(env)
+    uid = storage.create_user("m@test.de", "pw", role="member")
+    pid = storage.create_custom_portal("https://foo.test/karriere", "career_page", uid)
+    storage.activate_custom_portal(pid)
+    storage.close()
+    # _run() patcht extract.fetch_raw_text intern (side_effect via scrape_map) und
+    # überschreibt damit jedes äußere fetch-Patch — daher die Career-Page-URL über
+    # die scrape_map liefern statt separat zu patchen (Harness-Konvention).
+    with patch("jobscanner.search.discover_urls", return_value=[]):
+        report = _run(env, {"https://foo.test/karriere": "Karriereseite Rohtext"})
+    storage.init_db(env)
+    pending = storage.list_pending_extraction()
+    assert any(p["raw_text"] == "Karriereseite Rohtext" for p in pending)
+
+
+def test_active_portal_custom_portal_joins_search_loop(env):
+    storage.init_db(env)
+    uid = storage.create_user("m@test.de", "pw", role="member")
+    pid = storage.create_custom_portal(
+        "https://bar.test/jobs", "portal", uid,
+        search_url_template="https://bar.test/jobs?q={query}",
+        detail_url_pattern=r"bar\.test/jobs/\d+")
+    storage.activate_custom_portal(pid)
+    storage.close()
+    url = "https://bar.test/jobs/123"
+    with patch("jobscanner.search.discover_urls", return_value=[url]):
+        report = _run(env, {url: "Rohtext"})
+    assert f"custom:{pid}" in report["portals"]
+
+
 class TestHybridRouting:
     def test_api_portal_uses_cached_description(self, tmp_path, monkeypatch):
         monkeypatch.setattr(pipeline.config, "load_portals",
