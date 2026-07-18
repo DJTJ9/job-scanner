@@ -48,3 +48,66 @@ def test_filter_query_uses_index(fresh_db, col, idx):
     ).fetchall()
     detail = " ".join(str(r[-1]) for r in plan)
     assert idx in detail, f"expected {idx} in plan, got: {detail}"
+
+
+class _FakeConn:
+    def __init__(self):
+        self.rollbacks = 0
+
+    def rollback(self):
+        self.rollbacks += 1
+
+
+def test_retry_decorator_retries_and_rolls_back(monkeypatch):
+    fake = _FakeConn()
+    monkeypatch.setattr(storage, "_conn", fake)
+    monkeypatch.setattr(storage.time, "sleep", lambda *_: None)
+    attempts = {"n": 0}
+
+    @storage._retry_on_locked
+    def writer():
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise sqlite3.OperationalError("database is locked")
+        return "ok"
+
+    assert writer() == "ok"        # Erfolg trotz erstem Lock
+    assert attempts["n"] == 2      # genau ein Retry
+    assert fake.rollbacks == 1     # Rollback vor dem Retry
+
+
+def test_retry_decorator_reraises_non_locked(monkeypatch):
+    monkeypatch.setattr(storage, "_conn", _FakeConn())
+    monkeypatch.setattr(storage.time, "sleep", lambda *_: None)
+
+    @storage._retry_on_locked
+    def writer():
+        raise sqlite3.OperationalError("no such column: foo")
+
+    with pytest.raises(sqlite3.OperationalError):
+        writer()
+
+
+def test_retry_decorator_gives_up_after_five(monkeypatch):
+    monkeypatch.setattr(storage, "_conn", _FakeConn())
+    monkeypatch.setattr(storage.time, "sleep", lambda *_: None)
+    attempts = {"n": 0}
+
+    @storage._retry_on_locked
+    def writer():
+        attempts["n"] += 1
+        raise sqlite3.OperationalError("database is locked")
+
+    with pytest.raises(sqlite3.OperationalError):
+        writer()
+    assert attempts["n"] == 5       # 5 Versuche, dann raise
+
+
+def test_decorated_write_function_still_works_end_to_end(fresh_db):
+    # create_user ist dekoriert und muss normal weiter funktionieren
+    uid = storage.create_user("concurrency@test.de", "pw", "member")
+    assert uid
+    rows = fresh_db.execute(
+        "SELECT COUNT(*) FROM users WHERE email = ?", ("concurrency@test.de",)
+    ).fetchone()[0]
+    assert rows == 1

@@ -1,12 +1,14 @@
 """SQLite-Storage — dumm und robust, Validierung gehört in die Portal-Adapter (1.2)."""
 from __future__ import annotations
 
+import functools
 import hashlib
 import hmac
 import json
 import os
 import secrets
 import sqlite3
+import time
 from pathlib import Path
 
 from jobscanner import config, scoring
@@ -209,10 +211,30 @@ def _require_conn() -> sqlite3.Connection:
     return _conn
 
 
+def _retry_on_locked(fn):
+    """Retry-Netz für 'database is locked' nach dem busy_timeout — 5 Versuche,
+    exponentieller Backoff, Rollback vor jedem Retry (räumt die offene TX, sonst
+    Doppel-Insert beim Re-Run)."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        for i in range(5):
+            try:
+                return fn(*args, **kwargs)
+            except sqlite3.OperationalError as e:
+                if "locked" in str(e).lower() and i < 4:
+                    if _conn is not None:
+                        _conn.rollback()
+                    time.sleep(0.05 * (2 ** i))  # 50, 100, 200, 400 ms
+                    continue
+                raise
+    return wrapper
+
+
 def _hash_password(password: str, salt: bytes) -> str:
     return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000).hex()
 
 
+@_retry_on_locked
 def create_user(email: str, password: str, role: str = "member") -> int:
     conn = _require_conn()
     salt = os.urandom(16)
@@ -224,6 +246,7 @@ def create_user(email: str, password: str, role: str = "member") -> int:
     return cur.lastrowid
 
 
+@_retry_on_locked
 def set_password(user_id: int, new_password: str) -> None:
     """Setzt das Passwort eines bestehenden Users neu (neuer Salt + Hash).
     Wiederverwendbar für Self-Service-Änderung und Owner-CLI-Reset."""
@@ -255,6 +278,7 @@ def verify_password(email: str, password: str) -> dict | None:
     return user if hmac.compare_digest(expected, user["pw_hash"]) else None
 
 
+@_retry_on_locked
 def seed_owner(email: str, password: str) -> int | None:
     """Legt einmalig den Owner-User an, falls noch kein Owner existiert, und ordnet ihm
     alle Profile ohne user_id zu. Idempotent — gibt die vorhandene Owner-Id zurück."""
@@ -268,6 +292,7 @@ def seed_owner(email: str, password: str) -> int | None:
     return uid
 
 
+@_retry_on_locked
 def create_api_token(user_id: int) -> str:
     """Erzeugt ein API-Token für den Member-MCP-Zugang und speichert nur den SHA-256-Hash.
     Ersetzt ein evtl. vorhandenes Token (ein Token pro User). Gibt den Klartext zurück —
@@ -293,6 +318,7 @@ def get_user_by_api_token(token: str) -> dict | None:
     return dict(row) if row else None
 
 
+@_retry_on_locked
 def upsert_job(job: Job) -> str:
     conn = _require_conn()
     fp = job.fingerprint
@@ -333,6 +359,7 @@ def _raw_fingerprint(url: str) -> str:
     return f"url:{hashlib.sha1(url.encode('utf-8')).hexdigest()}"
 
 
+@_retry_on_locked
 def insert_raw_job(url: str, portal: str, raw_text: str, today: str,
                    role: str = "", is_neighbor: bool = False,
                    via: str | None = None) -> str:
@@ -441,6 +468,7 @@ def list_unscored_for_profiles(profile_ids: list[int], limit: int | None = None)
     return out
 
 
+@_retry_on_locked
 def apply_extraction(raw_fingerprint: str, job: Job) -> str:
     """Schreibt das Agent-Extraktionsergebnis in die Raw-Zeile — merged in eine bestehende
     Zeile, falls derselbe Job über 2 Portale vor der Extraktion gefunden wurde (die
@@ -530,6 +558,7 @@ def list_jobs(**filters) -> list[Job]:
     return [_row_to_job(r) for r in conn.execute(sql, params)]
 
 
+@_retry_on_locked
 def update_job(fingerprint: str, /, **fields) -> None:
     conn = _require_conn()
     unknown = set(fields) - _UPDATABLE
@@ -555,6 +584,7 @@ def _row_to_profile(row: sqlite3.Row) -> dict:
     }
 
 
+@_retry_on_locked
 def create_profile(name: str, data: dict, queries: dict | None = None,
                    is_default: bool = False, user_id: int | None = None) -> int:
     conn = _require_conn()
@@ -569,6 +599,7 @@ def create_profile(name: str, data: dict, queries: dict | None = None,
     return cur.lastrowid
 
 
+@_retry_on_locked
 def delete_profile(profile_id: int) -> None:
     """Löscht Profil + alle abhängigen Zeilen (SQLite-FKs sind aus, daher manuell)."""
     conn = _require_conn()
@@ -581,6 +612,7 @@ def delete_profile(profile_id: int) -> None:
         conn.execute("DELETE FROM profiles WHERE id = ?", (profile_id,))
 
 
+@_retry_on_locked
 def update_profile(profile_id: int, name: str, data: dict) -> None:
     """Überschreibt Name + data_json eines bestehenden Profils (Wizard-Edit)."""
     conn = _require_conn()
@@ -617,6 +649,7 @@ def list_profiles(active_only: bool = False, user_id: int | None = None) -> list
     return [_row_to_profile(r) for r in conn.execute(sql + " ORDER BY id", params)]
 
 
+@_retry_on_locked
 def save_criteria(profile_id: int, criteria: list[dict]) -> None:
     """Ersetzt den kompletten Kriteriensatz des Profils (Wizard/Settings-Save)."""
     conn = _require_conn()
@@ -636,12 +669,14 @@ def list_criteria(profile_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+@_retry_on_locked
 def set_criterion_weight(criterion_id: int, weight: int) -> None:
     conn = _require_conn()
     conn.execute("UPDATE criteria SET weight = ? WHERE id = ?", (weight, criterion_id))
     conn.commit()
 
 
+@_retry_on_locked
 def add_feedback(profile_id: int, fingerprint: str, vote: str) -> None:
     conn = _require_conn()
     conn.execute(
@@ -660,6 +695,7 @@ def list_feedback(profile_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+@_retry_on_locked
 def upsert_job_score(profile_id: int, fingerprint: str, score: int | None,
                      reason: str, category: str | None, breakdown: dict) -> None:
     conn = _require_conn()
@@ -700,6 +736,7 @@ def _row_to_analysis(row: sqlite3.Row) -> dict:
     }
 
 
+@_retry_on_locked
 def create_analysis(profile_id: int) -> int:
     conn = _require_conn()
     cur = conn.execute(
@@ -725,6 +762,7 @@ def get_latest_analysis(profile_id: int) -> dict | None:
     return _row_to_analysis(row) if row else None
 
 
+@_retry_on_locked
 def save_analysis_cards(analysis_id: int, cards: dict) -> None:
     conn = _require_conn()
     conn.execute("UPDATE feedback_analysis SET cards_json = ? WHERE id = ?",
@@ -732,6 +770,7 @@ def save_analysis_cards(analysis_id: int, cards: dict) -> None:
     conn.commit()
 
 
+@_retry_on_locked
 def save_analysis_answers(analysis_id: int, answers: dict) -> None:
     conn = _require_conn()
     conn.execute("UPDATE feedback_analysis SET answers_json = ? WHERE id = ?",
@@ -739,6 +778,7 @@ def save_analysis_answers(analysis_id: int, answers: dict) -> None:
     conn.commit()
 
 
+@_retry_on_locked
 def set_analysis_status(analysis_id: int, status: str) -> None:
     conn = _require_conn()
     conn.execute("UPDATE feedback_analysis SET status = ? WHERE id = ?",
@@ -759,6 +799,7 @@ def _row_to_insight(row: sqlite3.Row) -> dict:
     }
 
 
+@_retry_on_locked
 def add_insight(profile_id: int, kind: str, text: str,
                 payload: dict | None = None, source: str = "learned") -> int:
     conn = _require_conn()
@@ -789,6 +830,7 @@ def _append_preference(conn: sqlite3.Connection, profile_id: int, text: str) -> 
                  (json.dumps(data, ensure_ascii=False), profile_id))
 
 
+@_retry_on_locked
 def confirm_insight(insight_id: int) -> None:
     """Setzt status=confirmed und wirkt je kind: preference → profiles.data_json['preferences'],
     weight → criteria-Gewicht (per key, chirurgisch). location_boost bleibt no-op (reserviert)."""
@@ -806,6 +848,7 @@ def confirm_insight(insight_id: int) -> None:
     conn.commit()
 
 
+@_retry_on_locked
 def reject_insight(insight_id: int) -> None:
     conn = _require_conn()
     conn.execute("UPDATE insights SET status = 'rejected' WHERE id = ?", (insight_id,))
@@ -928,6 +971,7 @@ def learn_reminder_status(profile_id: int) -> dict:
     return {"new_votes": count, "due": count >= _LEARN_REMINDER_THRESHOLD}
 
 
+@_retry_on_locked
 def touch_learn_reminder(profile_id: int) -> None:
     conn = _require_conn()
     conn.execute(
@@ -936,6 +980,7 @@ def touch_learn_reminder(profile_id: int) -> None:
     conn.commit()
 
 
+@_retry_on_locked
 def enqueue_jobs_for_rescore(profile_id: int) -> int:
     """Setzt jobs.score=NULL für extrahierte Jobs, damit der Scoring-Agent sie via
     list_unscored_extracted (to_score-Zweig) mit den neuen Präferenzen neu bewertet.
@@ -957,6 +1002,7 @@ def get_spar_modus(profile_data: dict) -> dict:
     return {**SPAR_MODUS_DEFAULT, **(profile_data.get("spar_modus") or {})}
 
 
+@_retry_on_locked
 def set_spar_modus(user_id: int, max_jobs: int | None, neighbor_roles: bool) -> int:
     """Schreibt die Spar-Modus-Einstellung in data_json ALLER Profile des Users
     (Website-Einstellung ist pro User, Persistenz pro Profil — get_my_profile liefert
@@ -973,6 +1019,7 @@ def set_spar_modus(user_id: int, max_jobs: int | None, neighbor_roles: bool) -> 
     return count
 
 
+@_retry_on_locked
 def enqueue_member_rescore(profile_id: int, max_jobs: int | None = None) -> int:
     """Merkt die relevantesten gescorten, extrahierten Jobs des Profils für ein
     Member-LLM-Rescore vor: Floor (keine No-Gos) + Rang (Score DESC) + optionaler
@@ -1026,6 +1073,7 @@ def list_member_rescore(profile_ids: list[int], limit: int | None = None) -> lis
     return out
 
 
+@_retry_on_locked
 def clear_member_rescore(profile_id: int, fingerprint: str) -> None:
     conn = _require_conn()
     conn.execute("DELETE FROM member_rescore_queue WHERE profile_id = ? AND fingerprint = ?",
@@ -1033,6 +1081,7 @@ def clear_member_rescore(profile_id: int, fingerprint: str) -> None:
     conn.commit()
 
 
+@_retry_on_locked
 def set_criterion_weight_by_key(profile_id: int, key: str, weight: int) -> None:
     """Gewicht eines Kriteriums per key setzen (Muster aus confirm_insight)."""
     conn = _require_conn()
@@ -1041,6 +1090,7 @@ def set_criterion_weight_by_key(profile_id: int, key: str, weight: int) -> None:
     conn.commit()
 
 
+@_retry_on_locked
 def set_sources(fingerprint: str, sources: list) -> None:
     conn = _require_conn()
     conn.execute("UPDATE jobs SET sources_json = ? WHERE fingerprint = ?",
@@ -1048,6 +1098,7 @@ def set_sources(fingerprint: str, sources: list) -> None:
     conn.commit()
 
 
+@_retry_on_locked
 def delete_job(fingerprint: str) -> None:
     """Job inkl. abhängiger Scores/Feedback löschen (Indeed-Dup-Cleanup)."""
     conn = _require_conn()
@@ -1057,6 +1108,7 @@ def delete_job(fingerprint: str) -> None:
     conn.commit()
 
 
+@_retry_on_locked
 def rescore_profile(profile_id: int) -> list[str]:
     """Rechnet alle job_scores des Profils deterministisch aus breakdown_json neu
     (nach Gewichts-Änderung im Feintuning) — kein LLM. Veto-Zeilen (leeres breakdown)
@@ -1129,6 +1181,7 @@ def score_profile_deterministic(profile_id: int, only_missing: bool = False) -> 
     return count
 
 
+@_retry_on_locked
 def log_event(event_type: str, user_id: int | None = None, meta: dict | None = None) -> None:
     conn = _require_conn()
     conn.execute(
@@ -1138,6 +1191,7 @@ def log_event(event_type: str, user_id: int | None = None, meta: dict | None = N
     conn.commit()
 
 
+@_retry_on_locked
 def create_member_feedback(user_id: int, text: str) -> int:
     conn = _require_conn()
     cur = conn.execute(
@@ -1227,6 +1281,7 @@ def _row_to_custom_portal(row: sqlite3.Row) -> dict:
     }
 
 
+@_retry_on_locked
 def create_custom_portal(url: str, typ: str, submitted_by: int,
                          search_url_template: str | None = None,
                          detail_url_pattern: str | None = None) -> int:
@@ -1257,6 +1312,7 @@ def list_custom_portals(status: str | None = None) -> list[dict]:
     return [_row_to_custom_portal(r) for r in conn.execute(sql, params)]
 
 
+@_retry_on_locked
 def save_check_result(portal_id: int, result: dict) -> None:
     conn = _require_conn()
     status = "compatible" if result.get("compatible") else "needs_firecrawl_pending"
@@ -1266,6 +1322,7 @@ def save_check_result(portal_id: int, result: dict) -> None:
     conn.commit()
 
 
+@_retry_on_locked
 def activate_custom_portal(portal_id: int) -> None:
     conn = _require_conn()
     row = conn.execute("SELECT status FROM custom_portals WHERE id = ?", (portal_id,)).fetchone()
