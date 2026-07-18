@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Portale prüfen — Bob der Job-Bot{% endblock %}
+{% block content %}
+<h2>Neues Portal prüfen</h2>
+<form method="post" action="/portale/pruefen" class="panel">
+  <label>URL<input type="url" name="url" required></label>
+  <label><input type="radio" name="typ" value="career_page" checked> Career-Page (Watchlist)</label>
+  <label><input type="radio" name="typ" value="portal"> Durchsuchbares Portal</label>
+  <label>Such-URL-Vorlage (nur bei Portal, z.B. https://bar.de/jobs?q={query})
+    <input type="text" name="search_url_template"></label>
+  <label>Detail-URL-Muster (Regex, nur bei Portal)<input type="text" name="detail_url_pattern"></label>
+  <button type="submit" class="btn-primary">Lot auswerfen</button>
+</form>
+
+{% if result %}
+  {% if result.status == "compatible" %}
+  <div class="insight-card lotung-kompatibel">
+    <p>🟢 Flachwasser — Firecrawl-frei</p>
+    <p>rendert ✓ · kein Anti-Bot ✓ · Jobdaten erkennbar ✓</p>
+    <form method="post" action="/portale/aktivieren/{{ result.id }}">
+      <button type="submit" class="btn-primary lotung-beute">Zur Suchliste hinzufügen</button>
+    </form>
+  </div>
+  {% else %}
+  <div class="insight-card lotung-inkompatibel">
+    <p>🔴 Riff erkannt — braucht Firecrawl</p>
+    <p>Anti-Bot-Block oder unstrukturierte Seite erkannt</p>
+    <form method="post" action="/portale/aktivieren/{{ result.id }}">
+      <button type="submit" class="btn-secondary lotung-veto">Trotzdem mit Firecrawl aufnehmen</button>
+    </form>
+    <p class="lotung-warnung">⚠ laufende Credit-Kosten</p>
+  </div>
+  {% endif %}
+{% endif %}
+
+<h2>Portale</h2>
+<table>
+  <tr><th>URL</th><th>Typ</th><th>Status</th></tr>
+  {% for p in portale %}
+  <tr><td>{{ p.url }}</td><td>{{ p.typ }}</td><td>{{ p.status }}</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

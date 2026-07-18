@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.sessions import SessionMiddleware
 
-from jobscanner import config, nocodb_board, scoring, storage
+from jobscanner import config, nocodb_board, precheck, scoring, storage
 from jobscanner.web import llm_refine, mcp_api
 
 _DIR = Path(__file__).parent
@@ -224,6 +224,35 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return templates.TemplateResponse(request, "settings.html", {
             "error": None, "success": None, "api_token": token,
             "active_tab": "token"})
+
+    @app.get("/portale")
+    def portale_view(request: Request):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        return templates.TemplateResponse(request, "portale.html", {
+            "portale": storage.list_custom_portals(), "result": None})
+
+    @app.post("/portale/pruefen")
+    def portale_pruefen(request: Request, url: str = Form(...), typ: str = Form(...),
+                        search_url_template: str = Form(""), detail_url_pattern: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        pid = storage.create_custom_portal(
+            url, typ, request.session["user_id"],
+            search_url_template=search_url_template or None,
+            detail_url_pattern=detail_url_pattern or None)
+        result = precheck.precheck_portal(url)
+        storage.save_check_result(pid, result)
+        return templates.TemplateResponse(request, "portale.html", {
+            "portale": storage.list_custom_portals(),
+            "result": storage.get_custom_portal(pid)})
+
+    @app.post("/portale/aktivieren/{portal_id}")
+    def portale_aktivieren(request: Request, portal_id: int):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        storage.activate_custom_portal(portal_id)
+        return RedirectResponse("/portale", status_code=303)
 
     _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet", "ausland")
     _FUNNEL_STEPS = (("onboarding_start", "Onboarding-Start"),

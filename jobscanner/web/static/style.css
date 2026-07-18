@@ -413,3 +413,8 @@ body.has-drawer.drawer-collapsed .site-footer { margin-left: 56px; }
 .tab-panel { display: none; }
 .tab-panel.tab-panel-active { display: block; }
 .bob-befehle-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.lotung-kompatibel { border: 1px solid var(--beute); }
+.lotung-inkompatibel { border: 1px solid var(--veto); }
+.lotung-beute { background: var(--beute); color: var(--tiefe); }
+.lotung-veto { border-color: var(--veto); color: var(--veto); }
+.lotung-warnung { color: var(--veto); font-size: 0.85rem; }
