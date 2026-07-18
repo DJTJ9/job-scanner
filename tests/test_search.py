@@ -95,6 +95,17 @@ class TestDiscoverUrls:
         assert "https://www.stepstone.de/stellenangebote--Dev-Foo--1-inline.html" in urls
         assert "https://www.stepstone.de/stellenangebote--Dev-Bar--2-inline.html" in urls
 
+    def test_threads_location_to_provider(self):
+        calls = {}
+
+        class FakeProvider:
+            def search(self, query, limit=10, location=None):
+                calls["location"] = location
+                return []
+
+        discover_urls(PORTAL, "term", FakeProvider(), limit=5, location="Berlin")
+        assert calls["location"] == "Berlin"
+
 
 ADZUNA_PORTAL = {"name": "adzuna", "site": "adzuna.de",
                  "detail_url_pattern": r"adzuna\.(de|com)/(land/ad|details)/",
@@ -152,6 +163,14 @@ class TestAdzunaSearchProvider:
                    side_effect=requests.ConnectionError("boom")):
             assert AdzunaSearchProvider().search("x") == []
 
+    def test_passes_location_as_where(self, monkeypatch):
+        from jobscanner.search import AdzunaSearchProvider
+        monkeypatch.setenv("ADZUNA_APP_ID", "id123")
+        monkeypatch.setenv("ADZUNA_APP_KEY", "key456")
+        with patch("jobscanner.search.requests.get", return_value=self._resp()) as get:
+            AdzunaSearchProvider().search("Unity", limit=5, location="Berlin")
+        assert get.call_args.kwargs["params"]["where"] == "Berlin"
+
 
 class TestJoobleSearchProvider:
     def _resp(self):
@@ -178,6 +197,13 @@ class TestJoobleSearchProvider:
         with patch("jobscanner.search.requests.post", return_value=self._resp()) as post:
             JoobleSearchProvider().search("AI Engineer", limit=5)
         assert post.call_args.kwargs["json"]["location"] == "Deutschland"
+
+    def test_uses_location_param_not_hardcoded(self, monkeypatch):
+        from jobscanner.search import JoobleSearchProvider
+        monkeypatch.setenv("JOOBLE_API_KEY", "guid789")
+        with patch("jobscanner.search.requests.post", return_value=self._resp()) as post:
+            JoobleSearchProvider().search("AI Engineer", limit=5, location="Berlin")
+        assert post.call_args.kwargs["json"]["location"] == "Berlin"
 
     def test_empty_without_key(self, monkeypatch):
         from jobscanner.search import JoobleSearchProvider

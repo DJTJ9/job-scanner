@@ -69,7 +69,7 @@ def _load_env() -> None:
 
 
 class SearchProvider(Protocol):
-    def search(self, query: str, limit: int = 10) -> list[str]: ...
+    def search(self, query: str, limit: int = 10, location: str | None = None) -> list[str]: ...
 
 
 class PortalSearchProvider:
@@ -82,8 +82,9 @@ class PortalSearchProvider:
     def __init__(self, portal: dict):
         self.portal = portal
 
-    def search(self, query: str, limit: int = 10) -> list[str]:
-        url = self.portal["search_url_template"].format(query=quote_plus(query))
+    def search(self, query: str, limit: int = 10, location: str | None = None) -> list[str]:
+        term = f"{query} {location}" if location else query
+        url = self.portal["search_url_template"].format(query=quote_plus(term))
         html = browser.fetch(url, method=self.portal.get("search_fetch", "playwright"),
                              failover=self.portal.get("firecrawl_failover", False),
                              cost=browser.FC_COST_SEARCH)
@@ -98,10 +99,13 @@ class PortalSearchProvider:
 class ArbeitsagenturSearchProvider:
     """Arbeitsagentur: öffentliche JSON-API statt HTML-Scrape."""
 
-    def search(self, query: str, limit: int = 10) -> list[str]:
+    def search(self, query: str, limit: int = 10, location: str | None = None) -> list[str]:
+        params = {"was": query, "size": limit}
+        if location:
+            params["wo"] = location
         try:
             resp = requests.get(_ARBEITSAGENTUR_API, headers=_ARBEITSAGENTUR_HEADERS,
-                                params={"was": query, "size": limit}, timeout=_TIMEOUT)
+                                params=params, timeout=_TIMEOUT)
             resp.raise_for_status()
         except requests.RequestException:
             return []
@@ -116,16 +120,18 @@ class AdzunaSearchProvider:
     def __init__(self):
         self.descriptions: dict[str, str] = {}
 
-    def search(self, query: str, limit: int = 10) -> list[str]:
+    def search(self, query: str, limit: int = 10, location: str | None = None) -> list[str]:
         _load_env()
         app_id = os.environ.get("ADZUNA_APP_ID", "")
         app_key = os.environ.get("ADZUNA_APP_KEY", "")
         if not app_id or not app_key:
             return []
+        params = {"app_id": app_id, "app_key": app_key,
+                  "what": query, "results_per_page": limit}
+        if location:
+            params["where"] = location
         try:
-            resp = requests.get(_ADZUNA_API, params={
-                "app_id": app_id, "app_key": app_key,
-                "what": query, "results_per_page": limit}, timeout=_TIMEOUT)
+            resp = requests.get(_ADZUNA_API, params=params, timeout=_TIMEOUT)
             resp.raise_for_status()
         except requests.RequestException:
             return []
@@ -149,14 +155,14 @@ class JoobleSearchProvider:
     def __init__(self):
         self.descriptions: dict[str, str] = {}
 
-    def search(self, query: str, limit: int = 10) -> list[str]:
+    def search(self, query: str, limit: int = 10, location: str | None = None) -> list[str]:
         _load_env()
         key = os.environ.get("JOOBLE_API_KEY", "")
         if not key:
             return []
         try:
             resp = requests.post(_JOOBLE_API + key,
-                                 json={"keywords": query, "location": "Deutschland"},
+                                 json={"keywords": query, "location": location or "Deutschland"},
                                  timeout=_TIMEOUT)
             resp.raise_for_status()
         except requests.RequestException:
@@ -207,11 +213,11 @@ def _links_from_page(url: str, portal: dict) -> list[str]:
 
 
 def discover_urls(portal: dict, term: str, provider: SearchProvider,
-                  limit: int = 10, min_detail: int = 5) -> list[str]:
+                  limit: int = 10, min_detail: int = 5, location: str | None = None) -> list[str]:
     """Suche → Detail-URLs. Liefert die Suche zu wenige Detail-URLs,
     werden gefundene Listing-Seiten per Links-Expansion erweitert."""
     pattern = re.compile(portal["detail_url_pattern"])
-    hits = provider.search(term, limit=limit)
+    hits = provider.search(term, limit=limit, location=location)
     detail = [u for u in hits if pattern.search(u)]
     listings = [u for u in hits if not pattern.search(u)]
     for listing in listings:
