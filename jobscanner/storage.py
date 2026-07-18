@@ -122,6 +122,23 @@ CREATE TABLE IF NOT EXISTS member_feedback (
 );
 """
 
+_SCHEMA_CUSTOM_PORTALS = """
+CREATE TABLE IF NOT EXISTS custom_portals (
+    id INTEGER PRIMARY KEY,
+    url TEXT NOT NULL,
+    typ TEXT NOT NULL CHECK (typ IN ('career_page', 'portal')),
+    search_url_template TEXT,
+    detail_url_pattern TEXT,
+    submitted_by INTEGER NOT NULL REFERENCES users(id),
+    status TEXT NOT NULL DEFAULT 'pending_check' CHECK (status IN
+        ('pending_check', 'compatible', 'needs_firecrawl_pending', 'active', 'rejected')),
+    firecrawl_needed INTEGER DEFAULT 0,
+    check_ergebnis_json TEXT,
+    created_at TEXT NOT NULL,
+    activated_at TEXT
+);
+"""
+
 _UPDATABLE = {
     "title", "company", "location", "remote_flag", "employment_type", "language",
     "salary_text", "first_seen", "last_seen", "archive_path", "score",
@@ -151,6 +168,7 @@ def init_db(path: str | Path) -> None:
     if "is_ausland" not in existing_cols:
         _conn.execute("ALTER TABLE jobs ADD COLUMN is_ausland INTEGER DEFAULT 0")
     _conn.executescript(_SCHEMA_PROFILES)
+    _conn.executescript(_SCHEMA_CUSTOM_PORTALS)
     prof_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(profiles)")}
     if "user_id" not in prof_cols:
         _conn.execute("ALTER TABLE profiles ADD COLUMN user_id INTEGER REFERENCES users(id)")
@@ -1082,3 +1100,71 @@ def get_daily_event_counts(days: int = 14) -> list[dict]:
         day = conn.execute("SELECT date('now', ?) AS d", (f"-{i} days",)).fetchone()["d"]
         out.append({"day": day, "count": counts.get(day, 0)})
     return out
+
+
+def _row_to_custom_portal(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "url": row["url"],
+        "typ": row["typ"],
+        "search_url_template": row["search_url_template"],
+        "detail_url_pattern": row["detail_url_pattern"],
+        "submitted_by": row["submitted_by"],
+        "status": row["status"],
+        "firecrawl_needed": bool(row["firecrawl_needed"]),
+        "check_ergebnis": json.loads(row["check_ergebnis_json"]) if row["check_ergebnis_json"] else None,
+        "created_at": row["created_at"],
+        "activated_at": row["activated_at"],
+    }
+
+
+def create_custom_portal(url: str, typ: str, submitted_by: int,
+                         search_url_template: str | None = None,
+                         detail_url_pattern: str | None = None) -> int:
+    conn = _require_conn()
+    cur = conn.execute(
+        """INSERT INTO custom_portals
+           (url, typ, search_url_template, detail_url_pattern, submitted_by, created_at)
+           VALUES (?, ?, ?, ?, ?, datetime('now'))""",
+        (url, typ, search_url_template, detail_url_pattern, submitted_by))
+    conn.commit()
+    return cur.lastrowid
+
+
+def get_custom_portal(portal_id: int) -> dict | None:
+    conn = _require_conn()
+    row = conn.execute("SELECT * FROM custom_portals WHERE id = ?", (portal_id,)).fetchone()
+    return _row_to_custom_portal(row) if row else None
+
+
+def list_custom_portals(status: str | None = None) -> list[dict]:
+    conn = _require_conn()
+    sql = "SELECT * FROM custom_portals"
+    params: list = []
+    if status is not None:
+        sql += " WHERE status = ?"
+        params.append(status)
+    sql += " ORDER BY id DESC"
+    return [_row_to_custom_portal(r) for r in conn.execute(sql, params)]
+
+
+def save_check_result(portal_id: int, result: dict) -> None:
+    conn = _require_conn()
+    status = "compatible" if result.get("compatible") else "needs_firecrawl_pending"
+    conn.execute(
+        "UPDATE custom_portals SET check_ergebnis_json = ?, status = ? WHERE id = ?",
+        (json.dumps(result, ensure_ascii=False), status, portal_id))
+    conn.commit()
+
+
+def activate_custom_portal(portal_id: int) -> None:
+    conn = _require_conn()
+    row = conn.execute("SELECT status FROM custom_portals WHERE id = ?", (portal_id,)).fetchone()
+    if row is None:
+        return
+    firecrawl_needed = 1 if row["status"] == "needs_firecrawl_pending" else 0
+    conn.execute(
+        """UPDATE custom_portals SET status = 'active', firecrawl_needed = ?,
+           activated_at = datetime('now') WHERE id = ?""",
+        (firecrawl_needed, portal_id))
+    conn.commit()
