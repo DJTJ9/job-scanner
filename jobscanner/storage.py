@@ -139,6 +139,15 @@ CREATE TABLE IF NOT EXISTS custom_portals (
 );
 """
 
+_SCHEMA_MEMBER_RESCORE = """
+CREATE TABLE IF NOT EXISTS member_rescore_queue (
+    profile_id INTEGER NOT NULL REFERENCES profiles(id),
+    fingerprint TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (profile_id, fingerprint)
+);
+"""
+
 _UPDATABLE = {
     "title", "company", "location", "remote_flag", "employment_type", "language",
     "salary_text", "first_seen", "last_seen", "archive_path", "score",
@@ -169,6 +178,7 @@ def init_db(path: str | Path) -> None:
         _conn.execute("ALTER TABLE jobs ADD COLUMN is_ausland INTEGER DEFAULT 0")
     _conn.executescript(_SCHEMA_PROFILES)
     _conn.executescript(_SCHEMA_CUSTOM_PORTALS)
+    _conn.executescript(_SCHEMA_MEMBER_RESCORE)
     prof_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(profiles)")}
     if "user_id" not in prof_cols:
         _conn.execute("ALTER TABLE profiles ADD COLUMN user_id INTEGER REFERENCES users(id)")
@@ -930,6 +940,92 @@ def enqueue_jobs_for_rescore(profile_id: int) -> int:
         "UPDATE jobs SET score = NULL WHERE extraction_status = 'extracted'")
     conn.commit()
     return cur.rowcount
+
+
+SPAR_MODUS_DEFAULT = {"max_jobs": None, "neighbor_roles": True}
+
+
+def get_spar_modus(profile_data: dict) -> dict:
+    """Spar-Modus mit Defaults: max_jobs=None heißt unbegrenzt, neighbor_roles=True
+    heißt bob-scan darf Nachbarrollen generieren."""
+    return {**SPAR_MODUS_DEFAULT, **(profile_data.get("spar_modus") or {})}
+
+
+def set_spar_modus(user_id: int, max_jobs: int | None, neighbor_roles: bool) -> int:
+    """Schreibt die Spar-Modus-Einstellung in data_json ALLER Profile des Users
+    (Website-Einstellung ist pro User, Persistenz pro Profil — get_my_profile liefert
+    sie je Profil an die Skills). Gibt die Anzahl aktualisierter Profile zurück."""
+    conn = _require_conn()
+    count = 0
+    for p in list_profiles(user_id=user_id):
+        data = p["data"]
+        data["spar_modus"] = {"max_jobs": max_jobs, "neighbor_roles": bool(neighbor_roles)}
+        conn.execute("UPDATE profiles SET data_json = ? WHERE id = ?",
+                     (json.dumps(data, ensure_ascii=False), p["id"]))
+        count += 1
+    conn.commit()
+    return count
+
+
+def enqueue_member_rescore(profile_id: int) -> int:
+    """Merkt alle bereits gescorten, extrahierten Jobs des Profils für ein
+    Member-LLM-Rescore vor (nach Learn-Insights; das deterministische Rescore läuft
+    separat sofort). Idempotent per INSERT OR IGNORE. Gibt Anzahl NEU vorgemerkter
+    Jobs zurück."""
+    conn = _require_conn()
+    cur = conn.execute(
+        """INSERT OR IGNORE INTO member_rescore_queue (profile_id, fingerprint, created_at)
+           SELECT job_scores.profile_id, job_scores.fingerprint, datetime('now')
+           FROM job_scores JOIN jobs ON jobs.fingerprint = job_scores.fingerprint
+           WHERE job_scores.profile_id = ? AND jobs.extraction_status = 'extracted'""",
+        (profile_id,))
+    conn.commit()
+    return cur.rowcount
+
+
+def list_member_rescore(profile_ids: list[int], limit: int | None = None) -> list[dict]:
+    """Vorgemerkte Rescore-Jobs der Profile — Item-Shape wie list_unscored_for_profiles
+    plus profile_id (der Skill scored gezielt für dieses eine Profil neu)."""
+    conn = _require_conn()
+    if not profile_ids:
+        return []
+    placeholders = ",".join("?" for _ in profile_ids)
+    sql = (
+        "SELECT q.profile_id, jobs.fingerprint, jobs.title, jobs.company, jobs.location, "
+        "jobs.employment_type, jobs.requirements_json, jobs.tech_stack_json "
+        "FROM member_rescore_queue q JOIN jobs ON jobs.fingerprint = q.fingerprint "
+        "WHERE q.profile_id IN (" + placeholders + ") ORDER BY jobs.id"
+    )
+    if limit is not None:
+        sql += f" LIMIT {int(limit)}"
+    out = []
+    for r in conn.execute(sql, list(profile_ids)):
+        out.append({
+            "profile_id": r["profile_id"],
+            "fingerprint": r["fingerprint"],
+            "title": r["title"],
+            "company": r["company"],
+            "location": r["location"] or "",
+            "employment_type": r["employment_type"] or "",
+            "requirements": json.loads(r["requirements_json"] or "[]"),
+            "tech_stack": json.loads(r["tech_stack_json"] or "[]"),
+        })
+    return out
+
+
+def clear_member_rescore(profile_id: int, fingerprint: str) -> None:
+    conn = _require_conn()
+    conn.execute("DELETE FROM member_rescore_queue WHERE profile_id = ? AND fingerprint = ?",
+                 (profile_id, fingerprint))
+    conn.commit()
+
+
+def set_criterion_weight_by_key(profile_id: int, key: str, weight: int) -> None:
+    """Gewicht eines Kriteriums per key setzen (Muster aus confirm_insight)."""
+    conn = _require_conn()
+    conn.execute("UPDATE criteria SET weight = ? WHERE profile_id = ? AND key = ?",
+                 (weight, profile_id, key))
+    conn.commit()
 
 
 def set_sources(fingerprint: str, sources: list) -> None:
