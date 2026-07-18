@@ -303,6 +303,15 @@ class TestRescoreQueueAndSparModus:
         assert fp in [j["fingerprint"] for j in pulled["to_rescore"]]
         assert pulled["to_rescore"][0]["profile_id"] == pid
 
+    def test_apply_member_insights_respects_spar_cap(self, client):
+        user, pid = _member_with_profile("cap@test.de")
+        storage.set_spar_modus(user["id"], 1, True)
+        for suf, sc in (("cap_a", 80), ("cap_b", 60), ("cap_c", 45)):
+            fp = _mk_extracted_job(suf)
+            storage.upsert_job_score(pid, fp, sc, "det", "Vielleicht", {"remote": {"punkte": 5}})
+        out = mcp_api.apply_member_insights_data(user, pid, "preference", text="Remote bevorzugt")
+        assert out["rescore_queued"] == 1
+
     def test_pull_pending_to_rescore_empty_without_queue(self, client):
         user, _pid = _member_with_profile("sm4@test.de")
         assert mcp_api.pull_pending_jobs_data(user)["to_rescore"] == []

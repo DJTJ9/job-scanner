@@ -227,7 +227,8 @@ def apply_member_insights_data(user: dict, profile_id: int, kind: str,
     insight_id = storage.add_insight(profile_id, kind, text, payload, source="member")
     storage.confirm_insight(insight_id)
     storage.score_profile_deterministic(profile_id)
-    queued = storage.enqueue_member_rescore(profile_id)
+    max_jobs = storage.get_spar_modus(own[profile_id]["data"])["max_jobs"]
+    queued = storage.enqueue_member_rescore(profile_id, max_jobs=max_jobs)
     storage.touch_learn_reminder(profile_id)
     return {"insight_id": insight_id, "status": "confirmed", "rescore_queued": queued}
 
