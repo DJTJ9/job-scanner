@@ -209,6 +209,8 @@ body.has-drawer.drawer-collapsed .topbar, body.has-drawer.drawer-collapsed .page
 @media (max-width: 900px) {
   body.has-drawer .topbar, body.has-drawer .page,
   body.has-drawer.drawer-collapsed .topbar, body.has-drawer.drawer-collapsed .page { margin-left: 0; }
+  body.has-drawer .startseite-hero-bg,
+  body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 0; }
   .drawer.drawer-collapsed { width: 240px; }
   .drawer.drawer-collapsed .drawer-item-label { display: inline; }
   .drawer-toggle, .drawer-close { display: block; }
@@ -435,6 +437,8 @@ body.has-drawer.drawer-collapsed .site-footer { margin-left: 56px; }
   position: fixed; inset: 0; z-index: -1;
   background: var(--tiefe) url("/static/img/bob/hero-landscape-full.png") center / contain no-repeat;
 }
+body.has-drawer .startseite-hero-bg { left: 240px; }
+body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
 .hero-landscape { background: none; min-height: 0; }
 .panel[data-profile-exists] { background: rgba(20, 40, 68, 0.82); backdrop-filter: blur(2px); }
 .profile-row { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
