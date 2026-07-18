@@ -85,6 +85,17 @@ def _validate_batch(entries: list, own_ids: set[int]) -> None:
             veto = result.get("veto")
             if veto is not None and not isinstance(veto, str):
                 raise ValueError(f"Entry {i}: veto muss String oder null sein")
+            if "bonus" in result:
+                bonus = result["bonus"]
+                if isinstance(bonus, bool) or not isinstance(bonus, int) \
+                        or not (-20 <= bonus <= 30):
+                    raise ValueError(
+                        f"Entry {i}: bonus muss int in [-20, 30] sein")
+                if not isinstance(result.get("grund"), str) or not result["grund"].strip():
+                    raise ValueError(f"Entry {i}: grund fehlt für bonus-Entry")
+                if "kriterien" in result:
+                    raise ValueError(
+                        f"Entry {i}: bonus und kriterien schließen sich aus")
             for key, krit in (result.get("kriterien") or {}).items():
                 punkte = krit.get("punkte") if isinstance(krit, dict) else -1
                 if punkte is not None and not (
@@ -134,6 +145,12 @@ def push_batch_data(user: dict, entries: list) -> dict:
             no_go = scoring.rule_filter(job)
             if no_go:
                 score, reason, category, breakdown = 0, f"No-Go: {no_go}", "No-Go", {}
+            elif "bonus" in result:
+                prev = storage.get_job_score(pid, fp)
+                base = prev["score"] if prev and prev["score"] is not None else 0
+                score = max(0, min(100, base + result["bonus"]))
+                reason, category, breakdown = (
+                    result["grund"], scoring.category_for_score(score), {})
             elif result.get("veto"):
                 score, reason, category, breakdown = (
                     0, f"No-Go: {result['veto']}", "No-Go", {})

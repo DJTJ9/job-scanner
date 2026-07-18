@@ -329,6 +329,65 @@ class TestRescoreQueueAndSparModus:
         }])
         assert storage.list_member_rescore([pid]) == []
 
+    def test_push_batch_bonus_adds_on_top_of_base(self, client):
+        user, pid = _member_with_profile("bon1@test.de")
+        fp = _mk_extracted_job("bon1")
+        storage.upsert_job_score(pid, fp, 50, "det", "Vielleicht", {"remote": {"punkte": 5}})
+        storage.enqueue_member_rescore(pid)
+        mcp_api.push_batch_data(user, [{
+            "fingerprint": fp,
+            "scores": {str(pid): {"bonus": 25, "grund": "Freitext exakt getroffen"}}}])
+        row = storage.get_job_score(pid, fp)
+        assert row["score"] == 75
+        assert row["category"] == "Pass"
+        assert row["reason"] == "Freitext exakt getroffen"
+        assert storage.list_member_rescore([pid]) == []
+
+    def test_push_batch_bonus_clamps_to_100(self, client):
+        user, pid = _member_with_profile("bon2@test.de")
+        fp = _mk_extracted_job("bon2")
+        storage.upsert_job_score(pid, fp, 90, "det", "Pass", {"remote": {"punkte": 9}})
+        mcp_api.push_batch_data(user, [{
+            "fingerprint": fp, "scores": {str(pid): {"bonus": 30, "grund": "top"}}}])
+        assert storage.get_job_score(pid, fp)["score"] == 100
+
+    def test_push_batch_bonus_clamps_to_0(self, client):
+        user, pid = _member_with_profile("bon3@test.de")
+        fp = _mk_extracted_job("bon3")
+        storage.upsert_job_score(pid, fp, 10, "det", "No-Go", {"remote": {"punkte": 1}})
+        mcp_api.push_batch_data(user, [{
+            "fingerprint": fp, "scores": {str(pid): {"bonus": -20, "grund": "schwach"}}}])
+        assert storage.get_job_score(pid, fp)["score"] == 0
+
+    def test_push_batch_bonus_missing_base_treated_as_zero(self, client):
+        user, pid = _member_with_profile("bon4@test.de")
+        fp = _mk_extracted_job("bon4")  # extrahiert, aber noch kein job_score
+        mcp_api.push_batch_data(user, [{
+            "fingerprint": fp, "scores": {str(pid): {"bonus": 12, "grund": "ok"}}}])
+        assert storage.get_job_score(pid, fp)["score"] == 12
+
+    def test_push_batch_rejects_bonus_out_of_range(self, client):
+        user, pid = _member_with_profile("bon5@test.de")
+        fp = _mk_extracted_job("bon5")
+        with pytest.raises(ValueError):
+            mcp_api.push_batch_data(user, [{
+                "fingerprint": fp, "scores": {str(pid): {"bonus": 31, "grund": "x"}}}])
+
+    def test_push_batch_rejects_bonus_bool(self, client):
+        user, pid = _member_with_profile("bon6@test.de")
+        fp = _mk_extracted_job("bon6")
+        with pytest.raises(ValueError):
+            mcp_api.push_batch_data(user, [{
+                "fingerprint": fp, "scores": {str(pid): {"bonus": True, "grund": "x"}}}])
+
+    def test_push_batch_rejects_bonus_with_kriterien(self, client):
+        user, pid = _member_with_profile("bon7@test.de")
+        fp = _mk_extracted_job("bon7")
+        with pytest.raises(ValueError):
+            mcp_api.push_batch_data(user, [{
+                "fingerprint": fp, "scores": {str(pid): {
+                    "bonus": 5, "grund": "x", "kriterien": {"remote": {"punkte": 5}}}}}])
+
 
 class TestUpdateMyCriteria:
     def test_rejects_foreign_profile(self, client):
