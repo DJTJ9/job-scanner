@@ -127,7 +127,7 @@ input[type="text"], input[type="url"], input[type="password"], input[type="numbe
 .onboarding-header { display: flex; justify-content: space-between; align-items: center; }
 .onboarding-corner { display: flex; gap: 0.5rem; }
 .onboarding-icon-btn { background: transparent; border: 1px solid var(--signal); border-radius: 6px; font-size: 1.25rem; padding: 0.25rem 0.5rem; cursor: pointer; }
-.onboarding-panel { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); max-width: 520px; z-index: 10; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4); }
+.onboarding-panel { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); width: calc(100vw - 2rem); max-width: 520px; z-index: 10; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4); }
 .onboarding-panel { padding: 1.75rem; }
 .onboarding-footer { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin-top: 1.25rem; }
 .onboarding-avatar-wrap { display: flex; justify-content: center; margin-bottom: 1rem; }
@@ -218,6 +218,8 @@ body.has-drawer.drawer-collapsed .topbar, body.has-drawer.drawer-collapsed .page
   .drawer.drawer-collapsed .drawer-item-label { display: inline; }
   .drawer-toggle, .drawer-close { display: block; }
   .drawer-collapse { display: none; }
+  .startseite-hero-bg { background-size: cover; }
+  h1 { font-size: 1.5rem; }
 }
 
 .feedback-fab {
