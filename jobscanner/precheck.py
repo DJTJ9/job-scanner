@@ -5,6 +5,10 @@ Prüfen vermeiden, nicht erst beim laufenden Scan).
 """
 from __future__ import annotations
 
+import ipaddress
+import socket
+from urllib.parse import urlparse
+
 from jobscanner import browser
 from jobscanner.extract import _clean_text
 
@@ -21,7 +25,37 @@ _MIN_STRUCTURE_HITS = 2
 _MIN_TEXT_LEN = 200
 
 
+def _reject_ssrf(url: str) -> str | None:
+    """SSRF-Guard: nur externe http/https-Ziele erlauben. Gibt einen Grund
+    zurück, wenn die URL geblockt werden muss, sonst None. Blockt file:// & Co.,
+    IP-Literale und Hostnamen, die auf private/loopback/link-local/reservierte
+    Adressen auflösen (inkl. Cloud-Metadata 169.254.169.254)."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return "Nur http/https-URLs erlaubt"
+    host = parsed.hostname
+    if not host:
+        return "Keine gültige Host-Angabe in der URL"
+    try:
+        ips = [ipaddress.ip_address(host)]
+    except ValueError:
+        try:
+            infos = socket.getaddrinfo(host, None)
+        except socket.gaierror:
+            return "Host nicht auflösbar"
+        ips = [ipaddress.ip_address(info[4][0]) for info in infos]
+    for ip in ips:
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            return "Interne/private Adresse nicht erlaubt"
+    return None
+
+
 def precheck_portal(url: str) -> dict:
+    reason = _reject_ssrf(url)
+    if reason is not None:
+        return {"rendered": False, "blocked": None, "structured": None,
+                "compatible": False, "reason": reason}
     html = browser.render(url)
     if html is None:
         return {"rendered": False, "blocked": None, "structured": None,

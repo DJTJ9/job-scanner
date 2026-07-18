@@ -1,7 +1,17 @@
 """Tests für precheck_portal() — Firecrawl-freier Kompatibilitäts-Check."""
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from jobscanner import precheck
+
+
+@pytest.fixture(autouse=True)
+def _public_dns(monkeypatch):
+    # Hostnamen (foo.de etc.) hermetisch auf eine öffentliche IP auflösen,
+    # damit kein echtes DNS im Test nötig ist. Literal-IP-Tests umgehen dies.
+    monkeypatch.setattr("jobscanner.precheck.socket.getaddrinfo",
+                        lambda *a, **k: [(2, 1, 6, "", ("93.184.216.34", 0))])
 
 
 def test_render_failure_is_incompatible():
@@ -49,3 +59,61 @@ def test_rendered_but_no_keywords_is_not_structured():
     assert result["blocked"] is False
     assert result["structured"] is False
     assert result["compatible"] is False
+
+
+# --- SSRF-Guard: precheck_portal darf browser.render() nur für externe http/https-URLs aufrufen ---
+
+def test_file_scheme_blocked_before_render():
+    render = MagicMock()
+    with patch("jobscanner.precheck.browser.render", render):
+        result = precheck.precheck_portal("file:///etc/passwd")
+    assert result["compatible"] is False
+    assert result["rendered"] is False
+    assert "http" in result["reason"].lower()
+    render.assert_not_called()
+
+
+def test_loopback_ip_blocked_before_render():
+    render = MagicMock()
+    with patch("jobscanner.precheck.browser.render", render):
+        result = precheck.precheck_portal("http://127.0.0.1:8010/dashboard")
+    assert result["compatible"] is False
+    assert result["rendered"] is False
+    render.assert_not_called()
+
+
+def test_link_local_metadata_blocked_before_render():
+    render = MagicMock()
+    with patch("jobscanner.precheck.browser.render", render):
+        result = precheck.precheck_portal("http://169.254.169.254/latest/meta-data/")
+    assert result["compatible"] is False
+    render.assert_not_called()
+
+
+def test_private_ip_blocked_before_render():
+    render = MagicMock()
+    with patch("jobscanner.precheck.browser.render", render):
+        result = precheck.precheck_portal("http://10.0.0.5/")
+    assert result["compatible"] is False
+    render.assert_not_called()
+
+
+def test_hostname_resolving_to_private_ip_blocked(monkeypatch):
+    # DNS-Rebinding-Stil: öffentlich aussehender Host, der auf eine interne IP zeigt.
+    monkeypatch.setattr("jobscanner.precheck.socket.getaddrinfo",
+                        lambda *a, **k: [(2, 1, 6, "", ("10.0.0.5", 0))])
+    render = MagicMock()
+    with patch("jobscanner.precheck.browser.render", render):
+        result = precheck.precheck_portal("https://evil.example.com/")
+    assert result["compatible"] is False
+    render.assert_not_called()
+
+
+def test_public_url_still_reaches_render():
+    html = ("<html><body>" + "x" * 250 +
+           "<h2>Ihre Aufgaben</h2><h2>Ihr Profil</h2><p>Vollzeit, Anforderungen.</p>"
+           "<a>Jetzt bewerben</a></body></html>")
+    with patch("jobscanner.precheck.browser.render", return_value=html) as render:
+        result = precheck.precheck_portal("https://jobs.example.com/stelle")
+    render.assert_called_once()
+    assert result["rendered"] is True
