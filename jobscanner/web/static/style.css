@@ -32,6 +32,7 @@ h1, h2, .brand {
   border-bottom: 1px solid var(--wasser);
 }
 .link { color: var(--signal); text-decoration: none; }
+.topbar .link + .link { margin-left: 1rem; }
 .page { padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
 .panel {
   background: var(--wasser);
@@ -173,6 +174,7 @@ input[type="text"], input[type="password"], input[type="number"], textarea, sele
   gap: 1rem;
 }
 .bob-avatar { height: 64px; width: auto; display: block; }
+.bob-title { height: 1em; width: auto; display: inline; vertical-align: -0.15em; margin-right: 0.15em; }
 .onboarding-avatar-wrap .bob-avatar { height: 72px; }
 
 .path-progress { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; align-items: flex-end; }
