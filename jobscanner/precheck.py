@@ -45,8 +45,13 @@ def _reject_ssrf(url: str) -> str | None:
             return "Host nicht auflösbar"
         ips = [ipaddress.ip_address(info[4][0]) for info in infos]
     for ip in ips:
-        if (ip.is_private or ip.is_loopback or ip.is_link_local
-                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+        # IPv4-mapped IPv6 (::ffff:127.0.0.1) auf die eingebettete v4 normalisieren,
+        # damit der is_global-Check nicht am v6-Wrapper vorbeiläuft.
+        if ip.version == 6 and ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        # is_global schließt private/loopback/link-local/reserved/multicast/
+        # unspecified/CGNAT in einem Prädikat ein — nur global-routbare Ziele erlaubt.
+        if not ip.is_global:
             return "Interne/private Adresse nicht erlaubt"
     return None
 

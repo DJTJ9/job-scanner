@@ -109,6 +109,22 @@ def test_hostname_resolving_to_private_ip_blocked(monkeypatch):
     render.assert_not_called()
 
 
+def test_ipv6_mapped_ipv4_loopback_blocked():
+    render = MagicMock()
+    with patch("jobscanner.precheck.browser.render", render):
+        result = precheck.precheck_portal("http://[::ffff:127.0.0.1]/")
+    assert result["compatible"] is False
+    render.assert_not_called()
+
+
+def test_ipv6_mapped_metadata_blocked():
+    render = MagicMock()
+    with patch("jobscanner.precheck.browser.render", render):
+        result = precheck.precheck_portal("http://[::ffff:169.254.169.254]/")
+    assert result["compatible"] is False
+    render.assert_not_called()
+
+
 def test_public_url_still_reaches_render():
     html = ("<html><body>" + "x" * 250 +
            "<h2>Ihre Aufgaben</h2><h2>Ihr Profil</h2><p>Vollzeit, Anforderungen.</p>"
