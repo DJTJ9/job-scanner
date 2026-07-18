@@ -157,18 +157,9 @@ def test_wizard_panel_shows_function_overview_and_two_buttons(member_client):
     # id + panel-Klassen + Close bleiben erhalten (bestehende Tests hängen daran)
     assert 'id="onboarding-wizard" class="panel onboarding-panel panel-hidden"' in resp.text
     assert 'data-onboarding-close="onboarding-wizard"' in resp.text
-    # neuer Funktions-Überblick + zwei Buttons
-    assert "Alle Funktionen im Detail" in resp.text
-    assert 'data-onboarding-open="onboarding-guide"' in resp.text
+    # Wizard-Panel führt direkt zum Profil-Start (Guide-Button wurde ins Was-kann-Panel gemergt)
     assert 'href="/wizard/new"' in resp.text
     assert "Profil erstellen" in resp.text
-
-
-def test_guide_panel_renders_hidden_and_links_to_teach_lesson(member_client):
-    resp = member_client.get("/")
-    assert 'id="onboarding-guide" class="panel onboarding-panel panel-hidden"' in resp.text
-    assert "job-scanner-nutzen/lessons/job-scanner-nutzen.html" in resp.text
-    assert 'data-onboarding-close="onboarding-guide"' in resp.text
 
 
 def test_hero_wizard_button_uses_clipboard_icon(member_client):
@@ -198,8 +189,9 @@ def test_drawer_and_panels_present_on_non_home_page(owner_client):
 def test_was_kann_panel_has_function_overview(member_client):
     resp = member_client.get("/")
     assert 'id="onboarding-was-kann" class="panel onboarding-panel panel-hidden"' in resp.text
-    assert "Alle Funktionen im Detail" in resp.text
-    assert 'data-onboarding-open="onboarding-guide"' in resp.text
+    # Guide-Modal wurde hier reingemergt: 6 Detail-Absätze + Anleitung-Link statt Guide-Button
+    assert "job-scanner-nutzen/lessons/job-scanner-nutzen.html" in resp.text
+    assert 'data-onboarding-open="onboarding-guide"' not in resp.text
     assert 'data-onboarding-close="onboarding-was-kann"' in resp.text
 
 
