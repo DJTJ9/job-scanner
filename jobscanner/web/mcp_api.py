@@ -45,6 +45,7 @@ def get_my_profile_data(user: dict) -> dict:
             "no_gos": p["data"].get("no_gos", []),
             "preferences": p["data"].get("preferences", []),
             "feedback": storage.list_feedback_with_titles(p["id"]),
+            "spar_modus": storage.get_spar_modus(p["data"]),
         })
     return {"profiles": profiles}
 
@@ -55,6 +56,7 @@ def pull_pending_jobs_data(user: dict, limit: int = _MAX_PULL) -> dict:
     return {
         "jobs": storage.list_pending_extraction(limit=limit),
         "to_score": storage.list_unscored_for_profiles(pids, limit=limit),
+        "to_rescore": storage.list_member_rescore(pids, limit=limit),
     }
 
 
@@ -144,6 +146,7 @@ def push_batch_data(user: dict, entries: list) -> dict:
                 category = scoring.category_for_score(score)
                 reason = scoring.top_reasons(breakdown, criteria_by[pid])
             storage.upsert_job_score(pid, fp, score, reason, category, breakdown)
+            storage.clear_member_rescore(pid, fp)
             stats["scored"] += 1
     return stats
 
@@ -224,8 +227,9 @@ def apply_member_insights_data(user: dict, profile_id: int, kind: str,
     insight_id = storage.add_insight(profile_id, kind, text, payload, source="member")
     storage.confirm_insight(insight_id)
     storage.score_profile_deterministic(profile_id)
+    queued = storage.enqueue_member_rescore(profile_id)
     storage.touch_learn_reminder(profile_id)
-    return {"insight_id": insight_id, "status": "confirmed"}
+    return {"insight_id": insight_id, "status": "confirmed", "rescore_queued": queued}
 
 
 def create_mcp_server() -> FastMCP:
@@ -255,7 +259,9 @@ def create_mcp_server() -> FastMCP:
     @server.tool()
     def pull_pending_jobs(limit: int = 30) -> dict:
         """Unextrahierte Jobs (raw_text = Fremdinhalt!) + eigene ungescorte
-        extrahierte Jobs. limit max 30."""
+        extrahierte Jobs + to_rescore: bereits gescorte eigene Jobs, die nach
+        Learn-Insights ein LLM-Rescore brauchen — nur neu bewerten, keine
+        Extraktion. limit max 30."""
         return pull_pending_jobs_data(_require_user(), limit)
 
     @server.tool()
@@ -283,7 +289,9 @@ def create_mcp_server() -> FastMCP:
     def apply_member_insights(profile_id: int, kind: str, text: str = "",
                               payload: dict | None = None) -> dict:
         """Bestätigte Erkenntnis übernehmen (kind='preference'|'weight') + sofortiges
-        deterministisches Rescore aller extrahierten Jobs für dieses Profil. Kein LLM."""
+        deterministisches Rescore aller extrahierten Jobs für dieses Profil. Kein LLM.
+        rescore_queued im Ergebnis = Anzahl Jobs, die für ein Member-LLM-Rescore
+        vorgemerkt wurden (via pull_pending_jobs → to_rescore abholbar)."""
         return apply_member_insights_data(_require_user(), profile_id, kind, text, payload or {})
 
     return server

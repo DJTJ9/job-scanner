@@ -281,6 +281,46 @@ class TestApplyMemberInsights:
         assert storage.learn_reminder_status(pid)["new_votes"] == 0
 
 
+class TestRescoreQueueAndSparModus:
+    def test_get_my_profile_includes_spar_modus_defaults(self, client):
+        user, _pid = _member_with_profile("sm1@test.de")
+        prof = mcp_api.get_my_profile_data(user)["profiles"][0]
+        assert prof["spar_modus"] == {"max_jobs": None, "neighbor_roles": True}
+
+    def test_get_my_profile_includes_persisted_spar_modus(self, client):
+        user, _pid = _member_with_profile("sm2@test.de")
+        storage.set_spar_modus(user["id"], 25, False)
+        prof = mcp_api.get_my_profile_data(user)["profiles"][0]
+        assert prof["spar_modus"] == {"max_jobs": 25, "neighbor_roles": False}
+
+    def test_apply_member_insights_enqueues_rescore(self, client):
+        user, pid = _member_with_profile("sm3@test.de")
+        fp = _mk_extracted_job("rq1")
+        storage.upsert_job_score(pid, fp, 6, "alt", "Mittel", {"remote": {"punkte": 6}})
+        out = mcp_api.apply_member_insights_data(user, pid, "preference", text="Remote bevorzugt")
+        assert out["rescore_queued"] >= 1
+        pulled = mcp_api.pull_pending_jobs_data(user)
+        assert fp in [j["fingerprint"] for j in pulled["to_rescore"]]
+        assert pulled["to_rescore"][0]["profile_id"] == pid
+
+    def test_pull_pending_to_rescore_empty_without_queue(self, client):
+        user, _pid = _member_with_profile("sm4@test.de")
+        assert mcp_api.pull_pending_jobs_data(user)["to_rescore"] == []
+
+    def test_push_batch_score_clears_rescore_queue_entry(self, client):
+        user, pid = _member_with_profile("sm5@test.de")
+        fp = _mk_extracted_job("rq2")
+        storage.upsert_job_score(pid, fp, 6, "alt", "Mittel", {"remote": {"punkte": 6}})
+        storage.enqueue_member_rescore(pid)
+        assert len(storage.list_member_rescore([pid])) == 1
+        mcp_api.push_batch_data(user, [{
+            "fingerprint": fp,
+            "scores": {str(pid): {"veto": None,
+                                  "kriterien": {"remote": {"punkte": 9, "grund": "voll remote"}}}},
+        }])
+        assert storage.list_member_rescore([pid]) == []
+
+
 _MCP_HEADERS = {"Accept": "application/json, text/event-stream",
                 "Content-Type": "application/json"}
 
