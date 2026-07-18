@@ -152,8 +152,8 @@ input[type="text"], input[type="password"], input[type="number"], textarea, sele
 .drawer-item { display: block; width: 100%; text-align: left; background: transparent; border: none; color: var(--gischt); font-family: "IBM Plex Sans", sans-serif; font-size: 1rem; padding: 0.6rem 0.5rem; border-radius: 4px; text-decoration: none; cursor: pointer; }
 .drawer-item:hover { background: var(--tiefe); }
 .drawer-collapse { background: transparent; border: none; color: var(--gischt); font-size: 1.1rem; cursor: pointer; align-self: flex-end; padding: 0.4rem; margin-top: auto; }
-.drawer-collapsed { width: 56px; }
-.drawer-collapsed .drawer-item-label { display: none; }
+.drawer.drawer-collapsed { width: 56px; }
+.drawer.drawer-collapsed .drawer-item-label { display: none; }
 
 .hero-landscape {
   position: relative;
@@ -199,8 +199,8 @@ body.has-drawer.drawer-collapsed .topbar, body.has-drawer.drawer-collapsed .page
 @media (max-width: 900px) {
   body.has-drawer .topbar, body.has-drawer .page,
   body.has-drawer.drawer-collapsed .topbar, body.has-drawer.drawer-collapsed .page { margin-left: 0; }
-  .drawer-collapsed { width: 240px; }
-  .drawer-collapsed .drawer-item-label { display: inline; }
+  .drawer.drawer-collapsed { width: 240px; }
+  .drawer.drawer-collapsed .drawer-item-label { display: inline; }
   .drawer-toggle, .drawer-close { display: block; }
   .drawer-collapse { display: none; }
 }
