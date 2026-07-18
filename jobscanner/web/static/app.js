@@ -12,6 +12,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  document.querySelectorAll(".criterion input[type=range]").forEach((slider) => {
+    if (slider.closest("form[data-criteria-form]")) return;  // Feintuning-Slider hat schon einen Listener
+    const out = slider.closest(".criterion")?.querySelector(".weight");
+    if (out) {
+      out.textContent = slider.value;
+      slider.addEventListener("input", () => { out.textContent = slider.value; });
+    }
+  });
+
   const drawer = document.getElementById("drawer");
   document.querySelectorAll("[data-drawer-open]").forEach((btn) => {
     btn.addEventListener("click", () => { if (drawer) drawer.classList.remove("panel-hidden"); });
