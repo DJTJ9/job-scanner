@@ -2,18 +2,17 @@
 {% block title %}Profile — Bob der Job-Bot{% endblock %}
 {% block content %}
 <div class="startseite-hero-bg" aria-hidden="true"></div>
+{% if not profile_exists %}
 <div class="hero-landscape">
-  <h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> BOB DER JOB-BOT</h1>
-  {% if not profile_exists %}
   <div class="onboarding-hero">
     <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-bot">🤖 Wer bin ich?</button>
     <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-was-kann">💡 Was kann ich?</button>
     <button type="button" class="btn btn-secondary" data-onboarding-open="onboarding-wizard">📋 Wer bist du?</button>
   </div>
-  {% endif %}
 </div>
+{% endif %}
 {% if profile_exists %}
-<div class="panel" data-profile-exists="{{ profile_exists|lower }}">
+<div class="panel profiles-panel" data-profile-exists="{{ profile_exists|lower }}">
   <div class="onboarding-header">
     <h2>Profile</h2>
   </div>

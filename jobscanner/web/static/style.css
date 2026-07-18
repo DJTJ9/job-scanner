@@ -12,6 +12,9 @@
 * { box-sizing: border-box; }
 body {
   margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--tiefe);
   color: var(--gischt);
   font-family: "IBM Plex Sans", sans-serif;
@@ -33,7 +36,7 @@ h1, h2, .brand {
 }
 .link { color: var(--signal); text-decoration: none; }
 .topbar .link + .link { margin-left: 1rem; }
-.page { padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
+.page { padding: 1.5rem; max-width: 1100px; margin: 0 auto; flex: 1 0 auto; }
 .panel {
   background: var(--wasser);
   border-radius: 8px;
@@ -443,6 +446,7 @@ body.has-drawer.drawer-collapsed .site-footer { margin-left: 56px; }
 body.has-drawer .startseite-hero-bg { left: 240px; }
 body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
 .hero-landscape { background: none; min-height: 0; }
+.profiles-panel { max-width: 640px; margin: 3rem auto; }
 .panel[data-profile-exists] { background: rgba(20, 40, 68, 0.82); backdrop-filter: blur(2px); }
 .profile-row { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
 .profile-name { color: var(--gischt); font-weight: 600; font-size: 1.15rem; text-decoration: none; }
