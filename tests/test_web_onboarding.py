@@ -256,4 +256,5 @@ def test_wizard_first_step_has_no_back_link(owner_client):
 
 def test_wizard_has_cancel_to_home(owner_client):
     resp = owner_client.get("/wizard/basis")
-    assert 'href="/">Abbrechen → Startseite' in resp.text
+    assert 'Abbrechen' in resp.text
+    assert '→ Startseite' not in resp.text

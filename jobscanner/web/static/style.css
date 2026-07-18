@@ -184,7 +184,16 @@ input[type="text"], input[type="password"], input[type="number"], textarea, sele
 }
 .path-progress .path-step.active { opacity: 1; color: var(--signal); }
 .path-progress .path-step.done { opacity: 0.8; color: var(--beute); }
-.path-progress .path-icon { width: 26px; height: 26px; }
+.path-progress .path-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 1px solid currentColor; font-weight: 700; font-size: 0.8rem;
+}
+.path-progress .path-step.active .path-num { background: var(--signal); color: var(--tiefe); border-color: var(--signal); }
+.path-progress .path-step.done .path-num { background: var(--beute); color: var(--tiefe); border-color: var(--beute); }
+.wizard-actions { display: flex; gap: 1rem; margin-top: 1.5rem; }
+.wizard-cancel { margin-top: 0.5rem; }
+.panel input[type="text"] + .chip { margin-top: 0.75rem; }
 
 .funnel-icon { width: 18px; height: 18px; margin-right: 0.35rem; vertical-align: middle; }
 

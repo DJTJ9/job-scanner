@@ -4,13 +4,11 @@
 <div class="hero-landscape-band"></div>
 <h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> Neues Profil</h1>
 <div class="path-progress">
-  {% set markers = ["marker-start", "marker-profil", "marker-bewerbung", "marker-erfolg", "marker-favorit", "marker-empfehlung", "marker-ziel"] %}
   {% for s in step_order %}
     {% set idx = loop.index0 %}
     {% set current_idx = step_order.index(step) %}
     <span class="path-step {{ 'active' if s == step else ('done' if idx < current_idx else '') }}">
-      <img class="path-icon" src="/static/img/bob/{{ markers[idx] }}.png" alt="">
-      {% if s == step %}<img class="path-icon" src="/static/img/bob/bob-pose-lupe.png" alt="Bob" style="margin-top:-8px">{% endif %}
+      <span class="path-num">{{ idx + 1 }}</span>
       {{ step_labels.get(s, s) }}
     </span>
   {% endfor %}
@@ -106,10 +104,12 @@
       {% endfor %}
     {% endif %}
   {% endif %}
-  {% if prev_step %}<a class="btn btn-secondary" href="/wizard/{{ prev_step }}">← Zurück</a>{% endif %}
-  <button type="submit" class="btn btn-primary">{{ "Profil anlegen" if step == "gewichte" else "Weiter" }}</button>
+  <div class="wizard-actions">
+    {% if prev_step %}<a class="btn btn-secondary" href="/wizard/{{ prev_step }}">← Zurück</a>{% endif %}
+    <button type="submit" class="btn btn-primary">{{ "Profil anlegen" if step == "gewichte" else "Weiter" }}</button>
+  </div>
 </form>
-<p><a class="link" href="/">Abbrechen → Startseite</a></p>
+<p><a class="btn btn-secondary wizard-cancel" href="/">Abbrechen</a></p>
 
 {% if step == "skills" and request.session.get("role") == "owner" %}
 <form method="post" action="/wizard/llm-refine" class="panel" id="llm-refine-form">
