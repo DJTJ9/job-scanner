@@ -189,12 +189,16 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/einstellungen/spar-modus")
     def spar_modus_submit(request: Request, modus: str = Form("unbegrenzt"),
-                          max_jobs: int = Form(25), neighbor_roles: str = Form(None)):
+                          max_jobs: int = Form(25), neighbor_roles: str = Form(None),
+                          locations: str = Form(""), lang_de: str = Form(None),
+                          lang_en: str = Form(None)):
         if (redirect := require_user(request)) is not None:
             return redirect
         limit = max(1, min(int(max_jobs), 500)) if modus == "sparsam" else None
+        locs = [s.strip() for s in locations.split(",") if s.strip()]
+        langs = [l for l, on in (("de", lang_de), ("en", lang_en)) if on is not None] or ["de"]
         storage.set_spar_modus(request.session["user_id"], limit,
-                               neighbor_roles is not None)
+                               neighbor_roles is not None, locs, langs)
         return RedirectResponse("/einstellungen?tab=token", status_code=303)
 
     @app.get("/register")
@@ -289,8 +293,13 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if tab not in _DASHBOARD_TABS:
             tab = "aktiv"
         feedback = storage.get_feedback_map(profile_id)
+        # Nur explizit gesetzte Spar-Filter anwenden; ein nie konfiguriertes Profil
+        # (Owner/Default) hat keinen spar_modus-Key → None = kein Filter (alle Jobs).
+        spar = profile["data"].get("spar_modus") or {}
         aktiv, no_go, bewertet, ausland = [], [], [], []
-        for entry in storage.list_jobs_with_scores(profile_id):
+        for entry in storage.list_jobs_with_scores(profile_id,
+                                                    locations=spar.get("locations"),
+                                                    languages=spar.get("languages")):
             fp = entry["job"].fingerprint
             if feedback.get(fp) == "down":
                 bewertet.append(entry)

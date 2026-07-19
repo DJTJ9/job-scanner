@@ -295,6 +295,14 @@ class TestRescoreQueueAndSparModus:
         assert prof["spar_modus"] == {"max_jobs": 25, "neighbor_roles": False,
                                       "locations": [], "languages": ["de"]}
 
+    def test_get_my_profile_includes_location_language(self, client):
+        user, _pid = _member_with_profile("loclang@test.de")
+        storage.set_spar_modus(user["id"], 25, True,
+                               locations=["Berlin"], languages=["de", "en"])
+        prof = mcp_api.get_my_profile_data(user)["profiles"][0]
+        assert prof["spar_modus"]["locations"] == ["Berlin"]
+        assert prof["spar_modus"]["languages"] == ["de", "en"]
+
     def test_apply_member_insights_enqueues_rescore(self, client):
         user, pid = _member_with_profile("sm3@test.de")
         fp = _mk_extracted_job("rq1")

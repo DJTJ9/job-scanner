@@ -147,3 +147,21 @@ def test_spar_modus_post_unbegrenzt_resets_limit(member):
     prof = storage.list_profiles(user_id=uid)[0]
     assert storage.get_spar_modus(prof["data"]) == {"max_jobs": None, "neighbor_roles": True,
                                                     "locations": [], "languages": ["de"]}
+
+
+def test_spar_modus_post_persists_location_language(member):
+    storage.create_profile("M", {}, user_id=storage.get_user_by_email("m@test.de")["id"])
+    member.post("/einstellungen/spar-modus", data={
+        "modus": "sparsam", "max_jobs": "25",
+        "locations": "Berlin, Remote", "lang_de": "on"})
+    uid = storage.get_user_by_email("m@test.de")["id"]
+    spar = storage.get_spar_modus(storage.list_profiles(user_id=uid)[0]["data"])
+    assert spar["locations"] == ["Berlin", "Remote"]
+    assert spar["languages"] == ["de"]
+
+
+def test_spar_modus_form_renders_location_language_controls(member):
+    r = member.get("/einstellungen")
+    assert 'name="locations"' in r.text
+    assert 'name="lang_de"' in r.text
+    assert 'name="lang_en"' in r.text

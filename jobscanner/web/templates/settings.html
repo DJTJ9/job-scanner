@@ -118,6 +118,13 @@
       <label><input type="checkbox" name="neighbor_roles"
              {% if spar_modus.neighbor_roles %}checked{% endif %}>
              Entdecker-Nachbarrollen bei bob-scan generieren</label>
+      <label>Standort-Filter
+        <input type="text" name="locations" value="{{ spar_modus.locations | join(', ') }}"
+               placeholder="Berlin, Remote (leer = alle)"></label>
+      <label><input type="checkbox" name="lang_de"
+             {% if 'de' in spar_modus.languages %}checked{% endif %}> Deutsch</label>
+      <label><input type="checkbox" name="lang_en"
+             {% if 'en' in spar_modus.languages %}checked{% endif %}> Englisch</label>
       <button type="submit" class="btn btn-secondary">Speichern</button>
     </form>
   </section>
