@@ -159,6 +159,44 @@ class TestScoreOnly:
         assert stats["skipped_scoring"] == 1
 
 
+class TestRuleFilterPreSkip:
+    @staticmethod
+    def _active_profile():
+        pid = storage.create_profile("Testi", {}, is_default=True)
+        storage.save_criteria(
+            pid, [{"key": "role_fit", "label": "Rolle", "weight": 5, "sort": 0}])
+        return pid
+
+    @staticmethod
+    def _extracted_job(title, employment_type=""):
+        return storage.upsert_job(Job(title=title, company="ACME", location="Hamburg",
+                                      employment_type=employment_type, first_seen="2026-07-12"))
+
+    def test_list_pending_preskips_rule_filter_no_go(self, db):
+        pid = self._active_profile()
+        fp = self._extracted_job(title="Senior Unity Developer", employment_type="Vollzeit")
+        pending = llm_batch.list_pending(db)
+        assert fp not in {j["fingerprint"] for j in pending["to_score"]}
+        sc = storage.get_job_score(pid, fp)
+        assert sc["category"] == "No-Go" and sc["score"] == 0
+
+    def test_list_pending_keeps_non_no_go(self, db):
+        pid = self._active_profile()
+        fp = self._extracted_job(title="Junior Unity Developer", employment_type="Vollzeit")
+        pending = llm_batch.list_pending(db)
+        assert fp in {j["fingerprint"] for j in pending["to_score"]}
+        assert storage.get_job_score(pid, fp) is None
+
+    def test_preskip_logs_saved_scoring(self, db):
+        self._active_profile()
+        self._extracted_job(title="Senior Engineer", employment_type="Vollzeit")
+        llm_batch.list_pending(db)
+        conn = storage._require_conn()
+        rows = conn.execute(
+            "SELECT event_type FROM events WHERE event_type='scoring_saved'").fetchall()
+        assert len(rows) >= 1
+
+
 def test_list_pending_includes_profile_preferences(tmp_path):
     from jobscanner import storage
     from jobscanner import llm_batch

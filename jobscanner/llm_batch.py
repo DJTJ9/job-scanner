@@ -34,8 +34,27 @@ def list_pending(db_path: str | Path | None = None, limit: int = _DEFAULT_LIMIT)
             "preferences": p["data"].get("preferences", []),
             "feedback": storage.list_feedback_with_titles(p["id"]),
         })
-    to_score = storage.list_unscored_extracted(limit=limit)
-    return {"jobs": jobs, "to_score": to_score, "profiles": profiles}
+    active_profiles = storage.list_profiles(active_only=True)
+    default_id = next((p["id"] for p in active_profiles if p["is_default"]), None)
+    kept = []
+    for j in storage.list_unscored_extracted(limit=limit):
+        job = storage.get_job(j["fingerprint"])
+        label = scoring.rule_filter(job) if job is not None else None
+        if not label:
+            kept.append(j)
+            continue
+        # rule_filter-Veto: direkt als No-Go schreiben statt teuer scoren lassen —
+        # repliziert das write_batch-No-Go-Schreibverhalten (llm_batch:75-93).
+        for p in active_profiles:
+            storage.upsert_job_score(p["id"], j["fingerprint"], 0,
+                                     f"No-Go: {label}", "No-Go", {})
+            if p["id"] == default_id:
+                storage.update_job(j["fingerprint"], score=0,
+                                   score_reason=f"No-Go: {label}", category="No-Go")
+        storage.log_event("scoring_saved",
+                          meta={"label": label, "profiles": len(active_profiles),
+                                "fingerprint": j["fingerprint"]})
+    return {"jobs": jobs, "to_score": kept, "profiles": profiles}
 
 
 def write_batch(entries: list[dict], db_path: str | Path | None = None,
