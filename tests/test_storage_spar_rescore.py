@@ -32,7 +32,8 @@ def _extracted_job(suffix="a"):
 def test_spar_modus_defaults_when_unset():
     _uid, pid = _member_profile()
     sm = storage.get_spar_modus(storage.get_profile(pid)["data"])
-    assert sm == {"max_jobs": None, "neighbor_roles": True}
+    assert sm == {"max_jobs": None, "neighbor_roles": True,
+                  "locations": [], "languages": ["de"]}
 
 
 def test_set_spar_modus_writes_all_user_profiles():
@@ -41,7 +42,8 @@ def test_set_spar_modus_writes_all_user_profiles():
     assert storage.set_spar_modus(uid, 25, False) == 2
     for p in (pid, pid2):
         sm = storage.get_spar_modus(storage.get_profile(p)["data"])
-        assert sm == {"max_jobs": 25, "neighbor_roles": False}
+        assert sm == {"max_jobs": 25, "neighbor_roles": False,
+                      "locations": [], "languages": ["de"]}
 
 
 def test_set_spar_modus_leaves_other_users_untouched():
@@ -116,3 +118,46 @@ def test_enqueue_none_is_unbounded():
     for s, suf in ((80, "a"), (60, "b"), (45, "c")):
         _scored_job(pid, suf, s, "Vielleicht")
     assert storage.enqueue_member_rescore(pid, max_jobs=None) == 3
+
+
+def _extracted_scored_job(pid, suffix, location="Hamburg", language="de"):
+    job = Job(title=f"Dev {suffix}", company=f"Firma-{suffix}", location=location,
+              remote_flag="remote", employment_type="Festanstellung", language=language,
+              salary_text="", requirements=["C#"], tech_stack=["Unity"],
+              sources=[{"portal": "test", "url": f"https://t.test/{suffix}"}],
+              first_seen="2026-07-18", last_seen="2026-07-18")
+    storage.upsert_job(job)
+    storage.upsert_job_score(pid, job.fingerprint, 70, "det", "Gut", {"remote": {"punkte": 7}})
+    return job.fingerprint
+
+
+def test_spar_modus_defaults_include_location_language():
+    d = storage.get_spar_modus({})
+    assert d["locations"] == []
+    assert d["languages"] == ["de"]
+
+
+def test_set_spar_modus_persists_location_language():
+    uid, _pid = _member_profile("m", "m@x.de")
+    storage.set_spar_modus(uid, 25, True, locations=["Berlin"], languages=["de", "en"])
+    d = storage.get_spar_modus(storage.list_profiles()[0]["data"])
+    assert d["locations"] == ["Berlin"]
+    assert d["languages"] == ["de", "en"]
+
+
+def test_enqueue_filters_by_language():
+    _uid, pid = _member_profile("m", "m@x.de")
+    de_fp = _extracted_scored_job(pid, "de", language="de")
+    en_fp = _extracted_scored_job(pid, "en", language="en")
+    storage.enqueue_member_rescore(pid, languages=["de"])
+    queued = {i["fingerprint"] for i in storage.list_member_rescore([pid])}
+    assert de_fp in queued and en_fp not in queued
+
+
+def test_enqueue_filters_by_location_substring():
+    _uid, pid = _member_profile("m", "m@x.de")
+    ber = _extracted_scored_job(pid, "b", location="Berlin, DE")
+    muc = _extracted_scored_job(pid, "m", location="München")
+    storage.enqueue_member_rescore(pid, locations=["Berlin"])
+    queued = {i["fingerprint"] for i in storage.list_member_rescore([pid])}
+    assert ber in queued and muc not in queued

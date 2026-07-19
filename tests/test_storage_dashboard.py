@@ -64,6 +64,24 @@ def test_list_jobs_with_scores_sorted_by_score_desc_nulls_last():
     assert [e["job"].company for e in entries] == ["Hoch", "Niedrig", "Ungescort"]
 
 
+def test_list_jobs_with_scores_filters_language():
+    pid = storage.create_profile("Testi", {"skills": []})
+    de_fp = storage.upsert_job(_mk_job(company="DeCo", language="de"))
+    en_fp = storage.upsert_job(_mk_job(company="EnCo", language="en"))
+    rows = storage.list_jobs_with_scores(pid, languages=["de"])
+    fps = {r["job"].fingerprint for r in rows}
+    assert de_fp in fps and en_fp not in fps
+
+
+def test_list_jobs_with_scores_filters_location_substring():
+    pid = storage.create_profile("Testi", {"skills": []})
+    ber = storage.upsert_job(_mk_job(company="B", location="Berlin, DE"))
+    muc = storage.upsert_job(_mk_job(company="M", location="München"))
+    rows = storage.list_jobs_with_scores(pid, locations=["Berlin"])
+    fps = {r["job"].fingerprint for r in rows}
+    assert ber in fps and muc not in fps
+
+
 def test_get_feedback_map():
     pid = storage.create_profile("Testi", {"skills": []})
     storage.add_feedback(pid, "fp1", "up")

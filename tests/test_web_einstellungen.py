@@ -135,7 +135,8 @@ def test_spar_modus_post_persists_to_profile(member):
     assert resp.status_code == 303
     uid = storage.get_user_by_email("m@test.de")["id"]
     prof = storage.list_profiles(user_id=uid)[0]
-    assert storage.get_spar_modus(prof["data"]) == {"max_jobs": 25, "neighbor_roles": False}
+    assert storage.get_spar_modus(prof["data"]) == {"max_jobs": 25, "neighbor_roles": False,
+                                                    "locations": [], "languages": ["de"]}
 
 
 def test_spar_modus_post_unbegrenzt_resets_limit(member):
@@ -144,4 +145,5 @@ def test_spar_modus_post_unbegrenzt_resets_limit(member):
         "modus": "unbegrenzt", "max_jobs": "25", "neighbor_roles": "on"})
     uid = storage.get_user_by_email("m@test.de")["id"]
     prof = storage.list_profiles(user_id=uid)[0]
-    assert storage.get_spar_modus(prof["data"]) == {"max_jobs": None, "neighbor_roles": True}
+    assert storage.get_spar_modus(prof["data"]) == {"max_jobs": None, "neighbor_roles": True,
+                                                    "locations": [], "languages": ["de"]}

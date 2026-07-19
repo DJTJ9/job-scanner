@@ -285,13 +285,15 @@ class TestRescoreQueueAndSparModus:
     def test_get_my_profile_includes_spar_modus_defaults(self, client):
         user, _pid = _member_with_profile("sm1@test.de")
         prof = mcp_api.get_my_profile_data(user)["profiles"][0]
-        assert prof["spar_modus"] == {"max_jobs": None, "neighbor_roles": True}
+        assert prof["spar_modus"] == {"max_jobs": None, "neighbor_roles": True,
+                                      "locations": [], "languages": ["de"]}
 
     def test_get_my_profile_includes_persisted_spar_modus(self, client):
         user, _pid = _member_with_profile("sm2@test.de")
         storage.set_spar_modus(user["id"], 25, False)
         prof = mcp_api.get_my_profile_data(user)["profiles"][0]
-        assert prof["spar_modus"] == {"max_jobs": 25, "neighbor_roles": False}
+        assert prof["spar_modus"] == {"max_jobs": 25, "neighbor_roles": False,
+                                      "locations": [], "languages": ["de"]}
 
     def test_apply_member_insights_enqueues_rescore(self, client):
         user, pid = _member_with_profile("sm3@test.de")

@@ -880,10 +880,20 @@ def migrate_yaml_profile() -> int:
     return pid
 
 
-def list_jobs_with_scores(profile_id: int) -> list[dict]:
+def list_jobs_with_scores(profile_id: int, locations: list[str] | None = None,
+                          languages: list[str] | None = None) -> list[dict]:
     """Jobs mit Score/Begründung/Breakdown des gegebenen Profils, höchster Score zuerst
-    (ungescorte Jobs ans Ende)."""
+    (ungescorte Jobs ans Ende). Optionale Pool-Filter: Sprache (exakt IN), Standort
+    (Substring-OR, LIKE %x%); leere/None-Liste = kein Filter."""
     conn = _require_conn()
+    where = ["jobs.extraction_status = 'extracted'"]
+    params: list = [profile_id]
+    if languages:
+        where.append("jobs.language IN (%s)" % ",".join("?" * len(languages)))
+        params += list(languages)
+    if locations:
+        where.append("(" + " OR ".join("jobs.location LIKE ?" for _ in locations) + ")")
+        params += [f"%{loc}%" for loc in locations]
     rows = conn.execute(
         """SELECT jobs.*, job_scores.score AS profile_score,
                   job_scores.reason AS profile_reason,
@@ -892,10 +902,10 @@ def list_jobs_with_scores(profile_id: int) -> list[dict]:
            FROM jobs
            LEFT JOIN job_scores
              ON job_scores.profile_id = ? AND job_scores.fingerprint = jobs.fingerprint
-           WHERE jobs.extraction_status = 'extracted'
+           WHERE """ + " AND ".join(where) + """
            ORDER BY (profile_score IS NULL), profile_score DESC,
                     jobs.first_seen DESC, jobs.id DESC""",
-        (profile_id,))
+        params)
     return [
         {
             "job": _row_to_job(row),
@@ -993,7 +1003,7 @@ def enqueue_jobs_for_rescore(profile_id: int) -> int:
     return cur.rowcount
 
 
-SPAR_MODUS_DEFAULT = {"max_jobs": None, "neighbor_roles": True}
+SPAR_MODUS_DEFAULT = {"max_jobs": None, "neighbor_roles": True, "locations": [], "languages": ["de"]}
 
 
 def get_spar_modus(profile_data: dict) -> dict:
@@ -1003,7 +1013,9 @@ def get_spar_modus(profile_data: dict) -> dict:
 
 
 @_retry_on_locked
-def set_spar_modus(user_id: int, max_jobs: int | None, neighbor_roles: bool) -> int:
+def set_spar_modus(user_id: int, max_jobs: int | None, neighbor_roles: bool,
+                   locations: list[str] | None = None,
+                   languages: list[str] | None = None) -> int:
     """Schreibt die Spar-Modus-Einstellung in data_json ALLER Profile des Users
     (Website-Einstellung ist pro User, Persistenz pro Profil — get_my_profile liefert
     sie je Profil an die Skills). Gibt die Anzahl aktualisierter Profile zurück."""
@@ -1011,7 +1023,8 @@ def set_spar_modus(user_id: int, max_jobs: int | None, neighbor_roles: bool) -> 
     count = 0
     for p in list_profiles(user_id=user_id):
         data = p["data"]
-        data["spar_modus"] = {"max_jobs": max_jobs, "neighbor_roles": bool(neighbor_roles)}
+        data["spar_modus"] = {"max_jobs": max_jobs, "neighbor_roles": bool(neighbor_roles),
+                              "locations": locations or [], "languages": languages or ["de"]}
         conn.execute("UPDATE profiles SET data_json = ? WHERE id = ?",
                      (json.dumps(data, ensure_ascii=False), p["id"]))
         count += 1
@@ -1020,21 +1033,31 @@ def set_spar_modus(user_id: int, max_jobs: int | None, neighbor_roles: bool) -> 
 
 
 @_retry_on_locked
-def enqueue_member_rescore(profile_id: int, max_jobs: int | None = None) -> int:
+def enqueue_member_rescore(profile_id: int, max_jobs: int | None = None,
+                           locations: list[str] | None = None,
+                           languages: list[str] | None = None) -> int:
     """Merkt die relevantesten gescorten, extrahierten Jobs des Profils für ein
     Member-LLM-Rescore vor: Floor (keine No-Gos) + Rang (Score DESC) + optionaler
-    Cap (max_jobs, None = unbegrenzt). Idempotent per INSERT OR IGNORE; der Cap gilt
-    pro Enqueue. Gibt Anzahl NEU vorgemerkter Jobs zurück."""
+    Cap (max_jobs, None = unbegrenzt). Optionale Pool-Filter: Sprache (exakt IN),
+    Standort (Substring-OR, LIKE %x%); leere/None-Liste = kein Filter. Idempotent per
+    INSERT OR IGNORE; der Cap gilt pro Enqueue. Gibt Anzahl NEU vorgemerkter Jobs zurück."""
     conn = _require_conn()
+    where = ["job_scores.profile_id = ?", "jobs.extraction_status = 'extracted'",
+             "job_scores.category != 'No-Go'"]
+    params: list = [profile_id]
+    if languages:
+        where.append("jobs.language IN (%s)" % ",".join("?" * len(languages)))
+        params += list(languages)
+    if locations:
+        where.append("(" + " OR ".join("jobs.location LIKE ?" for _ in locations) + ")")
+        params += [f"%{loc}%" for loc in locations]
     sql = (
         "INSERT OR IGNORE INTO member_rescore_queue (profile_id, fingerprint, created_at) "
         "SELECT job_scores.profile_id, job_scores.fingerprint, datetime('now') "
         "FROM job_scores JOIN jobs ON jobs.fingerprint = job_scores.fingerprint "
-        "WHERE job_scores.profile_id = ? AND jobs.extraction_status = 'extracted' "
-        "AND job_scores.category != 'No-Go' "
+        "WHERE " + " AND ".join(where) + " "
         "ORDER BY job_scores.score DESC"
     )
-    params: list = [profile_id]
     if max_jobs is not None:
         sql += " LIMIT ?"
         params.append(int(max_jobs))
