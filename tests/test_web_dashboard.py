@@ -578,3 +578,62 @@ def test_lernen_actions_redirect_to_lernen_tab(client):
         resp = client.post(path, follow_redirects=False)
         assert resp.status_code == 303
         assert resp.headers["location"] == f"/dashboard/{pid}#lernen", path
+
+
+def _seed_scored(pid, n, *, prefix="Job", location="Hamburg", category="Pass"):
+    """n eindeutig gefingerprintete, gescorte Jobs für pid anlegen."""
+    for i in range(n):
+        fp = storage.upsert_job(Job(title=f"{prefix} {i}", company=f"C{i}",
+                                    location=location, first_seen="2026-07-11"))
+        storage.upsert_job_score(pid, fp, 80, "", category, {})
+
+
+def test_dashboard_slices_first_page_to_25(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 30)
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    assert resp.status_code == 200
+    assert resp.text.count("data-fingerprint=") == 25
+
+
+def test_dashboard_second_page_shows_remainder(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 30)
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&page=2")
+    assert resp.status_code == 200
+    assert resp.text.count("data-fingerprint=") == 5
+
+
+def test_dashboard_clamps_too_large_page(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 30)  # 2 Seiten
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&page=99")
+    assert resp.status_code == 200
+    assert resp.text.count("data-fingerprint=") == 5  # auf letzte Seite geklemmt
+
+
+def test_dashboard_remembers_page_per_tab(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 30)
+    client.get(f"/dashboard/{pid}?tab=aktiv&page=2")       # Seite merken
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv")        # ohne page → gemerkte Seite 2
+    assert resp.text.count("data-fingerprint=") == 5
+
+
+def test_dashboard_pages_are_independent_per_tab(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 30, prefix="DE")                       # aktiv
+    _seed_scored(pid, 30, prefix="US", location="New York")  # ausland
+    client.get(f"/dashboard/{pid}?tab=aktiv&page=2")          # aktiv=Seite 2
+    resp_ausland = client.get(f"/dashboard/{pid}?tab=ausland")  # ausland default Seite 1
+    assert resp_ausland.text.count("data-fingerprint=") == 25
+    resp_aktiv = client.get(f"/dashboard/{pid}?tab=aktiv")    # aktiv weiter Seite 2
+    assert resp_aktiv.text.count("data-fingerprint=") == 5
+
+
+def test_dashboard_counts_stay_full_despite_slicing(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 30)
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    assert resp.text.count("data-fingerprint=") == 25  # nur 25 gerendert
+    assert "(30)" in resp.text                          # Count zeigt volle 30

@@ -348,13 +348,15 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return RedirectResponse("/portale", status_code=303)
 
     _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet", "ausland")
+    _DASHBOARD_PAGE_SIZE = 25
     _FUNNEL_STEPS = (("onboarding_start", "Onboarding-Start"),
                      ("profil_erstellt", "Profil erstellt"),
                      ("feedback_gegeben", "Feedback gegeben"))
     _WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
     @app.get("/dashboard/{profile_id}")
-    def dashboard(request: Request, profile_id: int, tab: str = "aktiv"):
+    def dashboard(request: Request, profile_id: int, tab: str = "aktiv",
+                  page: int | None = None):
         if (redirect := require_verified_user(request)) is not None:
             return redirect
         profile, resp = _require_owned(request, profile_id)
@@ -380,13 +382,28 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             else:
                 aktiv.append(entry)
         entries_by_tab = {"aktiv": aktiv, "no_go": no_go, "bewertet": bewertet, "ausland": ausland}
+        tab_entries = entries_by_tab[tab]
+        dash_pages = request.session.get("dash_pages", {})
+        if page is not None:
+            dash_pages[tab] = page
+        else:
+            page = dash_pages.get(tab, 1)
+        total_pages = max(1, (len(tab_entries) + _DASHBOARD_PAGE_SIZE - 1)
+                          // _DASHBOARD_PAGE_SIZE)
+        page = max(1, min(page, total_pages))
+        dash_pages[tab] = page
+        request.session["dash_pages"] = dash_pages
+        start = (page - 1) * _DASHBOARD_PAGE_SIZE
+        entries = tab_entries[start:start + _DASHBOARD_PAGE_SIZE]
         analysis = storage.get_latest_analysis(profile_id)
         return templates.TemplateResponse(request, "dashboard.html", {
             "profile": profile,
             "criteria": storage.list_criteria(profile_id),
-            "entries": entries_by_tab[tab],
+            "entries": entries,
             "feedback": feedback,
             "tab": tab,
+            "page": page,
+            "total_pages": total_pages,
             "counts": {"aktiv": len(aktiv), "no_go": len(no_go), "bewertet": len(bewertet),
                        "ausland": len(ausland)},
             "analysis": analysis,
