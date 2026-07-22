@@ -1,6 +1,7 @@
 [Unit]
 Description=Job Scanner Scoring-Agent (Claude-Code-Batch-Lauf, ersetzt Groq)
 After=network.target jobscanner-discover.service
+OnFailure=jobscanner-alert@%n.service
 
 [Service]
 Type=oneshot

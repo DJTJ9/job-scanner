@@ -1,6 +1,7 @@
 [Unit]
 Description=Job Scanner Web-UI
 After=network.target
+OnFailure=jobscanner-alert@%n.service
 
 [Service]
 Type=simple
