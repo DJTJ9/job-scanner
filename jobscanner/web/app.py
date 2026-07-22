@@ -18,7 +18,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.middleware.sessions import SessionMiddleware
 
 from jobscanner import config, nocodb_board, precheck, scoring, storage
-from jobscanner.web import llm_refine, mcp_api
+from jobscanner.web import llm_refine, mcp_api, rate_limit
 
 _DIR = Path(__file__).parent
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "data" / "jobs.db"
@@ -56,6 +56,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             yield
 
     app = FastAPI(lifespan=lifespan)
+    app.state.rate_limiter = rate_limit.RateLimiter()
 
     @app.middleware("http")
     async def log_pageview(request: Request, call_next):
