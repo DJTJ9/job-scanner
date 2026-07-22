@@ -31,3 +31,32 @@ def send_verification_email(email: str, token: str, base_url: str) -> None:
         server.starttls()
         server.login(user, password)
         server.sendmail(from_addr, [email], msg.as_string())
+
+
+def send_match_digest(email: str, profile_id: int, rows: list[dict], base_url: str) -> None:
+    host = os.environ.get("SMTP_HOST", "")
+    if not host:
+        raise RuntimeError("SMTP nicht konfiguriert (SMTP_HOST fehlt)")
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    user = os.environ.get("SMTP_USER", "")
+    password = os.environ.get("SMTP_PASS", "")
+    from_addr = os.environ.get("SMTP_FROM", user)
+
+    lines = [f"- {r['title']} @ {r['company']}  (Score {r['score']})" for r in rows]
+    body = (
+        "Hallo,\n\n"
+        f"{len(rows)} neue Top-Treffer in deinem Profil:\n\n"
+        + "\n".join(lines)
+        + f"\n\nAlle ansehen: {base_url}/dashboard/{profile_id}\n"
+        "Abschalten: Einstellungen -> Benachrichtigung\n")
+
+    msg = EmailMessage()
+    msg["Subject"] = f"Bob: {len(rows)} neue Top-Treffer"
+    msg["From"] = from_addr
+    msg["To"] = email
+    msg.set_content(body, cte="7bit")
+
+    with smtplib.SMTP(host, port) as server:
+        server.starttls()
+        server.login(user, password)
+        server.sendmail(from_addr, [email], msg.as_string())
