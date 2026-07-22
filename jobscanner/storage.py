@@ -200,6 +200,9 @@ def init_db(path: str | Path) -> None:
         _conn.execute("ALTER TABLE users ADD COLUMN consent_at TEXT")
     if "registered_ip" not in user_cols:
         _conn.execute("ALTER TABLE users ADD COLUMN registered_ip TEXT")
+    score_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(job_scores)")}
+    if "notified_at" not in score_cols:
+        _conn.execute("ALTER TABLE job_scores ADD COLUMN notified_at TEXT")
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_extraction_status ON jobs(extraction_status)")
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)")
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_category ON jobs(category)")
@@ -761,6 +764,35 @@ def get_job_score(profile_id: int, fingerprint: str) -> dict | None:
     d = dict(row)
     d["breakdown"] = json.loads(d.pop("breakdown_json") or "{}")
     return d
+
+
+def list_unnotified_top_matches(profile_id: int) -> list[dict]:
+    """Pass-Matches des Profils, die noch nicht gemeldet wurden (notified_at IS NULL).
+    Gejoint mit jobs für title/company/score im Digest."""
+    conn = _require_conn()
+    rows = conn.execute(
+        """SELECT job_scores.fingerprint AS fingerprint, jobs.title AS title,
+                  jobs.company AS company, job_scores.score AS score
+           FROM job_scores JOIN jobs ON jobs.fingerprint = job_scores.fingerprint
+           WHERE job_scores.profile_id = ?
+             AND job_scores.category = 'Pass'
+             AND job_scores.notified_at IS NULL
+           ORDER BY job_scores.score DESC""",
+        (profile_id,))
+    return [dict(r) for r in rows]
+
+
+@_retry_on_locked
+def mark_notified(profile_id: int, fingerprints: list[str]) -> None:
+    """Setzt notified_at = now für die genannten Matches des Profils."""
+    if not fingerprints:
+        return
+    conn = _require_conn()
+    conn.executemany(
+        "UPDATE job_scores SET notified_at = datetime('now') "
+        "WHERE profile_id = ? AND fingerprint = ?",
+        [(profile_id, fp) for fp in fingerprints])
+    conn.commit()
 
 
 def _row_to_analysis(row: sqlite3.Row) -> dict:
