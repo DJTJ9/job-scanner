@@ -465,3 +465,11 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
 .profile-edit { font-size: 0.85rem; opacity: 0.7; }
 .anleitung-cta { margin-right: 0.75rem; }
 .profil-name { color: var(--signal); font-weight: 700; }
+.notify-banner {
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: var(--signal);
+  color: var(--tiefe);
+  font-weight: 600;
+}

@@ -396,8 +396,15 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         start = (page - 1) * _DASHBOARD_PAGE_SIZE
         entries = tab_entries[start:start + _DASHBOARD_PAGE_SIZE]
         analysis = storage.get_latest_analysis(profile_id)
+        notify_count = len(storage.list_unnotified_top_matches(profile_id))
+        if notify_count:
+            storage.mark_notified(
+                profile_id,
+                [r["fingerprint"]
+                 for r in storage.list_unnotified_top_matches(profile_id)])
         return templates.TemplateResponse(request, "dashboard.html", {
             "profile": profile,
+            "notify_count": notify_count,
             "criteria": storage.list_criteria(profile_id),
             "entries": entries,
             "feedback": feedback,
