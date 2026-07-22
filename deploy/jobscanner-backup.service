@@ -1,0 +1,12 @@
+[Unit]
+Description=Job Scanner DB-Backup (sqlite snapshot + rotation)
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/projekte/job-scanner
+EnvironmentFile=/root/projekte/telegram-bot-army/.env
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/root/projekte/job-scanner/deploy/backup.sh
+StandardOutput=journal
+StandardError=journal

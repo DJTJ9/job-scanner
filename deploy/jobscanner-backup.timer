@@ -1,0 +1,9 @@
+[Unit]
+Description=Tägliches Job-Scanner DB-Backup (03:00, vor Discover 06:00)
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
