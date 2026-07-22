@@ -17,6 +17,7 @@
 <div class="panel feintuning panel-hidden" data-tab-panel="feintuning">
   <h2>Feintuning</h2>
   <form method="post" action="/dashboard/{{ profile.id }}/criteria" data-criteria-form>
+    {% include "_csrf_field.html" %}
     {% for c in criteria %}
       <div class="criterion">
         <label for="weight_{{ c.key }}">{{ c.label }} <span class="weight">{{ c.weight }}</span></label>
@@ -37,6 +38,7 @@
       {{ vote_count }} Votes bewertet.
     </p>
     <form method="post" action="/dashboard/{{ profile.id }}/analyze">
+      {% include "_csrf_field.html" %}
       <button type="submit" class="btn btn-primary">Votes analysieren</button>
     </form>
   {% elif analysis.status in ('analyzing', 'synthesizing') %}
@@ -69,12 +71,15 @@
         {% elif ins.kind == 'weight' %}⚖ Gewicht {{ ins.payload.key }}: {{ ins.payload.old_weight }} → {{ ins.payload.new_weight }}
         {% endif %}
         <form method="post" action="/dashboard/{{ profile.id }}/insights/{{ ins.id }}/confirm" class="feedback-form">
+          {% include "_csrf_field.html" %}
           <button type="submit" class="btn btn-secondary">Übernehmen</button></form>
         <form method="post" action="/dashboard/{{ profile.id }}/insights/{{ ins.id }}/reject" class="feedback-form">
+          {% include "_csrf_field.html" %}
           <button type="submit" class="btn btn-secondary">×</button></form>
       </div>
     {% endfor %}
     <form method="post" action="/dashboard/{{ profile.id }}/apply">
+      {% include "_csrf_field.html" %}
       <button type="submit" class="btn btn-primary">Übernehmen & Jobs neu bewerten</button>
     </form>
   {% endif %}
@@ -86,6 +91,7 @@
         {% if ins.kind == 'preference' %}🅟 „{{ ins.text }}"{% elif ins.kind == 'weight' %}⚖ {{ ins.payload.key }} → {{ ins.payload.new_weight }}{% endif %}
         <span class="mono">{{ ins.created_at }}</span>
         <form method="post" action="/dashboard/{{ profile.id }}/insights/{{ ins.id }}/reject" class="feedback-form">
+          {% include "_csrf_field.html" %}
           <button type="submit" class="btn btn-secondary">entfernen</button></form>
       </div>
     {% endfor %}

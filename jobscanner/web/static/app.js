@@ -77,7 +77,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!text) return;
       fetch("/api/feedback", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content,
+        },
         body: JSON.stringify({ text }),
       })
         .then((r) => r.json())

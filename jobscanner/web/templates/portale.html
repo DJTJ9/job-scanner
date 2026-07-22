@@ -3,6 +3,7 @@
 {% block content %}
 <h2>Neues Portal prüfen</h2>
 <form method="post" action="/portale/pruefen" class="panel">
+  {% include "_csrf_field.html" %}
   <label>URL
     <input type="url" name="url" required></label>
   <label><input type="radio" name="typ" value="career_page" checked> Career-Page (Watchlist)</label>
@@ -19,6 +20,7 @@
     <p>🟢 Flachwasser — Firecrawl-frei</p>
     <p>rendert ✓ · kein Anti-Bot ✓ · Jobdaten erkennbar ✓</p>
     <form method="post" action="/portale/aktivieren/{{ result.id }}">
+      {% include "_csrf_field.html" %}
       <button type="submit" class="btn-primary lotung-beute">Zur Suchliste hinzufügen</button>
     </form>
   </div>
@@ -27,6 +29,7 @@
     <p>🔴 Riff erkannt — braucht Firecrawl</p>
     <p>Anti-Bot-Block oder unstrukturierte Seite erkannt</p>
     <form method="post" action="/portale/aktivieren/{{ result.id }}">
+      {% include "_csrf_field.html" %}
       <button type="submit" class="btn-secondary lotung-veto">Trotzdem mit Firecrawl aufnehmen</button>
     </form>
     <p class="lotung-warnung">⚠ laufende Credit-Kosten</p>

@@ -22,6 +22,7 @@
       <a class="link profile-edit" href="/wizard/edit/{{ p.id }}">Bearbeiten</a>
       <form method="post" action="/profiles/{{ p.id }}/delete" style="display:inline"
             onsubmit="return confirm('Profil „{{ p.name }}“ wirklich löschen?');">
+        {% include "_csrf_field.html" %}
         <button type="submit" class="link">Löschen</button>
       </form>
     </p>

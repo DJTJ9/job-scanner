@@ -105,7 +105,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return templates.TemplateResponse(request, "login.html", {"error": None})
 
     @app.post("/login")
-    def login_submit(request: Request, email: str = Form(...), password: str = Form(...)):
+    def login_submit(request: Request, email: str = Form(...), password: str = Form(...),
+                     csrf_token: str = Form("")):
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         user = storage.verify_password(email, password)
         if user is not None:
             request.session["user_id"] = user["id"]
@@ -155,9 +158,12 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         current_password: str = Form(...),
         new_password: str = Form(...),
         new_password_repeat: str = Form(...),
+        csrf_token: str = Form(""),
     ):
         if (redirect := require_user(request)) is not None:
             return redirect
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         email = request.session.get("email")
 
         def _err(msg):
@@ -193,9 +199,11 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def spar_modus_submit(request: Request, modus: str = Form("unbegrenzt"),
                           max_jobs: int = Form(25), neighbor_roles: str = Form(None),
                           locations: str = Form(""), lang_de: str = Form(None),
-                          lang_en: str = Form(None)):
+                          lang_en: str = Form(None), csrf_token: str = Form("")):
         if (redirect := require_user(request)) is not None:
             return redirect
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         limit = max(1, min(int(max_jobs), 500)) if modus == "sparsam" else None
         locs = [s.strip() for s in locations.split(",") if s.strip()]
         langs = [l for l, on in (("de", lang_de), ("en", lang_en)) if on is not None] or ["de"]
@@ -209,7 +217,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/register")
     def register_submit(request: Request, email: str = Form(...),
-                        password: str = Form(...), invite_code: str = Form(...)):
+                        password: str = Form(...), invite_code: str = Form(...),
+                        csrf_token: str = Form("")):
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         if not settings["invite_code"] or not hmac.compare_digest(
                 invite_code, settings["invite_code"]):
             return templates.TemplateResponse(
@@ -235,17 +246,21 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "profile_exists": len(profiles) > 0})
 
     @app.post("/profiles/{profile_id}/delete")
-    def delete_profile_route(request: Request, profile_id: int):
+    def delete_profile_route(request: Request, profile_id: int, csrf_token: str = Form("")):
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         storage.delete_profile(profile_id)
         return RedirectResponse("/", status_code=303)
 
     @app.post("/profiles/api-token")
-    def create_api_token_route(request: Request):
+    def create_api_token_route(request: Request, csrf_token: str = Form("")):
         if (redirect := require_user(request)) is not None:
             return redirect
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         token = storage.create_api_token(request.session["user_id"])
         return templates.TemplateResponse(request, "settings.html", {
             "error": None, "success": None, "api_token": token,
@@ -261,9 +276,12 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/portale/pruefen")
     def portale_pruefen(request: Request, url: str = Form(...), typ: str = Form(...),
-                        search_url_template: str = Form(""), detail_url_pattern: str = Form("")):
+                        search_url_template: str = Form(""), detail_url_pattern: str = Form(""),
+                        csrf_token: str = Form("")):
         if (redirect := require_user(request)) is not None:
             return redirect
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         pid = storage.create_custom_portal(
             url, typ, request.session["user_id"],
             search_url_template=search_url_template or None,
@@ -275,9 +293,11 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "result": storage.get_custom_portal(pid)})
 
     @app.post("/portale/aktivieren/{portal_id}")
-    def portale_aktivieren(request: Request, portal_id: int):
+    def portale_aktivieren(request: Request, portal_id: int, csrf_token: str = Form("")):
         if (redirect := require_user(request)) is not None:
             return redirect
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         storage.activate_custom_portal(portal_id)
         return RedirectResponse("/portale", status_code=303)
 
@@ -374,6 +394,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if resp is not None:
             return resp
         form = await request.form()
+        if not csrf.verify(request, form.get("csrf_token")):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         existing = storage.list_criteria(profile_id)
         updated = [
             {"key": c["key"], "label": c["label"], "sort": c["sort"],
@@ -403,6 +425,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if resp is not None:
             return resp
         form = await request.form()
+        if not csrf.verify(request, form.get("csrf_token")):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         vote = form.get("vote")
         if vote in ("up", "down"):
             storage.add_feedback(profile_id, fingerprint, vote)
@@ -417,6 +441,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/api/feedback")
     async def member_feedback_route(request: Request):
+        if not csrf.verify(request, request.headers.get("x-csrf-token")):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         user_id = request.session.get("user_id")
         if user_id is None:
             return JSONResponse({"error": "unauthorized"}, status_code=401)
@@ -445,12 +471,14 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             pass
 
     @app.post("/dashboard/{profile_id}/analyze")
-    def analyze_votes(request: Request, profile_id: int):
+    def analyze_votes(request: Request, profile_id: int, csrf_token: str = Form("")):
         if (resp := require_owner(request)) is not None:
             return resp
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         analysis_id = storage.create_analysis(profile_id)
         _launch_feedback_agent("analyze", analysis_id)
         return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
@@ -475,17 +503,21 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
+        if not csrf.verify(request, request.headers.get("x-csrf-token")):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         body = await request.json()
         storage.save_analysis_answers(body["analysis_id"], body.get("answers", {}))
         return JSONResponse({"ok": True})
 
     @app.post("/dashboard/{profile_id}/finalize")
-    def finalize_analysis(request: Request, profile_id: int):
+    def finalize_analysis(request: Request, profile_id: int, csrf_token: str = Form("")):
         if (resp := require_owner(request)) is not None:
             return resp
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         analysis = storage.get_latest_analysis(profile_id)
         if analysis is not None:
             storage.set_analysis_status(analysis["id"], "synthesizing")
@@ -493,32 +525,40 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
 
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/confirm")
-    def confirm_insight_route(request: Request, profile_id: int, insight_id: int):
+    def confirm_insight_route(request: Request, profile_id: int, insight_id: int,
+                              csrf_token: str = Form("")):
         if (resp := require_owner(request)) is not None:
             return resp
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         storage.confirm_insight(insight_id)
         return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
 
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/reject")
-    def reject_insight_route(request: Request, profile_id: int, insight_id: int):
+    def reject_insight_route(request: Request, profile_id: int, insight_id: int,
+                             csrf_token: str = Form("")):
         if (resp := require_owner(request)) is not None:
             return resp
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         storage.reject_insight(insight_id)
         return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
 
     @app.post("/dashboard/{profile_id}/apply")
-    def apply_insights(request: Request, profile_id: int):
+    def apply_insights(request: Request, profile_id: int, csrf_token: str = Form("")):
         if (resp := require_owner(request)) is not None:
             return resp
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         # Gewichts-Insights sind schon in criteria → deterministischer Rescore, sofort.
         changed = storage.rescore_profile(profile_id)
         # Freitext-Präferenzen → bestehende Jobs für LLM-Rescore enqueuen + Scoring-Agent starten.
@@ -614,6 +654,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (redirect := require_user(request)) is not None:
             return redirect
         form = await request.form()
+        if not csrf.verify(request, form.get("csrf_token")):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         freetext = form.get("freetext", "")
         wizard = _wizard_state(request)
         if freetext.strip():
@@ -632,6 +674,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if step not in STEP_ORDER:
             return RedirectResponse("/wizard/new", status_code=303)
         form = await request.form()
+        if not csrf.verify(request, form.get("csrf_token")):
+            return JSONResponse({"error": "csrf"}, status_code=403)
         wizard = _wizard_state(request)
         data = wizard["data"]
         if step == "basis":

@@ -20,6 +20,7 @@
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
     {% if success %}<p class="success-msg">{{ success }}</p>{% endif %}
     <form method="post" action="/account/passwort">
+      {% include "_csrf_field.html" %}
       <label for="current_password">Aktuelles Passwort</label>
       <input type="password" id="current_password" name="current_password" required>
       <label for="new_password">Neues Passwort</label>
@@ -45,6 +46,7 @@
        ersetzt das alte und wird nur einmalig angezeigt. Anleitung: <a class="link" href="/anleitung">/anleitung</a>.</p>
     {% endif %}
     <form method="post" action="/profiles/api-token">
+      {% include "_csrf_field.html" %}
       <button type="submit" class="btn btn-secondary">API-Token erzeugen</button>
     </form>
 
@@ -104,6 +106,7 @@
     <h2>Spar-Modus</h2>
     <p>Schützt dein Claude-Abo vor Überraschungsverbrauch — die Bob-Befehle respektieren diese Limits.</p>
     <form method="post" action="/einstellungen/spar-modus">
+      {% include "_csrf_field.html" %}
       <label><input type="radio" name="modus" value="unbegrenzt"
              {% if spar_modus.max_jobs is none %}checked{% endif %}>
              Unbegrenzt — Skills verarbeiten alles Wartende</label>

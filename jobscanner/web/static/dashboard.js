@@ -24,7 +24,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const resp = await fetch(form.action, {
           method: "POST",
           headers: { "Accept": "application/json" },
-          body: new URLSearchParams({ vote: btn.value }),
+          body: new URLSearchParams({
+            vote: btn.value,
+            csrf_token: document.querySelector('meta[name="csrf-token"]').content,
+          }),
         });
         if (!resp.ok) return;
         const data = await resp.json();
@@ -76,13 +79,21 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         await fetch(base + "/analysis/answers", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content,
+          },
           body: JSON.stringify({ analysis_id: Number(answersForm.dataset.analysisId), answers }),
         });
       } catch (e) { /* answers optional */ }
       const finalize = document.createElement("form");
       finalize.method = "post";
       finalize.action = base + "/finalize";
+      const csrfInput = document.createElement("input");
+      csrfInput.type = "hidden";
+      csrfInput.name = "csrf_token";
+      csrfInput.value = document.querySelector('meta[name="csrf-token"]').content;
+      finalize.appendChild(csrfInput);
       document.body.appendChild(finalize);
       finalize.submit();
     });

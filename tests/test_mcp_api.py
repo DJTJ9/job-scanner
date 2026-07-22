@@ -1,6 +1,6 @@
 """Tests für den BYO-Member-MCP-Zugang: Token, Tool-Scoping, Auth, Push-Validierung."""
 import pytest
-from fastapi.testclient import TestClient
+from _csrf_client import CSRFTestClient
 
 from jobscanner import storage
 from jobscanner.web.app import create_app
@@ -12,7 +12,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     app = create_app(db_path=tmp_path / "jobs.db")
-    return TestClient(app)
+    return CSRFTestClient(app)
 
 
 @pytest.fixture
