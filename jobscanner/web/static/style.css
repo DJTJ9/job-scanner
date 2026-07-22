@@ -111,6 +111,13 @@ input[type="text"], input[type="url"], input[type="password"], input[type="numbe
 .tabs, .subtabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--wasser); padding-bottom: 0.5rem; }
 .tab, .subtab { color: var(--gischt); text-decoration: none; opacity: 0.6; font-family: "IBM Plex Mono", monospace; }
 .tab.active, .subtab.active { opacity: 1; color: var(--signal); border-bottom: 2px solid var(--signal); }
+.pagination { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 1rem; }
+.page-link { color: var(--gischt); text-decoration: none; opacity: 0.6; padding: 0.15rem 0.5rem;
+  font-family: "IBM Plex Mono", monospace; border-radius: 4px; }
+.page-link:hover { opacity: 0.9; }
+.page-link.active { opacity: 1; color: var(--signal); border: 1px solid var(--signal); }
+.page-link.disabled { opacity: 0.3; pointer-events: none; }
+.page-ellipsis { color: var(--gischt); opacity: 0.5; }
 .subtabs { border-bottom: none; margin-bottom: 0.75rem; font-size: 0.9rem; }
 .tabs button.tab { background: none; border: none; padding: 0; cursor: pointer; }
 .feedback-badge { display: block; margin: 0.35rem 0; font-size: 0.85rem; font-family: "IBM Plex Mono", monospace; }

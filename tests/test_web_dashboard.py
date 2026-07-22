@@ -637,3 +637,34 @@ def test_dashboard_counts_stay_full_despite_slicing(client):
     resp = client.get(f"/dashboard/{pid}?tab=aktiv")
     assert resp.text.count("data-fingerprint=") == 25  # nur 25 gerendert
     assert "(30)" in resp.text                          # Count zeigt volle 30
+
+
+def test_dashboard_nav_hidden_with_single_page(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 10)  # < 25 → 1 Seite
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    assert 'class="pagination"' not in resp.text
+
+
+def test_dashboard_nav_shown_with_multiple_pages(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 30)  # 2 Seiten
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    assert 'class="pagination"' in resp.text
+    assert "Weiter" in resp.text
+    assert "Zurück" in resp.text
+
+
+def test_dashboard_nav_marks_active_page(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 30)
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&page=2")
+    # aktive Seite 2 trägt die active-Klasse
+    assert 'page-link active' in resp.text
+
+
+def test_dashboard_nav_uses_ellipsis_for_many_pages(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 300)  # 12 Seiten → Fenster mit Ellipse
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&page=6")
+    assert "…" in resp.text
