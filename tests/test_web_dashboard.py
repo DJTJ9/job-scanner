@@ -668,3 +668,27 @@ def test_dashboard_nav_uses_ellipsis_for_many_pages(client):
     _seed_scored(pid, 300)  # 12 Seiten → Fenster mit Ellipse
     resp = client.get(f"/dashboard/{pid}?tab=aktiv&page=6")
     assert "…" in resp.text
+
+
+def test_favorite_toggle_json(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                                first_seen="2026-07-11"))
+    resp = client.post(f"/dashboard/{pid}/favorite/{fp}",
+                       headers={"Accept": "application/json"}, follow_redirects=False)
+    assert resp.status_code == 200
+    assert resp.json() == {"favorite": True, "fingerprint": fp}
+    assert storage.get_favorites_set(pid) == {fp}
+    resp2 = client.post(f"/dashboard/{pid}/favorite/{fp}",
+                        headers={"Accept": "application/json"}, follow_redirects=False)
+    assert resp2.json() == {"favorite": False, "fingerprint": fp}
+    assert storage.get_favorites_set(pid) == set()
+
+
+def test_favorite_toggle_redirect_without_json(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                                first_seen="2026-07-11"))
+    resp = client.post(f"/dashboard/{pid}/favorite/{fp}", follow_redirects=False)
+    assert resp.status_code == 303
+    assert storage.get_favorites_set(pid) == {fp}

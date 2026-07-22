@@ -377,9 +377,12 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if tab not in _DASHBOARD_TABS:
             tab = "aktiv"
         feedback = storage.get_feedback_map(profile_id)
+        favorites = storage.get_favorites_set(profile_id)
         # Nur explizit gesetzte Spar-Filter anwenden; ein nie konfiguriertes Profil
         # (Owner/Default) hat keinen spar_modus-Key → None = kein Filter (alle Jobs).
         spar = profile["data"].get("spar_modus") or {}
+        fav_entries = storage.list_favorites_with_scores(
+            profile_id, locations=spar.get("locations"), languages=spar.get("languages"))
         aktiv, no_go, bewertet, ausland = [], [], [], []
         for entry in storage.list_jobs_with_scores(profile_id,
                                                     locations=spar.get("locations"),
@@ -420,6 +423,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "criteria": storage.list_criteria(profile_id),
             "entries": entries,
             "feedback": feedback,
+            "favorites": favorites,
+            "fav_entries": fav_entries,
             "tab": tab,
             "page": page,
             "total_pages": total_pages,
@@ -525,6 +530,22 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             vote = None
         if "application/json" in request.headers.get("accept", ""):
             return JSONResponse({"vote": vote, "fingerprint": fingerprint})
+        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+
+    @app.post("/dashboard/{profile_id}/favorite/{fingerprint}")
+    async def favorite_route(request: Request, profile_id: int, fingerprint: str):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
+        _profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
+        form = await request.form()
+        if not csrf.verify(request, form.get("csrf_token")):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+        is_fav = storage.toggle_favorite(profile_id, fingerprint)
+        storage.log_event("favorit_toggled", user_id=request.session.get("user_id"))
+        if "application/json" in request.headers.get("accept", ""):
+            return JSONResponse({"favorite": is_fav, "fingerprint": fingerprint})
         return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
 
     _FEEDBACK_CONFIRMATION = "Bob hat's notiert. Danke!"
