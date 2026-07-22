@@ -38,6 +38,14 @@ class TestListPending:
         result = llm_batch.list_pending(db, limit=2)
         assert len(result["jobs"]) == 2
 
+    def test_profiles_include_favorites_titles(self, db):
+        pid = _profile(db)
+        fp = storage.upsert_job(Job(title="Traumjob", company="ACME",
+                                    location="Hamburg", first_seen="2026-07-11"))
+        storage.toggle_favorite(pid, fp)
+        result = llm_batch.list_pending(db)
+        assert result["profiles"][0]["favorites"] == [{"title": "Traumjob"}]
+
 
 class TestWriteBatch:
     def test_extracts_and_scores_job(self, db):

@@ -33,6 +33,7 @@ def list_pending(db_path: str | Path | None = None, limit: int = _DEFAULT_LIMIT)
             "no_gos": p["data"].get("no_gos", []),
             "preferences": p["data"].get("preferences", []),
             "feedback": storage.list_feedback_with_titles(p["id"]),
+            "favorites": storage.list_favorites_with_titles(p["id"]),
         })
     active_profiles = storage.list_profiles(active_only=True)
     default_id = next((p["id"] for p in active_profiles if p["is_default"]), None)

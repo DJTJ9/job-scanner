@@ -45,6 +45,7 @@ def get_my_profile_data(user: dict) -> dict:
             "no_gos": p["data"].get("no_gos", []),
             "preferences": p["data"].get("preferences", []),
             "feedback": storage.list_feedback_with_titles(p["id"]),
+            "favorites": storage.list_favorites_with_titles(p["id"]),
             "spar_modus": storage.get_spar_modus(p["data"]),
         })
     return {"profiles": profiles}

@@ -33,6 +33,7 @@ def cmd_read(analysis_id: int, db_path: str | Path | None = None) -> None:
         "analysis": {"id": analysis["id"], "profile_id": pid, "status": analysis["status"],
                      "cards": analysis["cards"], "answers": analysis["answers"]},
         "votes": storage.list_feedback_with_jobs(pid),
+        "favorites": storage.list_favorites_with_titles(pid),
         "criteria": [{"key": c["key"], "label": c["label"], "weight": c["weight"]}
                      for c in storage.list_criteria(pid)],
         "preferences": profile["data"].get("preferences", []),
