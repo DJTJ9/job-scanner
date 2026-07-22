@@ -165,7 +165,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         user = storage.get_user(user_id)
         own = storage.list_profiles(user_id=user_id)
         spar = storage.get_spar_modus(own[0]["data"]) if own else dict(storage.SPAR_MODUS_DEFAULT)
-        return {"has_claude_kit": bool(user.get("api_token_hash")), "spar_modus": spar}
+        notify_pref = storage.get_notify_pref(own[0]["data"]) if own else dict(storage.NOTIFY_PREF_DEFAULT)
+        return {"has_claude_kit": bool(user.get("api_token_hash")), "spar_modus": spar,
+                "notify_pref": notify_pref}
 
     @app.post("/account/passwort")
     def account_password_submit(
@@ -207,7 +209,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return redirect
         return templates.TemplateResponse(request, "settings.html", {
             "error": None, "success": None, "api_token": None,
-            "active_tab": tab if tab in ("profil", "token") else "profil",
+            "active_tab": tab if tab in ("profil", "token", "notify") else "profil",
             **_settings_extra(request.session["user_id"])})
 
     @app.post("/einstellungen/spar-modus")
@@ -225,6 +227,16 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         storage.set_spar_modus(request.session["user_id"], limit,
                                neighbor_roles is not None, locs, langs)
         return RedirectResponse("/einstellungen?tab=token", status_code=303)
+
+    @app.post("/einstellungen/notify")
+    def notify_submit(request: Request, email_on: str = Form(None),
+                      csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+        storage.set_notify_pref(request.session["user_id"], email_on is not None)
+        return RedirectResponse("/einstellungen?tab=notify", status_code=303)
 
     @app.get("/register")
     def register_form(request: Request):

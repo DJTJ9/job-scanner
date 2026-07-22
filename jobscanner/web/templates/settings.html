@@ -12,6 +12,8 @@
             data-tab="profil" role="tab">Profil</button>
     <button type="button" class="tab{% if active_tab == 'token' %} tab-active{% endif %}"
             data-tab="token" role="tab">API-Token</button>
+    <button type="button" class="tab{% if active_tab == 'notify' %} tab-active{% endif %}"
+            data-tab="notify" role="tab">Benachrichtigung</button>
   </div>
 
   <section class="tab-panel{% if active_tab == 'profil' %} tab-panel-active{% endif %}"
@@ -128,6 +130,18 @@
              {% if 'de' in spar_modus.languages %}checked{% endif %}> Deutsch</label>
       <label><input type="checkbox" name="lang_en"
              {% if 'en' in spar_modus.languages %}checked{% endif %}> Englisch</label>
+      <button type="submit" class="btn btn-secondary">Speichern</button>
+    </form>
+  </section>
+
+  <section class="tab-panel{% if active_tab == 'notify' %} tab-panel-active{% endif %}"
+           data-tab-panel="notify">
+    <h2>Benachrichtigung</h2>
+    <form method="post" action="/einstellungen/notify">
+      {% include "_csrf_field.html" %}
+      <label><input type="checkbox" name="email_on"
+             {% if notify_pref.email %}checked{% endif %}>
+             Neue Top-Treffer per Email</label>
       <button type="submit" class="btn btn-secondary">Speichern</button>
     </form>
   </section>

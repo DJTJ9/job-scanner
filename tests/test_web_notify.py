@@ -51,3 +51,40 @@ def test_dashboard_no_banner_without_pass(member):
     pid = storage.create_profile("P", {}, user_id=uid)
     body = c.get(f"/dashboard/{pid}").text
     assert "notify-banner" not in body
+
+
+def test_settings_shows_benachrichtigung_tab(member):
+    c, uid = member
+    body = c.get("/einstellungen").text
+    assert 'data-tab="notify"' in body
+    assert "Benachrichtigung" in body
+    assert 'action="/einstellungen/notify"' in body
+
+
+def test_settings_notify_checkbox_reflects_pref(member):
+    c, uid = member
+    storage.create_profile("P", {}, user_id=uid)
+    storage.set_notify_pref(uid, False)
+    body = c.get("/einstellungen").text
+    # ausgeschaltet: kein checked auf der Notify-Checkbox
+    assert 'name="email_on"' in body
+
+
+def test_notify_post_persists_opt_out(member):
+    c, uid = member
+    storage.create_profile("P", {}, user_id=uid)
+    resp = c.post("/einstellungen/notify", data={}, follow_redirects=False)
+    assert resp.status_code == 303
+    prof = storage.list_profiles(user_id=uid)[0]
+    assert storage.get_notify_pref(prof["data"]) == {"email": False}
+
+
+def test_notify_post_persists_opt_in(member):
+    c, uid = member
+    storage.create_profile("P", {}, user_id=uid)
+    storage.set_notify_pref(uid, False)
+    resp = c.post("/einstellungen/notify", data={"email_on": "on"},
+                  follow_redirects=False)
+    assert resp.status_code == 303
+    prof = storage.list_profiles(user_id=uid)[0]
+    assert storage.get_notify_pref(prof["data"]) == {"email": True}
