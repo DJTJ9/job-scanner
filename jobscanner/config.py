@@ -58,6 +58,12 @@ def load_web_settings() -> dict:
         "port": int(os.environ.get("JOBSCANNER_WEB_PORT", "8010")),
         "invite_code": os.environ.get("JOBSCANNER_INVITE_CODE", ""),
         "owner_email": os.environ.get("JOBSCANNER_OWNER_EMAIL", ""),
+        "base_url": os.environ.get("JOBSCANNER_BASE_URL", "https://job-scanner.thinkshark.de"),
+        "smtp_host": os.environ.get("SMTP_HOST", ""),
+        "smtp_port": int(os.environ.get("SMTP_PORT", "587")),
+        "smtp_user": os.environ.get("SMTP_USER", ""),
+        "smtp_pass": os.environ.get("SMTP_PASS", ""),
+        "smtp_from": os.environ.get("SMTP_FROM", ""),
     }
 
 
