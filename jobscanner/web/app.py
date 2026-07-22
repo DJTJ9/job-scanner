@@ -18,7 +18,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.middleware.sessions import SessionMiddleware
 
 from jobscanner import config, nocodb_board, precheck, scoring, storage
-from jobscanner.web import csrf, llm_refine, mcp_api, rate_limit
+from jobscanner.web import csrf, llm_refine, mailer, mcp_api, rate_limit
 
 _DIR = Path(__file__).parent
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "data" / "jobs.db"
@@ -88,6 +88,15 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return JSONResponse({"error": "forbidden"}, status_code=403)
         return None
 
+    def require_verified_user(request: Request) -> RedirectResponse | None:
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if request.session.get("role") == "owner":
+            return None
+        if not request.session.get("email_verified"):
+            return RedirectResponse("/verify-pending", status_code=303)
+        return None
+
     def _require_owned(request: Request, profile_id: int):
         """(profile, None) wenn eingeloggt UND Profil dem User gehört; sonst (None, response).
         Unbekanntes Profil → Redirect /; fremdes Profil → 404."""
@@ -109,11 +118,17 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                      csrf_token: str = Form("")):
         if not csrf.verify(request, csrf_token):
             return JSONResponse({"error": "csrf"}, status_code=403)
+        ip = request.client.host if request.client else "unknown"
+        if not app.state.rate_limiter.hit(f"login:{ip}"):
+            return templates.TemplateResponse(
+                request, "login.html", {"error": "Zu viele Versuche — bitte später erneut"},
+                status_code=429)
         user = storage.verify_password(email, password)
         if user is not None:
             request.session["user_id"] = user["id"]
             request.session["email"] = user["email"]
             request.session["role"] = user["role"]
+            request.session["email_verified"] = user["email_verified_at"] is not None
             return RedirectResponse("/", status_code=303)
         return templates.TemplateResponse(
             request, "login.html", {"error": "Falsche Zugangsdaten"}, status_code=401)
@@ -218,26 +233,57 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     @app.post("/register")
     def register_submit(request: Request, email: str = Form(...),
                         password: str = Form(...), invite_code: str = Form(...),
-                        csrf_token: str = Form("")):
+                        consent: str = Form(None), csrf_token: str = Form("")):
         if not csrf.verify(request, csrf_token):
             return JSONResponse({"error": "csrf"}, status_code=403)
+        ip = request.client.host if request.client else "unknown"
+        if not app.state.rate_limiter.hit(f"register:{ip}"):
+            return templates.TemplateResponse(
+                request, "register.html", {"error": "Zu viele Versuche — bitte später erneut"},
+                status_code=429)
         if not settings["invite_code"] or not hmac.compare_digest(
                 invite_code, settings["invite_code"]):
             return templates.TemplateResponse(
                 request, "register.html", {"error": "Ungültiger Invite-Code"}, status_code=403)
+        if consent is None:
+            return templates.TemplateResponse(
+                request, "register.html",
+                {"error": "Bitte Datenschutzerklärung akzeptieren"}, status_code=400)
         email = email.strip().lower()
         if storage.get_user_by_email(email) is not None:
             return templates.TemplateResponse(
                 request, "register.html", {"error": "Email bereits registriert"}, status_code=409)
-        uid = storage.create_user(email, password, role="member")
+        uid = storage.create_user(email, password, role="member", consent=True, ip=ip)
+        user = storage.get_user(uid)
+        try:
+            mailer.send_verification_email(email, user["verify_token"], settings["base_url"])
+        except Exception:
+            pass
         request.session["user_id"] = uid
         request.session["email"] = email
         request.session["role"] = "member"
+        request.session["email_verified"] = False
         return RedirectResponse("/", status_code=303)
+
+    @app.get("/verify-pending")
+    def verify_pending_view(request: Request):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        return templates.TemplateResponse(request, "verify_pending.html", {})
+
+    @app.get("/verify-email")
+    def verify_email_view(request: Request, token: str = ""):
+        user = storage.verify_token_owner(token)
+        if user is None:
+            return JSONResponse({"error": "Ungültiger oder abgelaufener Link"}, status_code=404)
+        storage.mark_email_verified(user["id"])
+        if request.session.get("user_id") == user["id"]:
+            request.session["email_verified"] = True
+        return RedirectResponse("/login", status_code=303)
 
     @app.get("/")
     def profiles_view(request: Request):
-        if (redirect := require_user(request)) is not None:
+        if (redirect := require_verified_user(request)) is not None:
             return redirect
         profiles = storage.list_profiles(active_only=True,
                                           user_id=request.session.get("user_id"))
@@ -309,6 +355,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/dashboard/{profile_id}")
     def dashboard(request: Request, profile_id: int, tab: str = "aktiv"):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
         profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
@@ -350,6 +398,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/dashboard/{profile_id}/metriken")
     def metrics_view(request: Request, profile_id: int):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
         if (resp := require_owner(request)) is not None:
             return resp
         profile, resp = _require_owned(request, profile_id)
@@ -390,6 +440,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/criteria")
     async def save_criteria_route(request: Request, profile_id: int):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
@@ -421,6 +473,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/feedback/{fingerprint}")
     async def feedback_route(request: Request, profile_id: int, fingerprint: str):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
         _profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
@@ -472,6 +526,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/analyze")
     def analyze_votes(request: Request, profile_id: int, csrf_token: str = Form("")):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
         if (resp := require_owner(request)) is not None:
             return resp
         _profile, resp = _require_owned(request, profile_id)
@@ -485,6 +541,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/dashboard/{profile_id}/analysis")
     def analysis_status(request: Request, profile_id: int):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
         if (resp := require_owner(request)) is not None:
             return resp
         _profile, resp = _require_owned(request, profile_id)
@@ -498,6 +556,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/analysis/answers")
     async def save_answers(request: Request, profile_id: int):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
         if (resp := require_owner(request)) is not None:
             return resp
         _profile, resp = _require_owned(request, profile_id)
@@ -511,6 +571,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/finalize")
     def finalize_analysis(request: Request, profile_id: int, csrf_token: str = Form("")):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
         if (resp := require_owner(request)) is not None:
             return resp
         _profile, resp = _require_owned(request, profile_id)
@@ -527,6 +589,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/confirm")
     def confirm_insight_route(request: Request, profile_id: int, insight_id: int,
                               csrf_token: str = Form("")):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
         if (resp := require_owner(request)) is not None:
             return resp
         _profile, resp = _require_owned(request, profile_id)
@@ -540,6 +604,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/reject")
     def reject_insight_route(request: Request, profile_id: int, insight_id: int,
                              csrf_token: str = Form("")):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
         if (resp := require_owner(request)) is not None:
             return resp
         _profile, resp = _require_owned(request, profile_id)
@@ -552,6 +618,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/dashboard/{profile_id}/apply")
     def apply_insights(request: Request, profile_id: int, csrf_token: str = Form("")):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
         if (resp := require_owner(request)) is not None:
             return resp
         _profile, resp = _require_owned(request, profile_id)
@@ -601,7 +669,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/wizard/new")
     def wizard_start(request: Request):
-        if (redirect := require_user(request)) is not None:
+        if (redirect := require_verified_user(request)) is not None:
             return redirect
         request.session["wizard"] = {"data": {}, "suggestions": {}}
         storage.log_event("onboarding_start", user_id=request.session.get("user_id"))
@@ -609,6 +677,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/wizard/edit/{profile_id}")
     def wizard_edit(request: Request, profile_id: int):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
         profile, resp = _require_owned(request, profile_id)
         if resp is not None:
             return resp
@@ -625,7 +695,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/wizard/{step}")
     def wizard_step_form(request: Request, step: str):
-        if (redirect := require_user(request)) is not None:
+        if (redirect := require_verified_user(request)) is not None:
             return redirect
         if step not in STEP_ORDER:
             return RedirectResponse("/wizard/new", status_code=303)
@@ -649,6 +719,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/wizard/llm-refine")
     async def wizard_llm_refine(request: Request):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
         if (resp := require_owner(request)) is not None:
             return resp
         if (redirect := require_user(request)) is not None:
@@ -669,7 +741,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/wizard/{step}")
     async def wizard_step_submit(request: Request, step: str):
-        if (redirect := require_user(request)) is not None:
+        if (redirect := require_verified_user(request)) is not None:
             return redirect
         if step not in STEP_ORDER:
             return RedirectResponse("/wizard/new", status_code=303)
