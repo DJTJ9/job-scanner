@@ -1,0 +1,9 @@
+[Unit]
+Description=Job-Scanner Web-UI Healthcheck alle 15 Minuten
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=false
+
+[Install]
+WantedBy=timers.target
