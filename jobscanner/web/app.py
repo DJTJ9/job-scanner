@@ -515,6 +515,20 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "feedback_entries": storage.list_member_feedback(),
         })
 
+    @app.get("/admin/registrations")
+    def admin_registrations_view(request: Request):
+        if (resp := require_owner(request)) is not None:
+            return resp
+        registrations = storage.list_registrations()
+        for reg in registrations:
+            ip = reg.get("registered_ip")
+            reg["rate_limit_count"] = (
+                app.state.rate_limiter.count(f"register:{ip}")
+                + app.state.rate_limiter.count(f"login:{ip}")) if ip else 0
+        return templates.TemplateResponse(request, "admin_registrations.html", {
+            "registrations": registrations,
+        })
+
     def _launch_feedback_agent(pass_name: str, analysis_id: int) -> None:
         try:
             subprocess.Popen(
