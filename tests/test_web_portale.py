@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+from _csrf_client import CSRFTestClient
 
 from jobscanner import storage
 from jobscanner.web.app import create_app
@@ -21,14 +22,14 @@ def _login(client, email="owner@test.de", pw="ownerpw"):
 
 
 def test_portale_requires_login(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     resp = c.get("/portale", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"
 
 
 def test_pruefen_compatible_shows_success_and_activate_button(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     _login(c)
     with patch("jobscanner.web.app.precheck.precheck_portal",
               return_value={"rendered": True, "blocked": False, "structured": True,
@@ -43,7 +44,7 @@ def test_pruefen_compatible_shows_success_and_activate_button(app):
 
 
 def test_pruefen_incompatible_shows_firecrawl_optin(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     _login(c)
     with patch("jobscanner.web.app.precheck.precheck_portal",
               return_value={"rendered": True, "blocked": True, "structured": False,
@@ -56,7 +57,7 @@ def test_pruefen_incompatible_shows_firecrawl_optin(app):
 
 
 def test_aktivieren_sets_active_and_redirects(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     _login(c)
     uid = storage.get_user_by_email("owner@test.de")["id"]
     pid = storage.create_custom_portal("https://foo.de", "career_page", uid)
@@ -68,7 +69,7 @@ def test_aktivieren_sets_active_and_redirects(app):
 
 
 def test_portale_list_shows_all_users_entries(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     _login(c)
     uid = storage.get_user_by_email("owner@test.de")["id"]
     storage.create_custom_portal("https://a.de", "career_page", uid)

@@ -1,6 +1,7 @@
 """Tests für Email/Passwort-Login, Logout und Session-Guard."""
 import pytest
 from fastapi.testclient import TestClient
+from _csrf_client import CSRFTestClient
 
 from jobscanner.web.app import create_app
 
@@ -11,7 +12,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     app = create_app(db_path=tmp_path / "jobs.db")
-    return TestClient(app)
+    return CSRFTestClient(app)
 
 
 def test_root_redirects_to_login_when_unauthenticated(client):

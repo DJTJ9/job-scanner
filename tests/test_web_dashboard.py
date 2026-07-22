@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+from _csrf_client import CSRFTestClient
 
 from jobscanner import storage
 from jobscanner.models import Job
@@ -17,7 +18,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     app = create_app(db_path=tmp_path / "jobs.db")
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     c.post("/login", data={"email": "owner@test.de", "password": "geheim123"})
     return c
 
@@ -200,7 +201,7 @@ def test_dashboard_requires_login(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "x")
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "y")
     app = create_app(db_path=tmp_path / "jobs.db")
-    anon = TestClient(app)
+    anon = CSRFTestClient(app)
     resp = anon.get("/dashboard/1", follow_redirects=False)
     assert resp.status_code == 303
 
@@ -519,7 +520,7 @@ def member_client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     app = create_app(db_path=tmp_path / "jobs.db")
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     uid = storage.create_user("member@test.de", "memberpw", role="member")
     pid = storage.create_profile("Member-Profil", {"no_gos": []}, user_id=uid)
     storage.save_criteria(pid, [{"key": "remote", "label": "Remote", "weight": 5}])

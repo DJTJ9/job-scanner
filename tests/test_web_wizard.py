@@ -1,6 +1,7 @@
 """Tests für den 6-Schritte-Profil-Wizard inkl. optionaler LLM-Verfeinerung (gemockt)."""
 import pytest
 from fastapi.testclient import TestClient
+from _csrf_client import CSRFTestClient
 
 from jobscanner import storage
 from jobscanner.web import llm_refine
@@ -13,7 +14,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     app = create_app(db_path=tmp_path / "jobs.db")
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     c.post("/login", data={"email": "owner@test.de", "password": "geheim123"})
     return c
 
@@ -140,7 +141,7 @@ def test_wizard_requires_login(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "x")
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "y")
     app = create_app(db_path=tmp_path / "jobs.db")
-    anon = TestClient(app)
+    anon = CSRFTestClient(app)
     resp = anon.get("/wizard/new", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"

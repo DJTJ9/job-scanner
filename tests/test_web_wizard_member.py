@@ -1,6 +1,7 @@
 """Member-Wizard: Katalog-No-Gos + -Weights, sofortiges deterministisches Scoring."""
 import pytest
 from fastapi.testclient import TestClient
+from _csrf_client import CSRFTestClient
 
 from jobscanner import storage
 from jobscanner.models import Job
@@ -19,7 +20,7 @@ def client(tmp_path, monkeypatch):
     storage.upsert_job(Job(title="Senior Architect", company="B GmbH", location="Berlin",
                            remote_flag="onsite", language="de", requirements=["5 Jahre"]))
     storage.create_user("member@test.de", "pw", role="member")
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     c.post("/login", data={"email": "member@test.de", "password": "pw"})
     return c
 

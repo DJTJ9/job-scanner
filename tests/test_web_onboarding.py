@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from _csrf_client import CSRFTestClient
 
 from jobscanner import storage
 from jobscanner.web.app import create_app
@@ -14,7 +15,7 @@ def owner_client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     app = create_app(db_path=tmp_path / "jobs.db")
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     c.post("/login", data={"email": "owner@test.de", "password": "geheim123"})
     return c
 
@@ -26,7 +27,7 @@ def member_client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     app = create_app(db_path=tmp_path / "jobs.db")
     storage.create_user("member@test.de", "pw", role="member")
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     c.post("/login", data={"email": "member@test.de", "password": "pw"})
     return c
 

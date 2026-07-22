@@ -1,6 +1,7 @@
 """Tests für Funnel-Event-Logging an Wizard-Start/Profil-Erstellung/Feedback-Submit."""
 import pytest
 from fastapi.testclient import TestClient
+from _csrf_client import CSRFTestClient
 
 from jobscanner import storage
 from jobscanner.models import Job
@@ -14,7 +15,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     monkeypatch.setenv("JOBSCANNER_INVITE_CODE", "invite123")
     app = create_app(db_path=tmp_path / "jobs.db")
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     c.post("/register", data={"email": "member@test.de", "password": "pw123456",
                               "invite_code": "invite123"})
     return c

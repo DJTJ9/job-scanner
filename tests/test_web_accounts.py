@@ -1,6 +1,7 @@
 """Tests für Registrierung, Login-Isolation und LLM-Rollen-Gate der Kommilitoninnen-Accounts."""
 import pytest
 from fastapi.testclient import TestClient
+from _csrf_client import CSRFTestClient
 
 from jobscanner import storage
 from jobscanner.web.app import create_app
@@ -34,7 +35,7 @@ def _wizard_profile(client, name):
 
 
 def test_register_valid_invite_creates_member_and_logs_in(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     resp = _register(c)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/"
@@ -44,27 +45,27 @@ def test_register_valid_invite_creates_member_and_logs_in(app):
 
 
 def test_register_wrong_invite_rejected(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     resp = _register(c, code="falsch")
     assert resp.status_code == 403
     assert storage.get_user_by_email("stud@uni.de") is None
 
 
 def test_register_duplicate_email_rejected(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     _register(c)
-    resp = TestClient(app).post(
+    resp = CSRFTestClient(app).post(
         "/register", data={"email": "stud@uni.de", "password": "x", "invite_code": "komm2026"})
     assert resp.status_code == 409
 
 
 def test_member_profile_isolated_from_other_member(app):
-    a = TestClient(app)
+    a = CSRFTestClient(app)
     _register(a, email="a@uni.de", pw="pwa")
     a_dash = _wizard_profile(a, "A-Profil")
     a_pid = int(a_dash.rsplit("/", 1)[1])
 
-    b = TestClient(app)
+    b = CSRFTestClient(app)
     _register(b, email="b@uni.de", pw="pwb")
     # B sieht A's Profil nicht in der Liste …
     assert "A-Profil" not in b.get("/").text
@@ -73,7 +74,7 @@ def test_member_profile_isolated_from_other_member(app):
 
 
 def test_member_sees_own_profile_and_ranking(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     _register(c)
     dash = _wizard_profile(c, "Mein-Profil")
     resp = c.get(dash)
@@ -82,7 +83,7 @@ def test_member_sees_own_profile_and_ranking(app):
 
 
 def test_member_llm_routes_forbidden(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     _register(c)
     dash = _wizard_profile(c, "Mein-Profil")
     pid = int(dash.rsplit("/", 1)[1])
@@ -93,7 +94,7 @@ def test_member_llm_routes_forbidden(app):
 
 
 def test_owner_llm_route_not_forbidden(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     c.post("/login", data={"email": "owner@test.de", "password": "ownerpw"})
     # Owner erhält KEIN 403 (Redirect 303 nach /wizard/skills ist ok).
     assert c.post("/wizard/llm-refine", data={"freetext": ""},
@@ -101,14 +102,14 @@ def test_owner_llm_route_not_forbidden(app):
 
 
 def test_login_page_has_email_field_and_register_link(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     page = c.get("/login").text
     assert 'name="email"' in page
     assert "/register" in page
 
 
 def test_member_dashboard_hides_owner_only_controls(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     _register(c)
     dash = _wizard_profile(c, "Mein-Profil")
     dash_text = c.get(dash).text
@@ -121,14 +122,14 @@ def test_member_dashboard_hides_owner_only_controls(app):
 
 
 def test_owner_dashboard_shows_lernen_tab(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     c.post("/login", data={"email": "owner@test.de", "password": "ownerpw"})
     pid = storage.get_profile_by_name("Tjark")["id"]
     assert "Lernen" in c.get(f"/dashboard/{pid}").text
 
 
 def test_impressum_public_without_login(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     resp = c.get("/impressum")
     assert resp.status_code == 200
     assert "Angaben gemäß § 5 TMG" in resp.text
@@ -136,20 +137,20 @@ def test_impressum_public_without_login(app):
 
 
 def test_datenschutz_public_without_login(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     resp = c.get("/datenschutz")
     assert resp.status_code == 200
     assert "Datenschutz" in resp.text
 
 
 def _owner_client(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     c.post("/login", data={"email": "owner@test.de", "password": "ownerpw"})
     return c
 
 
 def test_password_page_requires_login(app):
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     resp = c.get("/account/passwort", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"

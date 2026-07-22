@@ -1,6 +1,7 @@
 """P5: Profil bearbeiten/löschen über Web-UI."""
 import pytest
 from fastapi.testclient import TestClient
+from _csrf_client import CSRFTestClient
 
 from jobscanner import storage
 from jobscanner.web.app import create_app
@@ -13,7 +14,7 @@ def member(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     app = create_app(db_path=tmp_path / "jobs.db")
     uid = storage.create_user("m@test.de", "pw", role="member")
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     c.post("/login", data={"email": "m@test.de", "password": "pw"})
     return c, uid
 

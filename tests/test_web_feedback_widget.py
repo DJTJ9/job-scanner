@@ -1,6 +1,7 @@
 """Tests für POST /api/feedback (Sag's-Bob-Widget)."""
 import pytest
 from fastapi.testclient import TestClient
+from _csrf_client import CSRFTestClient
 
 from jobscanner import storage
 from jobscanner.web.app import create_app
@@ -13,7 +14,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     monkeypatch.setenv("JOBSCANNER_INVITE_CODE", "invite123")
     app = create_app(db_path=tmp_path / "jobs.db")
-    return TestClient(app)
+    return CSRFTestClient(app)
 
 
 def test_feedback_requires_login(client):

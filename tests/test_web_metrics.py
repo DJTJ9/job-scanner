@@ -1,6 +1,7 @@
 """Tests für Owner-only Metriken-Dashboard (/dashboard/{id}/metriken)."""
 import pytest
 from fastapi.testclient import TestClient
+from _csrf_client import CSRFTestClient
 
 from jobscanner import storage
 from jobscanner.web.app import create_app
@@ -13,7 +14,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     monkeypatch.setenv("JOBSCANNER_INVITE_CODE", "invite123")
     app = create_app(db_path=tmp_path / "jobs.db")
-    c = TestClient(app)
+    c = CSRFTestClient(app)
     c.post("/login", data={"email": "owner@test.de", "password": "geheim123"})
     return c, app
 
@@ -46,7 +47,7 @@ def test_metrics_page_shows_funnel_and_ping_verlauf(client):
 
 def test_metrics_page_forbidden_for_member(client):
     _, app = client
-    member_client = TestClient(app)
+    member_client = CSRFTestClient(app)
     member_client.post("/register", data={"email": "m@test.de", "password": "pw123456",
                                           "invite_code": "invite123"})
     uid = storage.get_user_by_email("m@test.de")["id"]
