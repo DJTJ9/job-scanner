@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
+  <meta name="csrf-token" content="{{ csrf_token(request) }}">
 </head>
 <body{% if request.session.get("user_id") %} class="has-drawer"{% endif %}>
   <header class="topbar">

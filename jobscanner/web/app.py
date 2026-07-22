@@ -18,7 +18,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.middleware.sessions import SessionMiddleware
 
 from jobscanner import config, nocodb_board, precheck, scoring, storage
-from jobscanner.web import llm_refine, mcp_api, rate_limit
+from jobscanner.web import csrf, llm_refine, mcp_api, rate_limit
 
 _DIR = Path(__file__).parent
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "data" / "jobs.db"
@@ -74,6 +74,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     app.mount("/mcp", mcp_api.TokenAuthMiddleware(mcp_asgi))
     templates = Jinja2Templates(directory=_DIR / "templates")
     templates.env.globals["asset_version"] = _read_asset_version(_DIR)
+    templates.env.globals["csrf_token"] = csrf.ensure_token
 
     def require_user(request: Request) -> RedirectResponse | None:
         if request.session.get("user_id") is None:
