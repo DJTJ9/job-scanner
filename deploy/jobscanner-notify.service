@@ -1,0 +1,13 @@
+[Unit]
+Description=Job Scanner Per-Member Notify-Pass (Digest-Email nach Scoring)
+After=network.target
+OnFailure=jobscanner-alert@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/projekte/job-scanner
+EnvironmentFile=/root/projekte/telegram-bot-army/.env
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/python3 -m jobscanner.notify
+StandardOutput=journal
+StandardError=journal
