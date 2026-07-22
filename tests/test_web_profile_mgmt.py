@@ -14,6 +14,7 @@ def member(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
     app = create_app(db_path=tmp_path / "jobs.db")
     uid = storage.create_user("m@test.de", "pw", role="member")
+    storage.mark_email_verified(uid)
     c = CSRFTestClient(app)
     c.post("/login", data={"email": "m@test.de", "password": "pw"})
     return c, uid

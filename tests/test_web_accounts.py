@@ -18,8 +18,16 @@ def app(tmp_path, monkeypatch):
 
 def _register(client, email="stud@uni.de", pw="studpw", code="komm2026"):
     return client.post("/register",
-                       data={"email": email, "password": pw, "invite_code": code},
+                       data={"email": email, "password": pw, "invite_code": code,
+                             "consent": "on"},
                        follow_redirects=False)
+
+
+def _verify_and_login(client, email, pw):
+    """Markiert die Email als verifiziert und loggt neu ein, damit die Session
+    (die /register hart auf email_verified=False setzt) den DB-Zustand übernimmt."""
+    storage.mark_email_verified(storage.get_user_by_email(email)["id"])
+    client.post("/login", data={"email": email, "password": pw})
 
 
 def _wizard_profile(client, name):
@@ -41,6 +49,7 @@ def test_register_valid_invite_creates_member_and_logs_in(app):
     assert resp.headers["location"] == "/"
     user = storage.get_user_by_email("stud@uni.de")
     assert user["role"] == "member"
+    _verify_and_login(c, "stud@uni.de", "studpw")
     assert c.get("/", follow_redirects=False).status_code == 200
 
 
@@ -55,18 +64,21 @@ def test_register_duplicate_email_rejected(app):
     c = CSRFTestClient(app)
     _register(c)
     resp = CSRFTestClient(app).post(
-        "/register", data={"email": "stud@uni.de", "password": "x", "invite_code": "komm2026"})
+        "/register", data={"email": "stud@uni.de", "password": "x", "invite_code": "komm2026",
+                           "consent": "on"})
     assert resp.status_code == 409
 
 
 def test_member_profile_isolated_from_other_member(app):
     a = CSRFTestClient(app)
     _register(a, email="a@uni.de", pw="pwa")
+    _verify_and_login(a, "a@uni.de", "pwa")
     a_dash = _wizard_profile(a, "A-Profil")
     a_pid = int(a_dash.rsplit("/", 1)[1])
 
     b = CSRFTestClient(app)
     _register(b, email="b@uni.de", pw="pwb")
+    _verify_and_login(b, "b@uni.de", "pwb")
     # B sieht A's Profil nicht in der Liste …
     assert "A-Profil" not in b.get("/").text
     # … und kann es nicht per URL öffnen.
@@ -76,6 +88,7 @@ def test_member_profile_isolated_from_other_member(app):
 def test_member_sees_own_profile_and_ranking(app):
     c = CSRFTestClient(app)
     _register(c)
+    _verify_and_login(c, "stud@uni.de", "studpw")
     dash = _wizard_profile(c, "Mein-Profil")
     resp = c.get(dash)
     assert resp.status_code == 200
@@ -85,6 +98,7 @@ def test_member_sees_own_profile_and_ranking(app):
 def test_member_llm_routes_forbidden(app):
     c = CSRFTestClient(app)
     _register(c)
+    _verify_and_login(c, "stud@uni.de", "studpw")
     dash = _wizard_profile(c, "Mein-Profil")
     pid = int(dash.rsplit("/", 1)[1])
     assert c.post("/wizard/llm-refine", data={"freetext": "x"},

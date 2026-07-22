@@ -19,7 +19,8 @@ def client(tmp_path, monkeypatch):
                            remote_flag="remote", language="de", tech_stack=["Unity"]))
     storage.upsert_job(Job(title="Senior Architect", company="B GmbH", location="Berlin",
                            remote_flag="onsite", language="de", requirements=["5 Jahre"]))
-    storage.create_user("member@test.de", "pw", role="member")
+    uid = storage.create_user("member@test.de", "pw", role="member")
+    storage.mark_email_verified(uid)
     c = CSRFTestClient(app)
     c.post("/login", data={"email": "member@test.de", "password": "pw"})
     return c

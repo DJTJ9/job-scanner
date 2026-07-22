@@ -49,8 +49,10 @@ def test_metrics_page_forbidden_for_member(client):
     _, app = client
     member_client = CSRFTestClient(app)
     member_client.post("/register", data={"email": "m@test.de", "password": "pw123456",
-                                          "invite_code": "invite123"})
+                                          "invite_code": "invite123", "consent": "on"})
     uid = storage.get_user_by_email("m@test.de")["id"]
+    storage.mark_email_verified(uid)
+    member_client.post("/login", data={"email": "m@test.de", "password": "pw123456"})
     pid = storage.create_profile("MemberP", {}, user_id=uid)
     resp = member_client.get(f"/dashboard/{pid}/metriken")
     assert resp.status_code == 403

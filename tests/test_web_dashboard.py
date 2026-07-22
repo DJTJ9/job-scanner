@@ -522,6 +522,7 @@ def member_client(tmp_path, monkeypatch):
     app = create_app(db_path=tmp_path / "jobs.db")
     c = CSRFTestClient(app)
     uid = storage.create_user("member@test.de", "memberpw", role="member")
+    storage.mark_email_verified(uid)
     pid = storage.create_profile("Member-Profil", {"no_gos": []}, user_id=uid)
     storage.save_criteria(pid, [{"key": "remote", "label": "Remote", "weight": 5}])
     c.post("/login", data={"email": "member@test.de", "password": "memberpw"})
