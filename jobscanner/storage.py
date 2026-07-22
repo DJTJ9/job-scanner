@@ -72,6 +72,13 @@ CREATE TABLE IF NOT EXISTS feedback (
     created_at TEXT NOT NULL,
     UNIQUE (profile_id, fingerprint)
 );
+CREATE TABLE IF NOT EXISTS favorites (
+    id INTEGER PRIMARY KEY,
+    profile_id INTEGER NOT NULL REFERENCES profiles(id),
+    fingerprint TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (profile_id, fingerprint)
+);
 CREATE TABLE IF NOT EXISTS job_scores (
     profile_id INTEGER NOT NULL REFERENCES profiles(id),
     fingerprint TEXT NOT NULL,
@@ -648,6 +655,7 @@ def delete_profile(profile_id: int) -> None:
         conn.execute("DELETE FROM insights WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM feedback_analysis WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM job_scores WHERE profile_id = ?", (profile_id,))
+        conn.execute("DELETE FROM favorites WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM feedback WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM criteria WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM profiles WHERE id = ?", (profile_id,))
@@ -1004,6 +1012,50 @@ def list_feedback_with_titles(profile_id: int) -> list[dict]:
            FROM feedback JOIN jobs ON jobs.fingerprint = feedback.fingerprint
            WHERE feedback.profile_id = ?
            ORDER BY feedback.created_at DESC, feedback.id DESC""", (profile_id,))
+    return [dict(r) for r in rows]
+
+
+@_retry_on_locked
+def toggle_favorite(profile_id: int, fingerprint: str) -> bool:
+    """Fügt Favorit hinzu (True) oder entfernt ihn (False). Gibt neuen Zustand zurück."""
+    conn = _require_conn()
+    with conn:
+        cur = conn.execute(
+            "DELETE FROM favorites WHERE profile_id = ? AND fingerprint = ?",
+            (profile_id, fingerprint))
+        if cur.rowcount:
+            return False
+        conn.execute(
+            "INSERT INTO favorites (profile_id, fingerprint, created_at) "
+            "VALUES (?, ?, datetime('now'))",
+            (profile_id, fingerprint))
+    return True
+
+
+def get_favorites_set(profile_id: int) -> set[str]:
+    conn = _require_conn()
+    rows = conn.execute(
+        "SELECT fingerprint FROM favorites WHERE profile_id = ?", (profile_id,))
+    return {r["fingerprint"] for r in rows}
+
+
+def list_favorites_with_scores(profile_id: int, locations: list[str] | None = None,
+                               languages: list[str] | None = None) -> list[dict]:
+    """Favorisierte Jobs mit Score, Score DESC. Reuse der list_jobs_with_scores-JOIN
+    (identische Entry-Struktur fürs Card-Rendering), gefiltert auf favorisierte fingerprints."""
+    favs = get_favorites_set(profile_id)
+    return [e for e in list_jobs_with_scores(profile_id, locations, languages)
+            if e["job"].fingerprint in favs]
+
+
+def list_favorites_with_titles(profile_id: int) -> list[dict]:
+    """Favorisierte Job-Titel als STARKE Positiv-Beispiele fürs Scoring, neueste zuerst."""
+    conn = _require_conn()
+    rows = conn.execute(
+        """SELECT jobs.title AS title
+           FROM favorites JOIN jobs ON jobs.fingerprint = favorites.fingerprint
+           WHERE favorites.profile_id = ?
+           ORDER BY favorites.created_at DESC, favorites.id DESC""", (profile_id,))
     return [dict(r) for r in rows]
 
 
