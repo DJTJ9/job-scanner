@@ -95,6 +95,8 @@ input[type="text"], input[type="url"], input[type="password"], input[type="numbe
 .feedback-btn { background: none; border: none; font-size: 1.1rem; cursor: pointer; }
 .feedback-btn.active-up { color: var(--beute); }
 .feedback-btn.active-down { color: var(--veto); }
+.fav-btn { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--gischt); opacity: 0.6; }
+.fav-btn.fav-active { color: var(--signal); opacity: 1; }
 .ping-ring-pass { stroke: var(--beute); }
 .ping-ring-vielleicht { stroke: var(--signal); }
 .ping-ring-nogo { stroke: var(--veto); }

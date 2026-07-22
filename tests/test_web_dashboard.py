@@ -692,3 +692,25 @@ def test_favorite_toggle_redirect_without_json(client):
     resp = client.post(f"/dashboard/{pid}/favorite/{fp}", follow_redirects=False)
     assert resp.status_code == 303
     assert storage.get_favorites_set(pid) == {fp}
+
+
+def test_dashboard_shows_star_button_and_favorites_panel(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                                first_seen="2026-07-11"))
+    storage.upsert_job_score(pid, fp, 80, "gut", "Pass", {})
+    resp = client.get(f"/dashboard/{pid}")
+    assert "data-fav-form" in resp.text
+    assert 'data-tab-target="favoriten"' in resp.text
+    assert 'data-tab-panel="favoriten"' in resp.text
+
+
+def test_favorited_job_renders_in_favorites_panel(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Sterni Job", company="ACME", location="Hamburg",
+                                first_seen="2026-07-11"))
+    storage.upsert_job_score(pid, fp, 80, "gut", "Pass", {})
+    storage.toggle_favorite(pid, fp)
+    resp = client.get(f"/dashboard/{pid}")
+    panel = resp.text.split('data-tab-panel="favoriten"')[1]
+    assert "Sterni Job" in panel  # Favorit im Panel gerendert

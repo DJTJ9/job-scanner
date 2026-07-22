@@ -1,5 +1,56 @@
 {% extends "base.html" %}
 {% from "_ping.html" import ping %}
+{% macro job_card(e, profile, feedback, favorites, criteria) %}
+  {% set vote = feedback.get(e.job.fingerprint) %}
+  <div class="job-card" data-fingerprint="{{ e.job.fingerprint }}">
+    {{ ping(e.score, e.category) }}
+    <div style="flex:1">
+      {% if e.job.sources and e.job.sources[0].url.startswith(('http://', 'https://')) %}
+        <strong><a class="link" href="{{ e.job.sources[0].url }}" target="_blank" rel="noopener">{{ e.job.title }}</a></strong> · {{ e.job.company }}
+      {% else %}
+        <strong>{{ e.job.title }}</strong> · {{ e.job.company }}
+      {% endif %}
+      <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/favorite/{{ e.job.fingerprint }}" data-fav-form>
+        <button type="submit" class="fav-btn {{ 'fav-active' if e.job.fingerprint in favorites }}" data-fav-btn aria-label="Favorit">{{ '★' if e.job.fingerprint in favorites else '☆' }}</button>
+      </form>
+      <div class="job-meta">{{ e.job.location }} · {{ e.job.remote_flag }} · {{ e.job.first_seen }}</div>
+      <p class="feedback-badge {{ 'feedback-badge-up' if vote == 'up' else 'feedback-badge-down' if vote == 'down' else 'feedback-badge-hidden' }}" data-feedback-badge>
+        {% if vote == 'up' %}✓ bewertet 👍{% elif vote == 'down' %}✓ bewertet 👎{% endif %}
+      </p>
+      <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/feedback/{{ e.job.fingerprint }}" data-vote-form>
+        <button type="submit" name="vote" value="up" class="feedback-btn {{ 'active-up' if vote == 'up' }}" data-vote-btn="up">👍</button>
+      </form>
+      <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/feedback/{{ e.job.fingerprint }}" data-vote-form>
+        <button type="submit" name="vote" value="down" class="feedback-btn {{ 'active-down' if vote == 'down' }}" data-vote-btn="down">👎</button>
+      </form>
+    </div>
+    {% if e.breakdown or e.reason %}
+    <div class="breakdown-full">
+      {% if e.breakdown %}
+        <details>
+          <summary>▸ Begründung</summary>
+          <div class="breakdown-scroll">
+          <table class="breakdown-table">
+            <tr><th>Kriterium</th><th>Punkte/10</th><th>Gewicht</th><th>Grund</th></tr>
+            {% for c in criteria %}
+              {% set b = e.breakdown.get(c.key) %}
+              <tr class="{{ 'unbekannt' if not b or b.punkte is none else '' }}">
+                <td>{{ c.label }}</td>
+                <td>{{ b.punkte if b and b.punkte is not none else "unbekannt" }}</td>
+                <td>{{ c.weight }}</td>
+                <td>{{ b.grund if b else "" }}</td>
+              </tr>
+            {% endfor %}
+          </table>
+          </div>
+        </details>
+      {% elif e.reason %}
+        <p class="job-meta">{{ e.reason }}</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+{% endmacro %}
 {% block title %}{{ profile.name }} — Bob der Job-Bot{% endblock %}
 {% block content %}
 <div class="hero-landscape-band"></div>
@@ -9,6 +60,7 @@
 {% endif %}
 <nav class="tabs" data-toplevel-tabs>
   <button type="button" class="tab active" data-tab-target="kontakte">Job-Angebote</button>
+  <button type="button" class="tab" data-tab-target="favoriten">Favoriten</button>
   <button type="button" class="tab" data-tab-target="feintuning">Feintuning</button>
   {% if request.session.get("role") in ("owner", "member") %}
   <button type="button" class="tab" data-tab-target="lernen">Lernen</button>
@@ -137,52 +189,7 @@
     <p class="job-meta">Keine Jobs in diesem Tab.</p>
   {% endif %}
   {% for e in entries %}
-    {% set vote = feedback.get(e.job.fingerprint) %}
-    <div class="job-card" data-fingerprint="{{ e.job.fingerprint }}">
-      {{ ping(e.score, e.category) }}
-      <div style="flex:1">
-        {% if e.job.sources and e.job.sources[0].url.startswith(('http://', 'https://')) %}
-          <strong><a class="link" href="{{ e.job.sources[0].url }}" target="_blank" rel="noopener">{{ e.job.title }}</a></strong> · {{ e.job.company }}
-        {% else %}
-          <strong>{{ e.job.title }}</strong> · {{ e.job.company }}
-        {% endif %}
-        <div class="job-meta">{{ e.job.location }} · {{ e.job.remote_flag }} · {{ e.job.first_seen }}</div>
-        <p class="feedback-badge {{ 'feedback-badge-up' if vote == 'up' else 'feedback-badge-down' if vote == 'down' else 'feedback-badge-hidden' }}" data-feedback-badge>
-          {% if vote == 'up' %}✓ bewertet 👍{% elif vote == 'down' %}✓ bewertet 👎{% endif %}
-        </p>
-        <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/feedback/{{ e.job.fingerprint }}" data-vote-form>
-          <button type="submit" name="vote" value="up" class="feedback-btn {{ 'active-up' if vote == 'up' }}" data-vote-btn="up">👍</button>
-        </form>
-        <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/feedback/{{ e.job.fingerprint }}" data-vote-form>
-          <button type="submit" name="vote" value="down" class="feedback-btn {{ 'active-down' if vote == 'down' }}" data-vote-btn="down">👎</button>
-        </form>
-      </div>
-      {% if e.breakdown or e.reason %}
-      <div class="breakdown-full">
-        {% if e.breakdown %}
-          <details>
-            <summary>▸ Begründung</summary>
-            <div class="breakdown-scroll">
-            <table class="breakdown-table">
-              <tr><th>Kriterium</th><th>Punkte/10</th><th>Gewicht</th><th>Grund</th></tr>
-              {% for c in criteria %}
-                {% set b = e.breakdown.get(c.key) %}
-                <tr class="{{ 'unbekannt' if not b or b.punkte is none else '' }}">
-                  <td>{{ c.label }}</td>
-                  <td>{{ b.punkte if b and b.punkte is not none else "unbekannt" }}</td>
-                  <td>{{ c.weight }}</td>
-                  <td>{{ b.grund if b else "" }}</td>
-                </tr>
-              {% endfor %}
-            </table>
-            </div>
-          </details>
-        {% elif e.reason %}
-          <p class="job-meta">{{ e.reason }}</p>
-        {% endif %}
-      </div>
-      {% endif %}
-    </div>
+    {{ job_card(e, profile, feedback, favorites, criteria) }}
   {% endfor %}
   {% if total_pages > 1 %}
   <nav class="pagination">
@@ -206,6 +213,15 @@
     {% endif %}
   </nav>
   {% endif %}
+</div>
+<div class="panel panel-hidden" data-tab-panel="favoriten">
+  <h2>⭐ Deine Favoriten <span class="mono">({{ fav_entries|length }})</span></h2>
+  {% if not fav_entries %}
+    <p class="job-meta">Noch keine Favoriten — klick ★ an einem Job, um ihn hier zu sammeln.</p>
+  {% endif %}
+  {% for e in fav_entries %}
+    {{ job_card(e, profile, feedback, favorites, criteria) }}
+  {% endfor %}
 </div>
 <script src="/static/dashboard.js?v={{ asset_version }}" defer></script>
 {% endblock %}

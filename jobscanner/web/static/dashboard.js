@@ -49,6 +49,30 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll("[data-fav-form]").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const btn = event.submitter;
+      if (!btn || btn.disabled) return;
+      btn.disabled = true;
+      try {
+        const resp = await fetch(form.action, {
+          method: "POST",
+          headers: { "Accept": "application/json" },
+          body: new URLSearchParams({
+            csrf_token: document.querySelector('meta[name="csrf-token"]').content,
+          }),
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        btn.classList.toggle("fav-active", data.favorite);
+        btn.textContent = data.favorite ? "★" : "☆";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
   // Lernen: Status pollen, bei Wechsel neu laden (Karten sind server-rendered)
   const lernenPanel = document.querySelector('[data-tab-panel="lernen"]');
   if (lernenPanel) {
