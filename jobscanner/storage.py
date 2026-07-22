@@ -192,6 +192,14 @@ def init_db(path: str | Path) -> None:
     user_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(users)")}
     if "api_token_hash" not in user_cols:
         _conn.execute("ALTER TABLE users ADD COLUMN api_token_hash TEXT")
+    if "email_verified_at" not in user_cols:
+        _conn.execute("ALTER TABLE users ADD COLUMN email_verified_at TEXT")
+    if "verify_token" not in user_cols:
+        _conn.execute("ALTER TABLE users ADD COLUMN verify_token TEXT")
+    if "consent_at" not in user_cols:
+        _conn.execute("ALTER TABLE users ADD COLUMN consent_at TEXT")
+    if "registered_ip" not in user_cols:
+        _conn.execute("ALTER TABLE users ADD COLUMN registered_ip TEXT")
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_extraction_status ON jobs(extraction_status)")
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)")
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_category ON jobs(category)")
@@ -235,13 +243,18 @@ def _hash_password(password: str, salt: bytes) -> str:
 
 
 @_retry_on_locked
-def create_user(email: str, password: str, role: str = "member") -> int:
+def create_user(email: str, password: str, role: str = "member",
+                consent: bool = False, ip: str | None = None) -> int:
     conn = _require_conn()
     salt = os.urandom(16)
+    verify_token = secrets.token_urlsafe(32)
+    consent_at = conn.execute("SELECT datetime('now')").fetchone()[0] if consent else None
     cur = conn.execute(
-        "INSERT INTO users (email, pw_hash, salt, role, created_at) "
-        "VALUES (?, ?, ?, ?, datetime('now'))",
-        (email.strip().lower(), _hash_password(password, salt), salt.hex(), role))
+        "INSERT INTO users (email, pw_hash, salt, role, created_at, "
+        "verify_token, consent_at, registered_ip) "
+        "VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?)",
+        (email.strip().lower(), _hash_password(password, salt), salt.hex(), role,
+         verify_token, consent_at, ip))
     conn.commit()
     return cur.lastrowid
 
@@ -290,6 +303,31 @@ def seed_owner(email: str, password: str) -> int | None:
     conn.execute("UPDATE profiles SET user_id = ? WHERE user_id IS NULL", (uid,))
     conn.commit()
     return uid
+
+
+@_retry_on_locked
+def mark_email_verified(user_id: int) -> None:
+    conn = _require_conn()
+    conn.execute(
+        "UPDATE users SET email_verified_at = datetime('now'), verify_token = NULL "
+        "WHERE id = ?", (user_id,))
+    conn.commit()
+
+
+def verify_token_owner(token: str) -> dict | None:
+    if not token:
+        return None
+    conn = _require_conn()
+    row = conn.execute("SELECT * FROM users WHERE verify_token = ?", (token,)).fetchone()
+    return dict(row) if row else None
+
+
+def list_registrations() -> list[dict]:
+    conn = _require_conn()
+    rows = conn.execute(
+        "SELECT id, email, created_at, email_verified_at, registered_ip "
+        "FROM users WHERE role = 'member' ORDER BY id ASC").fetchall()
+    return [dict(r) for r in rows]
 
 
 @_retry_on_locked

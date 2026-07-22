@@ -70,3 +70,48 @@ def test_set_password_rotates_salt(db):
     old_salt = db.get_user(uid)["salt"]
     db.set_password(uid, "pw")  # gleiches Passwort, neuer Salt
     assert db.get_user(uid)["salt"] != old_salt
+
+
+def test_create_user_stores_consent_ip_and_generates_verify_token(db):
+    uid = db.create_user("neu@example.com", "pw123456", consent=True, ip="1.2.3.4")
+    user = db.get_user(uid)
+    assert user["consent_at"] is not None
+    assert user["registered_ip"] == "1.2.3.4"
+    assert user["email_verified_at"] is None
+    assert user["verify_token"]
+
+
+def test_create_user_without_consent_leaves_consent_at_null(db):
+    uid = db.create_user("ohne@example.com", "pw123456")
+    user = db.get_user(uid)
+    assert user["consent_at"] is None
+    assert user["registered_ip"] is None
+
+
+def test_verify_token_owner_finds_user_and_rejects_unknown_token(db):
+    uid = db.create_user("v@example.com", "pw123456")
+    token = db.get_user(uid)["verify_token"]
+    found = db.verify_token_owner(token)
+    assert found["id"] == uid
+    assert db.verify_token_owner("nicht-existent") is None
+    assert db.verify_token_owner("") is None
+
+
+def test_mark_email_verified_sets_timestamp_and_clears_token(db):
+    uid = db.create_user("m2@example.com", "pw123456")
+    db.mark_email_verified(uid)
+    user = db.get_user(uid)
+    assert user["email_verified_at"] is not None
+    assert user["verify_token"] is None
+
+
+def test_list_registrations_lists_members_only_oldest_first(db):
+    db.create_user("owner@example.com", "pw123456", role="owner")
+    m1 = db.create_user("m1@example.com", "pw123456", consent=True, ip="9.9.9.9")
+    db.mark_email_verified(m1)
+    db.create_user("m2@example.com", "pw123456", consent=True, ip="9.9.9.9")
+    rows = db.list_registrations()
+    assert [r["email"] for r in rows] == ["m1@example.com", "m2@example.com"]
+    assert rows[0]["email_verified_at"] is not None
+    assert rows[1]["email_verified_at"] is None
+    assert rows[0]["registered_ip"] == "9.9.9.9"
