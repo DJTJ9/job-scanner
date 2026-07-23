@@ -84,3 +84,47 @@ class TestStrikeHelpers:
         fp = storage.upsert_job(_job("e", "2026-07-01", "https://indeed.test/e"))
         storage.mark_expired(fp)
         assert _status(fp) == "expired"
+
+
+class TestExpiredExcludedFromQueries:
+    def _scored_extracted(self, fp_seed: str, url: str, last_seen: str = "2026-07-01"):
+        # Job über upsert_job anlegen (extraction_status default 'extracted'),
+        # dann Score setzen → erscheint in allen Score-/Dashboard-Queries.
+        fp = storage.upsert_job(_job(fp_seed, last_seen, url))
+        storage.update_job(fp, score=90, score_reason="gut", category="Pass")
+        return fp
+
+    def test_expired_absent_from_list_jobs_with_scores(self, db):
+        pid = storage.create_profile("Test", {})
+        fp = self._scored_extracted("j", "https://indeed.test/j")
+        storage.upsert_job_score(pid, fp, 90, "gut", "Pass", {})
+        assert any(e["job"].fingerprint == fp for e in storage.list_jobs_with_scores(pid))
+        storage.mark_expired(fp)
+        assert all(e["job"].fingerprint != fp for e in storage.list_jobs_with_scores(pid))
+
+    def test_expired_absent_from_list_unscored_extracted(self, db):
+        fp = storage.upsert_job(_job("u1", "2026-07-01", "https://indeed.test/u1"))
+        assert any(x["fingerprint"] == fp for x in storage.list_unscored_extracted())
+        storage.mark_expired(fp)
+        assert all(x["fingerprint"] != fp for x in storage.list_unscored_extracted())
+
+    def test_expired_absent_from_list_unscored_for_profiles(self, db):
+        pid = storage.create_profile("Test", {})
+        fp = storage.upsert_job(_job("u2", "2026-07-01", "https://indeed.test/u2"))
+        assert any(x["fingerprint"] == fp for x in storage.list_unscored_for_profiles([pid]))
+        storage.mark_expired(fp)
+        assert all(x["fingerprint"] != fp for x in storage.list_unscored_for_profiles([pid]))
+
+    def test_expired_absent_from_list_pending_extraction(self, db):
+        fp = storage.insert_raw_job("https://indeed.test/p", "indeed", "roh text", "2026-07-01")
+        assert any(x["fingerprint"] == fp for x in storage.list_pending_extraction())
+        storage.mark_expired(fp)
+        assert all(x["fingerprint"] != fp for x in storage.list_pending_extraction())
+
+    def test_expired_absent_from_list_unnotified_top_matches(self, db):
+        pid = storage.create_profile("Test", {})
+        fp = storage.upsert_job(_job("n", "2026-07-01", "https://indeed.test/n"))
+        storage.upsert_job_score(pid, fp, 95, "top", "Pass", {})
+        assert any(m["fingerprint"] == fp for m in storage.list_unnotified_top_matches(pid))
+        storage.mark_expired(fp)
+        assert all(m["fingerprint"] != fp for m in storage.list_unnotified_top_matches(pid))

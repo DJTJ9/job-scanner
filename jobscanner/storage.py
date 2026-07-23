@@ -449,7 +449,7 @@ def list_pending_extraction(limit: int | None = None) -> list[dict]:
     """Rohdaten wartender Jobs für den Agent-Batch-Lauf (llm_batch.py list-pending)."""
     conn = _require_conn()
     sql = ("SELECT fingerprint, sources_json, raw_text FROM jobs "
-          "WHERE extraction_status = 'pending' ORDER BY id")
+          "WHERE extraction_status = 'pending' AND status != 'expired' ORDER BY id")
     if limit is not None:
         sql += f" LIMIT {int(limit)}"
     out = []
@@ -468,7 +468,8 @@ def list_unscored_extracted(limit: int | None = None) -> list[dict]:
     conn = _require_conn()
     sql = ("SELECT fingerprint, title, company, location, employment_type, "
            "requirements_json, tech_stack_json FROM jobs "
-           "WHERE extraction_status = 'extracted' AND score IS NULL ORDER BY id")
+           "WHERE extraction_status = 'extracted' AND score IS NULL "
+           "AND status != 'expired' ORDER BY id")
     if limit is not None:
         sql += f" LIMIT {int(limit)}"
     out = []
@@ -498,6 +499,7 @@ def list_unscored_for_profiles(profile_ids: list[int], limit: int | None = None)
         "jobs.employment_type, jobs.requirements_json, jobs.tech_stack_json "
         "FROM jobs JOIN profiles ON profiles.id IN (" + placeholders + ") "
         "WHERE jobs.extraction_status = 'extracted' "
+        "AND jobs.status != 'expired' "
         "AND NOT EXISTS (SELECT 1 FROM job_scores "
         "                WHERE job_scores.profile_id = profiles.id "
         "                AND job_scores.fingerprint = jobs.fingerprint) "
@@ -788,6 +790,7 @@ def list_unnotified_top_matches(profile_id: int) -> list[dict]:
            WHERE job_scores.profile_id = ?
              AND job_scores.category = 'Pass'
              AND job_scores.notified_at IS NULL
+             AND jobs.status != 'expired'
            ORDER BY job_scores.score DESC""",
         (profile_id,))
     return [dict(r) for r in rows]
@@ -967,7 +970,7 @@ def list_jobs_with_scores(profile_id: int, locations: list[str] | None = None,
     (ungescorte Jobs ans Ende). Optionale Pool-Filter: Sprache (exakt IN), Standort
     (Substring-OR, LIKE %x%); leere/None-Liste = kein Filter."""
     conn = _require_conn()
-    where = ["jobs.extraction_status = 'extracted'"]
+    where = ["jobs.extraction_status = 'extracted'", "jobs.status != 'expired'"]
     params: list = [profile_id]
     if languages:
         where.append("jobs.language IN (%s)" % ",".join("?" * len(languages)))
