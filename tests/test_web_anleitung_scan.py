@@ -55,3 +55,8 @@ def test_scan_anleitung_does_not_render_slogan_as_text(client):
 def test_scan_background_image_exists_on_disk():
     img = Path("jobscanner/web/static/img/Bob-Scan-Anleitung-Background.png")
     assert img.exists()
+
+
+def test_main_anleitung_links_to_scan_guide(client):
+    body = client.get("/anleitung").text
+    assert 'href="/anleitung/scan"' in body
