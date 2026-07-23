@@ -154,6 +154,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def anleitung_keys_view(request: Request):
         return templates.TemplateResponse(request, "keys.html", {})
 
+    @app.get("/anleitung/scan")
+    def anleitung_scan_view(request: Request):
+        return templates.TemplateResponse(request, "anleitung_scan.html", {})
+
     @app.get("/account/passwort")
     def account_password_form(request: Request):
         if (redirect := require_user(request)) is not None:

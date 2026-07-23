@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Scan-Anleitung — Bob der Job-Bot{% endblock %}
+{% block content %}
+
+<div class="scan-wrap">
+  <div class="scan-bg" aria-hidden="true"></div>
+  <div class="scan-grid">
+    <div class="scan-left"></div>
+    <div class="scan-content">
+
+      <!-- 1. Intro-Callout (offen) -->
+      <section class="scan-panel scan-intro">
+        <h1>Warum dein eigenes Claude?</h1>
+        <p>Ein Scan schickt <em>dein</em> Claude los, um neue Stellen zu finden, und
+          füttert damit Bobs gemeinsamen Job-Pool — bessere Treffer für alle Member.
+          Dafür braucht es dein eigenes Claude-Abo.</p>
+        <p class="scan-frei">✅ <strong>Ohne Abo</strong> läuft trotzdem fast alles:
+          Profile pflegen, Treffer ansehen, Favoriten, Suche. Nur <strong>Scannen</strong>
+          und <strong>Bewerten</strong> brauchen dein Claude.</p>
+      </section>
+
+      <!-- 2. Was ist ein Scan? -->
+      <details class="scan-panel anl-faq">
+        <summary>Was ist ein Scan? (Scan vs. Score)</summary>
+        <p><strong>Scan</strong> = neue Jobs finden und in den Pool einliefern
+          (<code>/bob:bob-scan</code>). <strong>Score</strong> = schon vorhandene Jobs
+          gegen deine Profile bewerten (<code>/bob:bob-score</code>). Scannen bringt
+          neuen Nachschub, Bewerten sortiert ihn für dich.</p>
+      </details>
+
+      <!-- 3. In 3 Schritten scannen (offen) -->
+      <details class="scan-panel anl-faq" open>
+        <summary>In 3 Schritten scannen</summary>
+        <ol class="scan-steps">
+          <li>Adzuna- &amp; Jooble-Keys hinterlegt? (siehe unten) — ohne Keys findet der
+            Scan keine neuen Stellen.</li>
+          <li>Starte <code>claude</code> und tippe den Befehl:</li>
+        </ol>
+        <div class="anl-terminal">
+          <div class="anl-terminal-bar">
+            <span class="anl-dot"></span><span class="anl-dot"></span><span class="anl-dot"></span>
+            <span class="anl-terminal-title">in Claude Code</span>
+          </div>
+          <div class="anl-terminal-body">
+            <code>/bob:bob-scan</code>
+            <button type="button" class="copy-btn" data-copy="/bob:bob-scan" aria-label="Befehl kopieren">⧉</button>
+          </div>
+        </div>
+        <ol class="scan-steps" start="3">
+          <li>Bob fragt nach der Scan-Größe, sucht die Portale ab und liefert die Treffer
+            in den Pool. Danach im Dashboard ansehen.</li>
+        </ol>
+      </details>
+
+      <!-- 4. Keys holen -->
+      <details class="scan-panel anl-faq">
+        <summary>Adzuna- &amp; Jooble-Keys holen</summary>
+        <p>Der Scan braucht kostenlose API-Keys von Adzuna und Jooble, die du per
+          <code>/plugin</code> in der Bob-Konfiguration hinterlegst. Die eigene
+          Schritt-für-Schritt-Anleitung führt dich durch beide.</p>
+        <p><a class="btn btn-secondary" href="/anleitung/keys">→ Keys Schritt für Schritt holen</a></p>
+      </details>
+
+      <!-- 5. Scan-Größen & Kosten -->
+      <details class="scan-panel anl-faq">
+        <summary>Scan-Größen &amp; Kosten</summary>
+        <p>Beim Start fragt Bob, wie groß der Scan sein soll:</p>
+        <ul class="anl-list">
+          <li><strong>Klein</strong> — schneller Test, wenige Portale/Seiten, günstig.</li>
+          <li><strong>Mittel</strong> — solider Regel-Scan, guter Kompromiss.</li>
+          <li><strong>Groß</strong> — breite Suche über viele Portale, mehr Claude-Nutzung
+            und Laufzeit.</li>
+        </ul>
+        <p>Die Kosten trägt dein eigenes Claude-Abo (Token-Verbrauch) — größer heißt mehr
+          Verbrauch und längere Laufzeit.</p>
+      </details>
+
+      <!-- 6. Was passiert danach? -->
+      <details class="scan-panel anl-faq">
+        <summary>Was passiert danach?</summary>
+        <p>Gefundene Stellen landen im gemeinsamen Pool und werden bewertet — die
+          Ergebnisse erscheinen in deinem Dashboard. Wie das Zusammenspiel von Bob und
+          deinem Claude insgesamt läuft, steht in der Haupt-Anleitung.</p>
+        <p><a class="btn btn-secondary" href="/anleitung">→ Zur Haupt-Anleitung</a></p>
+      </details>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
