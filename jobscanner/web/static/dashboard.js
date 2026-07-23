@@ -16,8 +16,15 @@ document.addEventListener("DOMContentLoaded", () => {
     let timer;
     input.addEventListener("input", () => {
       clearTimeout(timer);
-      timer = setTimeout(() => { input.form.submit(); }, 250);
+      timer = setTimeout(() => { input.form.submit(); }, 400);
     });
+    // Full-Page-Submit laedt neu -> Fokus + Cursor zurueck ins Suchfeld,
+    // damit man auf dem Handy nach jedem Buchstaben weitertippen kann
+    if (input.value) {
+      input.focus();
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
+    }
   });
 
   document.querySelectorAll("[data-vote-form]").forEach((form) => {

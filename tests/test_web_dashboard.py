@@ -874,7 +874,13 @@ def test_dashboard_js_has_debounced_search_submit():
     js = Path("jobscanner/web/static/dashboard.js").read_text()
     assert "data-dash-search" in js
     assert "setTimeout" in js
-    assert "250" in js
+    assert "400" in js
+
+
+def test_dashboard_js_restores_search_focus():
+    js = Path("jobscanner/web/static/dashboard.js").read_text()
+    # nach dem Full-Page-Reload muss der Fokus + Cursor zurueck ins Suchfeld
+    assert "setSelectionRange" in js
 
 
 def test_dashboard_search_css_defined():
