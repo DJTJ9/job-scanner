@@ -491,3 +491,50 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
   white-space: nowrap;
   opacity: 0.75;
 }
+
+/* --- Scan-Anleitung: Split-Screen --- */
+.scan-wrap {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  position: relative;
+  min-height: 100vh;
+}
+.scan-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: url("/static/img/Bob-Scan-Anleitung-Background.png");
+  background-size: cover;
+  background-position: left center;
+  background-repeat: no-repeat;
+}
+.scan-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 52vw 48vw;
+  align-items: start;
+}
+.scan-left { min-height: 100vh; }
+.scan-content { padding: 2rem 1.75rem 4rem; max-width: 640px; }
+.scan-panel {
+  background: rgba(10, 22, 40, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--wasser);
+  border-radius: 12px;
+  padding: 1.1rem 1.4rem;
+  margin-bottom: 1rem;
+}
+.scan-intro h1 { margin-top: 0; }
+.scan-intro { border-left: 3px solid var(--bob-lila); }
+.scan-frei { color: var(--beute); }
+.scan-steps { margin: 0.5rem 0 0.5rem 1.2rem; }
+.scan-steps li { margin: 0.35rem 0; }
+
+@media (max-width: 900px) {
+  .scan-bg { background-attachment: fixed; background-position: center; }
+  .scan-grid { grid-template-columns: 1fr; }
+  .scan-left { display: none; }
+  .scan-content { padding: 1rem 0.75rem 3rem; max-width: 100%; }
+}
