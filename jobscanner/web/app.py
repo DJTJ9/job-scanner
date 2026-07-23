@@ -368,7 +368,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/dashboard/{profile_id}")
     def dashboard(request: Request, profile_id: int, tab: str = "aktiv",
-                  page: int | None = None):
+                  page: int | None = None, q: str = ""):
         if (redirect := require_verified_user(request)) is not None:
             return redirect
         profile, resp = _require_owned(request, profile_id)
@@ -398,16 +398,31 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 aktiv.append(entry)
         entries_by_tab = {"aktiv": aktiv, "no_go": no_go, "bewertet": bewertet, "ausland": ausland}
         tab_entries = entries_by_tab[tab]
+        q_low = q.strip().lower()
+        if q_low:
+            tab_entries = [
+                e for e in tab_entries
+                if q_low in (
+                    (e["job"].title or "") + " " + (e["job"].company or "") + " "
+                    + (e["job"].location or "") + " " + (e["reason"] or "")
+                ).lower()
+            ]
+        result_count = len(tab_entries)
         dash_pages = request.session.get("dash_pages", {})
         if page is not None:
-            dash_pages[tab] = page
+            persist = True
+        elif q_low:
+            page = 1          # neue Suche startet vorne, Tab-Memory unberuehrt
+            persist = False
         else:
             page = dash_pages.get(tab, 1)
+            persist = True
         total_pages = max(1, (len(tab_entries) + _DASHBOARD_PAGE_SIZE - 1)
                           // _DASHBOARD_PAGE_SIZE)
         page = max(1, min(page, total_pages))
-        dash_pages[tab] = page
-        request.session["dash_pages"] = dash_pages
+        if persist:
+            dash_pages[tab] = page
+            request.session["dash_pages"] = dash_pages
         start = (page - 1) * _DASHBOARD_PAGE_SIZE
         entries = tab_entries[start:start + _DASHBOARD_PAGE_SIZE]
         analysis = storage.get_latest_analysis(profile_id)
@@ -428,6 +443,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "tab": tab,
             "page": page,
             "total_pages": total_pages,
+            "q": q,
+            "result_count": result_count,
             "counts": {"aktiv": len(aktiv), "no_go": len(no_go), "bewertet": len(bewertet),
                        "ausland": len(ausland)},
             "analysis": analysis,

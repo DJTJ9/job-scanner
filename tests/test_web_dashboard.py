@@ -714,3 +714,117 @@ def test_favorited_job_renders_in_favorites_panel(client):
     resp = client.get(f"/dashboard/{pid}")
     panel = resp.text.split('data-tab-panel="favoriten"')[1]
     assert "Sterni Job" in panel  # Favorit im Panel gerendert
+
+
+def test_dashboard_search_matches_title(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp1 = storage.upsert_job(Job(title="Unity Developer", company="ACME",
+                                 location="Hamburg", first_seen="2026-07-11"))
+    fp2 = storage.upsert_job(Job(title="Java Backend", company="BETA",
+                                 location="Berlin", first_seen="2026-07-11"))
+    storage.upsert_job_score(pid, fp1, 80, "", "Pass", {})
+    storage.upsert_job_score(pid, fp2, 80, "", "Pass", {})
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=unity")
+    assert f'data-fingerprint="{fp1}"' in resp.text
+    assert f'data-fingerprint="{fp2}"' not in resp.text
+    assert resp.text.count("data-fingerprint=") == 1
+
+
+def test_dashboard_search_matches_company(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp1 = storage.upsert_job(Job(title="Dev", company="Globex Studios",
+                                 location="Hamburg", first_seen="2026-07-11"))
+    fp2 = storage.upsert_job(Job(title="Dev", company="ACME",
+                                 location="Hamburg", first_seen="2026-07-11"))
+    storage.upsert_job_score(pid, fp1, 80, "", "Pass", {})
+    storage.upsert_job_score(pid, fp2, 80, "", "Pass", {})
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=globex")
+    assert f'data-fingerprint="{fp1}"' in resp.text
+    assert f'data-fingerprint="{fp2}"' not in resp.text
+
+
+def test_dashboard_search_matches_location(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp1 = storage.upsert_job(Job(title="Dev", company="A",
+                                 location="Bremen", first_seen="2026-07-11"))
+    fp2 = storage.upsert_job(Job(title="Dev", company="B",
+                                 location="Hamburg", first_seen="2026-07-11"))
+    storage.upsert_job_score(pid, fp1, 80, "", "Pass", {})
+    storage.upsert_job_score(pid, fp2, 80, "", "Pass", {})
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=bremen")
+    assert f'data-fingerprint="{fp1}"' in resp.text
+    assert f'data-fingerprint="{fp2}"' not in resp.text
+
+
+def test_dashboard_search_matches_reason(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp1 = storage.upsert_job(Job(title="Dev", company="A",
+                                 location="Hamburg", first_seen="2026-07-11"))
+    fp2 = storage.upsert_job(Job(title="Dev", company="B",
+                                 location="Hamburg", first_seen="2026-07-11"))
+    storage.upsert_job_score(pid, fp1, 80, "Passt wegen Unreal-Erfahrung", "Pass", {})
+    storage.upsert_job_score(pid, fp2, 80, "Nur mittelmaessig", "Pass", {})
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=unreal")
+    assert f'data-fingerprint="{fp1}"' in resp.text
+    assert f'data-fingerprint="{fp2}"' not in resp.text
+
+
+def test_dashboard_search_case_insensitive(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unity Developer", company="ACME",
+                                location="Hamburg", first_seen="2026-07-11"))
+    storage.upsert_job_score(pid, fp, 80, "", "Pass", {})
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=UNITY")
+    assert f'data-fingerprint="{fp}"' in resp.text
+
+
+def test_dashboard_search_empty_result(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 3)
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=nichtvorhandenxyz")
+    assert resp.status_code == 200
+    assert resp.text.count("data-fingerprint=") == 0
+
+
+def test_dashboard_search_scoped_to_tab_counts_stay_full(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 3, prefix="Aktiv")          # 3 aktiv, kein "special"
+    fp = storage.upsert_job(Job(title="Special Unicorn", company="A",
+                                location="Hamburg", first_seen="2026-07-11"))
+    storage.upsert_job_score(pid, fp, 80, "", "Pass", {})   # 4. aktiv, matcht
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=unicorn")
+    assert resp.text.count("data-fingerprint=") == 1   # nur der Treffer gerendert
+    assert "(4)" in resp.text                          # Aktiv-Count zeigt volle 4
+
+
+def test_dashboard_search_ignores_other_tab_matches(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp_a = storage.upsert_job(Job(title="Zephyr Aktiv", company="A",
+                                  location="Hamburg", first_seen="2026-07-11"))
+    fp_n = storage.upsert_job(Job(title="Zephyr NoGo", company="B",
+                                  location="Hamburg", first_seen="2026-07-11"))
+    storage.upsert_job_score(pid, fp_a, 80, "", "Pass", {})
+    storage.upsert_job_score(pid, fp_n, 10, "", "No-Go", {})
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=zephyr")
+    assert f'data-fingerprint="{fp_a}"' in resp.text
+    assert f'data-fingerprint="{fp_n}"' not in resp.text
+
+
+def test_dashboard_search_paginates_matches(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 30, prefix="Zeta")     # 30 Treffer (enthalten "zeta")
+    _seed_scored(pid, 5, prefix="Other")     # 5 Nicht-Treffer
+    resp1 = client.get(f"/dashboard/{pid}?tab=aktiv&q=zeta")
+    assert resp1.text.count("data-fingerprint=") == 25   # Seite 1
+    resp2 = client.get(f"/dashboard/{pid}?tab=aktiv&q=zeta&page=2")
+    assert resp2.text.count("data-fingerprint=") == 5    # Rest, Nicht-Treffer ausgeschlossen
+
+
+def test_dashboard_search_resets_to_page_one(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 30, prefix="Zeta")
+    client.get(f"/dashboard/{pid}?tab=aktiv&page=2")      # Seite 2 merken (ohne Suche)
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=zeta")   # neue Suche → Seite 1
+    assert resp.text.count("data-fingerprint=") == 25
+    resp_clear = client.get(f"/dashboard/{pid}?tab=aktiv")    # Suche geleert → gemerkte Seite 2
+    assert resp_clear.text.count("data-fingerprint=") == 5
