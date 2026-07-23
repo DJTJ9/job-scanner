@@ -475,3 +475,19 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
   color: var(--tiefe);
   font-weight: 600;
 }
+
+.dash-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.dash-search input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  max-width: 24rem;
+}
+.dash-search .search-count {
+  white-space: nowrap;
+  opacity: 0.75;
+}

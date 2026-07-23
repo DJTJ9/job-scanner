@@ -875,3 +875,8 @@ def test_dashboard_js_has_debounced_search_submit():
     assert "data-dash-search" in js
     assert "setTimeout" in js
     assert "250" in js
+
+
+def test_dashboard_search_css_defined():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert ".dash-search" in css
