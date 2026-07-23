@@ -1,0 +1,13 @@
+[Unit]
+Description=Job Scanner Verfügbarkeits-Check (expired-Soft-Mark, Playwright, kein Firecrawl)
+After=network.target
+OnFailure=jobscanner-alert@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/projekte/job-scanner
+EnvironmentFile=/root/projekte/telegram-bot-army/.env
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/python3 -m jobscanner.availability
+StandardOutput=journal
+StandardError=journal
