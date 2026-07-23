@@ -828,3 +828,43 @@ def test_dashboard_search_resets_to_page_one(client):
     assert resp.text.count("data-fingerprint=") == 25
     resp_clear = client.get(f"/dashboard/{pid}?tab=aktiv")    # Suche geleert → gemerkte Seite 2
     assert resp_clear.text.count("data-fingerprint=") == 5
+
+
+def test_dashboard_has_search_form(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    assert "data-dash-search" in resp.text
+    assert 'name="q"' in resp.text
+    assert 'name="tab" value="aktiv"' in resp.text   # hidden tab erhaelt aktiven Sub-Tab
+
+
+def test_dashboard_shows_result_count_when_searching(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    fp = storage.upsert_job(Job(title="Unity Developer", company="ACME",
+                                location="Hamburg", first_seen="2026-07-11"))
+    storage.upsert_job_score(pid, fp, 80, "", "Pass", {})
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=unity")
+    assert "1 Treffer" in resp.text
+
+
+def test_dashboard_no_result_count_without_search(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 2)
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    # "Treffer" kommt bereits im Notify-Banner + Onboarding-Panels vor;
+    # geprueft wird die Trefferzahl-Span, die ohne Suche fehlen muss.
+    assert "search-count" not in resp.text
+
+
+def test_dashboard_shows_empty_search_message(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 3)
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=nichtvorhandenxyz")
+    assert "Keine Treffer" in resp.text
+
+
+def test_dashboard_pagination_links_carry_q(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    _seed_scored(pid, 30, prefix="Zeta")   # 2 Seiten Treffer
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=zeta")
+    assert "q=zeta" in resp.text            # Nav-Link behaelt Suche

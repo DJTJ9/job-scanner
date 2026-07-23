@@ -174,6 +174,12 @@
 {% endif %}
 <div class="panel" data-tab-panel="kontakte">
   <h2>Job-Angebote</h2>
+  <form class="dash-search" method="get" action="/dashboard/{{ profile.id }}">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <input type="text" name="q" value="{{ q }}" placeholder="🔍 Suchen…"
+           data-dash-search autocomplete="off">
+    {% if q %}<span class="mono search-count">({{ result_count }} Treffer)</span>{% endif %}
+  </form>
   <nav class="tabs">
     <a class="tab {{ 'active' if tab == 'aktiv' else '' }}" href="?tab=aktiv">Aktiv <span class="mono">({{ counts.aktiv }})</span></a>
     <a class="tab {{ 'active' if tab in ('no_go', 'bewertet') else '' }}" href="?tab=no_go">Aussortiert <span class="mono">({{ counts.no_go }})</span></a>
@@ -186,7 +192,11 @@
     </nav>
   {% endif %}
   {% if not entries %}
-    <p class="job-meta">Keine Jobs in diesem Tab.</p>
+    {% if q %}
+      <p class="job-meta">Keine Treffer für „{{ q }}".</p>
+    {% else %}
+      <p class="job-meta">Keine Jobs in diesem Tab.</p>
+    {% endif %}
   {% endif %}
   {% for e in entries %}
     {{ job_card(e, profile, feedback, favorites, criteria) }}
@@ -194,7 +204,7 @@
   {% if total_pages > 1 %}
   <nav class="pagination">
     {% if page > 1 %}
-      <a class="page-link" href="?tab={{ tab }}&page={{ page - 1 }}">‹ Zurück</a>
+      <a class="page-link" href="?tab={{ tab }}&page={{ page - 1 }}&q={{ q | urlencode }}">‹ Zurück</a>
     {% else %}
       <span class="page-link disabled">‹ Zurück</span>
     {% endif %}
@@ -202,12 +212,12 @@
     {% for p in range(1, total_pages + 1) %}
       {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
         {% if ns.prev and p > ns.prev + 1 %}<span class="page-ellipsis">…</span>{% endif %}
-        <a class="page-link {{ 'active' if p == page else '' }}" href="?tab={{ tab }}&page={{ p }}">{{ p }}</a>
+        <a class="page-link {{ 'active' if p == page else '' }}" href="?tab={{ tab }}&page={{ p }}&q={{ q | urlencode }}">{{ p }}</a>
         {% set ns.prev = p %}
       {% endif %}
     {% endfor %}
     {% if page < total_pages %}
-      <a class="page-link" href="?tab={{ tab }}&page={{ page + 1 }}">Weiter ›</a>
+      <a class="page-link" href="?tab={{ tab }}&page={{ page + 1 }}&q={{ q | urlencode }}">Weiter ›</a>
     {% else %}
       <span class="page-link disabled">Weiter ›</span>
     {% endif %}
