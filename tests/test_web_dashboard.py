@@ -868,3 +868,10 @@ def test_dashboard_pagination_links_carry_q(client):
     _seed_scored(pid, 30, prefix="Zeta")   # 2 Seiten Treffer
     resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=zeta")
     assert "q=zeta" in resp.text            # Nav-Link behaelt Suche
+
+
+def test_dashboard_js_has_debounced_search_submit():
+    js = Path("jobscanner/web/static/dashboard.js").read_text()
+    assert "data-dash-search" in js
+    assert "setTimeout" in js
+    assert "250" in js

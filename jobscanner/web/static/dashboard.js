@@ -12,6 +12,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll("[data-dash-search]").forEach((input) => {
+    let timer;
+    input.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { input.form.submit(); }, 250);
+    });
+  });
+
   document.querySelectorAll("[data-vote-form]").forEach((form) => {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
