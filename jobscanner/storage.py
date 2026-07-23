@@ -9,6 +9,7 @@ import os
 import secrets
 import sqlite3
 import time
+from datetime import date, timedelta
 from pathlib import Path
 
 from jobscanner import config, scoring
@@ -188,6 +189,8 @@ def init_db(path: str | Path) -> None:
         _conn.execute("ALTER TABLE jobs ADD COLUMN extraction_status TEXT DEFAULT 'extracted'")
     if "is_ausland" not in existing_cols:
         _conn.execute("ALTER TABLE jobs ADD COLUMN is_ausland INTEGER DEFAULT 0")
+    if "unavailable_strikes" not in existing_cols:
+        _conn.execute("ALTER TABLE jobs ADD COLUMN unavailable_strikes INTEGER DEFAULT 0")
     _conn.executescript(_SCHEMA_PROFILES)
     _conn.executescript(_SCHEMA_CUSTOM_PORTALS)
     _conn.executescript(_SCHEMA_MEMBER_RESCORE)
@@ -1502,4 +1505,49 @@ def activate_custom_portal(portal_id: int) -> None:
         """UPDATE custom_portals SET status = 'active', firecrawl_needed = ?,
            activated_at = datetime('now') WHERE id = ?""",
         (firecrawl_needed, portal_id))
+    conn.commit()
+
+
+def list_availability_candidates(older_than_days: int = 3) -> list[dict]:
+    """Nicht-expired Jobs, deren last_seen älter als older_than_days ist (frisch
+    re-seene Jobs fallen raus → schont Portal-Requests). Item: fingerprint + erste
+    Quell-URL aus sources_json."""
+    conn = _require_conn()
+    cutoff = (date.today() - timedelta(days=older_than_days)).isoformat()
+    rows = conn.execute(
+        "SELECT fingerprint, sources_json FROM jobs "
+        "WHERE status != 'expired' AND last_seen IS NOT NULL AND last_seen < ? "
+        "ORDER BY id", (cutoff,))
+    out = []
+    for r in rows:
+        sources = json.loads(r["sources_json"] or "[]")
+        url = sources[0].get("url", "") if sources else ""
+        if url:
+            out.append({"fingerprint": r["fingerprint"], "url": url})
+    return out
+
+
+@_retry_on_locked
+def bump_unavailable_strike(fingerprint: str) -> int:
+    conn = _require_conn()
+    conn.execute(
+        "UPDATE jobs SET unavailable_strikes = unavailable_strikes + 1 "
+        "WHERE fingerprint = ?", (fingerprint,))
+    conn.commit()
+    row = conn.execute(
+        "SELECT unavailable_strikes FROM jobs WHERE fingerprint = ?", (fingerprint,)).fetchone()
+    return row["unavailable_strikes"]
+
+
+@_retry_on_locked
+def reset_unavailable_strike(fingerprint: str) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE jobs SET unavailable_strikes = 0 WHERE fingerprint = ?", (fingerprint,))
+    conn.commit()
+
+
+@_retry_on_locked
+def mark_expired(fingerprint: str) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE jobs SET status = 'expired' WHERE fingerprint = ?", (fingerprint,))
     conn.commit()
