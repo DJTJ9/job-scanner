@@ -851,9 +851,8 @@ def test_dashboard_no_result_count_without_search(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 2)
     resp = client.get(f"/dashboard/{pid}?tab=aktiv")
-    # "Treffer" kommt bereits im Notify-Banner + Onboarding-Panels vor;
-    # geprueft wird die Trefferzahl-Span, die ohne Suche fehlen muss.
-    assert "search-count" not in resp.text
+    # Zaehler-Span ist immer im DOM (fuer den AJAX-Swap), aber ohne Suche leer.
+    assert "data-search-count></span>" in resp.text
 
 
 def test_dashboard_shows_empty_search_message(client):
@@ -881,6 +880,22 @@ def test_dashboard_js_restores_search_focus():
     js = Path("jobscanner/web/static/dashboard.js").read_text()
     # nach dem Full-Page-Reload muss der Fokus + Cursor zurueck ins Suchfeld
     assert "setSelectionRange" in js
+
+
+def test_dashboard_js_filters_via_ajax_without_reload():
+    js = Path("jobscanner/web/static/dashboard.js").read_text()
+    # Suche darf nicht mehr die ganze Seite neu laden (sonst schliesst Android
+    # die Tastatur) — sie holt die Ergebnisse per fetch + DOMParser und tauscht
+    # nur den Ergebnis-Container aus.
+    assert "DOMParser" in js
+    assert "data-dash-results" in js
+    assert "input.form.submit()" not in js   # kein Full-Page-Submit mehr
+
+
+def test_dashboard_results_wrapper_present(client):
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    assert "data-dash-results" in resp.text
 
 
 def test_dashboard_search_css_defined():

@@ -178,7 +178,7 @@
     <input type="hidden" name="tab" value="{{ tab }}">
     <input type="text" name="q" value="{{ q }}" placeholder="🔍 Suchen…"
            data-dash-search autocomplete="off">
-    {% if q %}<span class="mono search-count">({{ result_count }} Treffer)</span>{% endif %}
+    <span class="mono search-count" data-search-count>{% if q %}({{ result_count }} Treffer){% endif %}</span>
   </form>
   <nav class="tabs">
     <a class="tab {{ 'active' if tab == 'aktiv' else '' }}" href="?tab=aktiv">Aktiv <span class="mono">({{ counts.aktiv }})</span></a>
@@ -191,6 +191,7 @@
       <a class="subtab {{ 'active' if tab == 'bewertet' else '' }}" href="?tab=bewertet">Bereits bewertet <span class="mono">({{ counts.bewertet }})</span></a>
     </nav>
   {% endif %}
+  <div data-dash-results>
   {% if not entries %}
     {% if q %}
       <p class="job-meta">Keine Treffer für „{{ q }}".</p>
@@ -223,6 +224,7 @@
     {% endif %}
   </nav>
   {% endif %}
+  </div>
 </div>
 <div class="panel panel-hidden" data-tab-panel="favoriten">
   <h2>⭐ Deine Favoriten <span class="mono">({{ fav_entries|length }})</span></h2>
