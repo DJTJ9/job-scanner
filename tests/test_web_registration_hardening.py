@@ -151,3 +151,42 @@ def test_verify_email_resend_after_already_verified_redirects_home(app):
     resp = client.post("/verify-email/resend", data={}, follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/"
+
+
+def test_verify_pending_shows_resend_button(app):
+    client = CSRFTestClient(app)
+    _register(client)
+    resp = client.get("/verify-pending")
+    assert resp.status_code == 200
+    assert 'action="/verify-email/resend"' in resp.text
+    assert "Email erneut senden" in resp.text
+
+
+def test_verify_pending_shows_sent_message(app):
+    client = CSRFTestClient(app)
+    _register(client)
+    resp = client.get("/verify-pending?sent=1")
+    assert "erneut gesendet" in resp.text
+
+
+def test_verify_pending_shows_cooldown_message(app):
+    client = CSRFTestClient(app)
+    _register(client)
+    resp = client.get("/verify-pending?cooldown=1")
+    assert "60s warten" in resp.text
+
+
+def test_verify_pending_shows_error_message(app):
+    client = CSRFTestClient(app)
+    _register(client)
+    resp = client.get("/verify-pending?error=1")
+    assert "Fehler beim Senden" in resp.text
+
+
+def test_verify_pending_no_messages_without_query_params(app):
+    client = CSRFTestClient(app)
+    _register(client)
+    resp = client.get("/verify-pending")
+    assert "erneut gesendet" not in resp.text
+    assert "60s warten" not in resp.text
+    assert "Fehler beim Senden" not in resp.text
