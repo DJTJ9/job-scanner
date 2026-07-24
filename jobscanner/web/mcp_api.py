@@ -1,4 +1,4 @@
-"""MCP-Server für den BYO-Member-Zugang: 7 Tools, alle auf den Bearer-Token-User gescoped.
+"""MCP-Server für den BYO-Member-Zugang: 8 Tools, alle auf den Bearer-Token-User gescoped.
 Tool-Logik ist von FastMCP getrennt gehalten (plain functions), damit sie ohne
 MCP-Protokoll-Roundtrip testbar bleibt. raw_text in Jobs ist Fremdinhalt aus
 gescrapten Anzeigen — Prompt-Injection-Warnung gehört in die Member-Skills."""
@@ -11,7 +11,7 @@ from contextvars import ContextVar
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from jobscanner import dedup, extract, scoring, storage
+from jobscanner import config, dedup, extract, scan_config, scoring, search, storage
 from jobscanner.models import make_fingerprint
 
 _current_user: ContextVar[dict | None] = ContextVar("mcp_current_user", default=None)
@@ -49,6 +49,43 @@ def get_my_profile_data(user: dict) -> dict:
             "spar_modus": storage.get_spar_modus(p["data"]),
         })
     return {"profiles": profiles}
+
+
+def get_scan_config_data(user: dict) -> dict:
+    """Baut aus dem Profil des Tokens fertige Browser-Scan-Targets: Queries aus
+    target_roles (Fallback skills), Standort aus spar_modus.locations, Portal-
+    Auswahl aus scan_portals, Caps aus spar_modus.max_jobs. Die URL-Logik bleibt
+    server-seitig (build_search_url/portals.yaml) — das Kit-Script bleibt dumm."""
+    profiles = _user_profiles(user["id"])
+    if not profiles:
+        return {"targets": [], "caps": {}, "queries": [],
+                "note": "Kein aktives Profil für diesen Token"}
+    data0 = profiles[0]["data"]
+    spar = storage.get_spar_modus(data0)
+    caps = scan_config.browser_caps_for(spar["max_jobs"])
+
+    queries: list[str] = []
+    for key in ("target_roles", "skills"):
+        for p in profiles:
+            for q in (p["data"].get(key) or []):
+                if q not in queries:
+                    queries.append(q)
+        if queries:
+            break
+    queries = queries[:caps.max_queries]
+
+    location = (spar["locations"] or [None])[0]
+    chosen = storage.get_scan_portals(data0)
+    portals = [p for p in config.load_portals()
+               if p.get("residential") and p["name"] in chosen]
+    targets = [{"portal": p["name"],
+                "engine": p.get("engine", "playwright"),
+                "search_url": search.build_search_url(p, q, location),
+                "detail_url_pattern": p["detail_url_pattern"]}
+               for p in portals for q in queries]
+    return {"targets": targets,
+            "caps": {"max_detail": caps.max_detail, "throttle_ms": caps.throttle_ms},
+            "queries": queries}
 
 
 def pull_pending_jobs_data(user: dict, limit: int = _MAX_PULL) -> dict:
@@ -355,6 +392,14 @@ def create_mcp_server() -> FastMCP:
         extrahierte Content-Fingerprints passiert serverseitig, Quelle wird als
         member:<id> markiert."""
         return push_jobs_data(_require_user(), listings)
+
+    @server.tool()
+    def get_scan_config() -> dict:
+        """Browser-Scan-Konfiguration für bob-scan: fertige Such-URLs je
+        (Portal, Query) mit Engine (playwright|patchright) + detail_url_pattern,
+        dazu Caps (max_detail, throttle_ms). Queries/Standort/Portal-Auswahl
+        kommen aus den Profil-Einstellungen auf der Website."""
+        return get_scan_config_data(_require_user())
 
     @server.tool()
     def get_my_votes() -> dict:

@@ -481,7 +481,8 @@ class TestMcpTransport:
         assert resp.status_code == 200
         names = {t["name"] for t in resp.json()["result"]["tools"]}
         assert names == {"get_my_profile", "pull_pending_jobs", "push_batch", "push_jobs",
-                          "get_my_votes", "apply_member_insights", "update_my_criteria"}
+                          "get_scan_config", "get_my_votes", "apply_member_insights",
+                          "update_my_criteria"}
 
     def test_mcp_tool_call_scoped_to_token_user(self, client, member):
         pid = storage.create_profile("Member-Sicht", {"no_gos": []},
@@ -524,3 +525,62 @@ class TestTokenUi:
         resp = client.post("/profiles/api-token")
         token = re.search(r"bob_[0-9a-f]{48}", resp.text).group(0)
         assert storage.get_user_by_api_token(token)["email"] == "owner@test.de"
+
+
+class TestGetScanConfig:
+    def _profile(self, uid, data=None):
+        return storage.create_profile("M", data if data is not None
+                                      else {"target_roles": ["Unity Entwickler"]},
+                                      user_id=uid)
+
+    def test_builds_targets_for_both_portals_with_engines(self, client, member):
+        self._profile(member["id"])
+        cfg = mcp_api.get_scan_config_data({"id": member["id"]})
+        by_portal = {t["portal"]: t for t in cfg["targets"]}
+        assert set(by_portal) == {"stepstone", "indeed"}
+        assert by_portal["stepstone"]["engine"] == "playwright"
+        assert by_portal["stepstone"]["search_url"] == \
+            "https://www.stepstone.de/jobs/Unity+Entwickler"
+        assert by_portal["indeed"]["engine"] == "patchright"
+        assert "de\\.indeed\\.com" in by_portal["indeed"]["detail_url_pattern"]
+
+    def test_caps_from_spar_max_jobs(self, client, member):
+        self._profile(member["id"], {"target_roles": ["Dev"],
+                                     "spar_modus": {"max_jobs": 25}})
+        cfg = mcp_api.get_scan_config_data({"id": member["id"]})
+        assert cfg["caps"] == {"max_detail": 20, "throttle_ms": 3000}
+
+    def test_default_spar_is_gross_but_bounded(self, client, member):
+        self._profile(member["id"])
+        caps = mcp_api.get_scan_config_data({"id": member["id"]})["caps"]
+        assert caps["max_detail"] == 120 and caps["throttle_ms"] == 1500
+
+    def test_location_appended_to_search_url(self, client, member):
+        self._profile(member["id"], {"target_roles": ["Unity Dev"],
+                                     "spar_modus": {"max_jobs": None,
+                                                    "locations": ["Berlin"]}})
+        cfg = mcp_api.get_scan_config_data({"id": member["id"]})
+        assert all("Berlin" in t["search_url"] for t in cfg["targets"])
+
+    def test_scan_portals_selection_filters_targets(self, client, member):
+        self._profile(member["id"], {"target_roles": ["Dev"],
+                                     "scan_portals": ["stepstone"]})
+        cfg = mcp_api.get_scan_config_data({"id": member["id"]})
+        assert {t["portal"] for t in cfg["targets"]} == {"stepstone"}
+
+    def test_max_queries_caps_target_count(self, client, member):
+        roles = [f"Rolle {i}" for i in range(5)]
+        self._profile(member["id"], {"target_roles": roles,
+                                     "spar_modus": {"max_jobs": 25}})  # klein → 3
+        cfg = mcp_api.get_scan_config_data({"id": member["id"]})
+        assert len(cfg["queries"]) == 3
+        assert len(cfg["targets"]) == 6  # 3 Queries × 2 Portale
+
+    def test_skills_fallback_when_no_target_roles(self, client, member):
+        self._profile(member["id"], {"skills": ["python"], "target_roles": []})
+        cfg = mcp_api.get_scan_config_data({"id": member["id"]})
+        assert cfg["queries"] == ["python"]
+
+    def test_no_profile_returns_empty_targets(self, client, member):
+        cfg = mcp_api.get_scan_config_data({"id": member["id"]})
+        assert cfg["targets"] == [] and cfg["queries"] == []
