@@ -45,6 +45,7 @@ h1, h2, .brand {
 }
 .panel-narrow { max-width: 360px; margin: 3rem auto; }
 .error { color: var(--veto); }
+.msg-success { color: var(--beute); font-weight: 600; }
 label { display: block; margin-top: 0.75rem; font-size: 0.9rem; }
 input[type="text"], input[type="url"], input[type="password"], input[type="number"], textarea, select {
   width: 100%;

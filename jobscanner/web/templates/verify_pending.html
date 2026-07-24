@@ -5,5 +5,12 @@
   <h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> Fast geschafft!</h1>
   <p>Wir haben dir eine Email mit einem Bestätigungslink geschickt. Bitte klicke den Link,
      um Scan und Dashboard freizuschalten.</p>
+  {% if sent %}<p class="msg-success">Email wurde erneut gesendet ✔</p>{% endif %}
+  {% if cooldown %}<p class="error">Bitte 60s warten, bevor du die Email erneut anforderst.</p>{% endif %}
+  {% if error %}<p class="error">Fehler beim Senden, versuch's gleich nochmal.</p>{% endif %}
+  <form method="post" action="/verify-email/resend">
+    {% include "_csrf_field.html" %}
+    <button type="submit" class="btn btn-secondary">Email erneut senden</button>
+  </form>
 </div>
 {% endblock %}
