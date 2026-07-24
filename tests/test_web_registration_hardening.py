@@ -153,6 +153,37 @@ def test_verify_email_resend_after_already_verified_redirects_home(app):
     assert resp.headers["location"] == "/"
 
 
+def test_verify_email_resend_generates_token_when_missing(app, monkeypatch):
+    """Accounts von vor Einführung der Email-Verifizierung haben verify_token=NULL.
+    Resend muss trotzdem funktionieren (Token frisch erzeugen), statt still ins Leere zu laufen."""
+    client = CSRFTestClient(app)
+    _register(client)
+    user = storage.get_user_by_email("m@test.de")
+    # Token nachträglich löschen (simuliert Pre-Migration-Account)
+    conn = storage._require_conn()
+    conn.execute("UPDATE users SET verify_token = NULL WHERE id = ?", (user["id"],))
+    conn.commit()
+    calls = []
+    monkeypatch.setattr(
+        "jobscanner.web.app.mailer.send_verification_email",
+        lambda email, token, base_url: calls.append((email, token, base_url)))
+    resp = client.post("/verify-email/resend", data={}, follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/verify-pending?sent=1"
+    fresh = storage.get_user_by_email("m@test.de")
+    assert fresh["verify_token"]  # neuer Token persistiert
+    assert calls == [(fresh["email"], fresh["verify_token"], "https://job-scanner.thinkshark.de")]
+
+
+def test_ensure_verify_token_keeps_existing(app):
+    client = CSRFTestClient(app)
+    _register(client)
+    user = storage.get_user_by_email("m@test.de")
+    existing = user["verify_token"]
+    assert existing
+    assert storage.ensure_verify_token(user["id"]) == existing
+
+
 def test_verify_pending_shows_resend_button(app):
     client = CSRFTestClient(app)
     _register(client)
@@ -173,7 +204,8 @@ def test_verify_pending_shows_cooldown_message(app):
     client = CSRFTestClient(app)
     _register(client)
     resp = client.get("/verify-pending?cooldown=1")
-    assert "60s warten" in resp.text
+    assert "kurz warten" in resp.text
+    assert 'data-cooldown="60"' in resp.text
 
 
 def test_verify_pending_shows_error_message(app):

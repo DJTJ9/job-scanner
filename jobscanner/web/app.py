@@ -298,12 +298,15 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if request.session.get("email_verified"):
             return RedirectResponse("/", status_code=303)
         user = storage.get_user(request.session["user_id"])
-        if user is None or not user["verify_token"]:
+        if user is None:
             return RedirectResponse("/verify-pending", status_code=303)
         if not app.state.resend_rate_limiter.hit(f"resend:{user['id']}"):
             return RedirectResponse("/verify-pending?cooldown=1", status_code=303)
+        token = storage.ensure_verify_token(user["id"])
+        if not token:
+            return RedirectResponse("/verify-pending?error=1", status_code=303)
         try:
-            mailer.send_verification_email(user["email"], user["verify_token"], settings["base_url"])
+            mailer.send_verification_email(user["email"], token, settings["base_url"])
         except Exception:
             return RedirectResponse("/verify-pending?error=1", status_code=303)
         return RedirectResponse("/verify-pending?sent=1", status_code=303)

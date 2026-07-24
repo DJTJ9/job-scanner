@@ -319,6 +319,24 @@ def seed_owner(email: str, password: str) -> int | None:
 
 
 @_retry_on_locked
+def ensure_verify_token(user_id: int) -> str | None:
+    """Gibt den vorhandenen verify_token zurück oder generiert einen, falls keiner gesetzt ist
+    (z.B. Accounts, die vor Einführung der Email-Verifizierung angelegt wurden). Gibt None
+    zurück, wenn der User nicht existiert."""
+    conn = _require_conn()
+    row = conn.execute("SELECT verify_token FROM users WHERE id = ?", (user_id,)).fetchone()
+    if row is None:
+        return None
+    token = row["verify_token"]
+    if token:
+        return token
+    token = secrets.token_urlsafe(32)
+    conn.execute("UPDATE users SET verify_token = ? WHERE id = ?", (token, user_id))
+    conn.commit()
+    return token
+
+
+@_retry_on_locked
 def mark_email_verified(user_id: int) -> None:
     conn = _require_conn()
     conn.execute(
