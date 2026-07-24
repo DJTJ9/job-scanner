@@ -1202,6 +1202,35 @@ def set_notify_pref(user_id: int, email_on: bool) -> int:
     return count
 
 
+SCAN_PORTALS_DEFAULT = ["stepstone", "indeed"]
+
+
+def get_scan_portals(profile_data: dict) -> list[str]:
+    """Portal-Auswahl für den residential Browser-Scan (bob-scan). Default = alle;
+    leere Liste = bewusstes Opt-out. Unbekannte Namen werden gefiltert."""
+    portals = profile_data.get("scan_portals")
+    if not isinstance(portals, list):
+        return list(SCAN_PORTALS_DEFAULT)
+    return [p for p in portals if p in SCAN_PORTALS_DEFAULT]
+
+
+@_retry_on_locked
+def set_scan_portals(user_id: int, portals: list[str]) -> int:
+    """Schreibt data_json.scan_portals in ALLE Profile des Users (Einstellung pro
+    User, Persistenz pro Profil — Muster set_spar_modus). Gibt Anzahl Profile zurück."""
+    conn = _require_conn()
+    clean = [p for p in portals if p in SCAN_PORTALS_DEFAULT]
+    count = 0
+    for p in list_profiles(user_id=user_id):
+        data = p["data"]
+        data["scan_portals"] = clean
+        conn.execute("UPDATE profiles SET data_json = ? WHERE id = ?",
+                     (json.dumps(data, ensure_ascii=False), p["id"]))
+        count += 1
+    conn.commit()
+    return count
+
+
 @_retry_on_locked
 def enqueue_member_rescore(profile_id: int, max_jobs: int | None = None,
                            locations: list[str] | None = None,
