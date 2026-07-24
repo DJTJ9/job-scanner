@@ -172,7 +172,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         spar = storage.get_spar_modus(own[0]["data"]) if own else dict(storage.SPAR_MODUS_DEFAULT)
         notify_pref = storage.get_notify_pref(own[0]["data"]) if own else dict(storage.NOTIFY_PREF_DEFAULT)
         return {"has_claude_kit": bool(user.get("api_token_hash")), "spar_modus": spar,
-                "notify_pref": notify_pref}
+                "notify_pref": notify_pref,
+                "scan_portals": (storage.get_scan_portals(own[0]["data"]) if own
+                                 else list(storage.SCAN_PORTALS_DEFAULT))}
 
     @app.post("/account/passwort")
     def account_password_submit(
@@ -231,6 +233,18 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         langs = [l for l, on in (("de", lang_de), ("en", lang_en)) if on is not None] or ["de"]
         storage.set_spar_modus(request.session["user_id"], limit,
                                neighbor_roles is not None, locs, langs)
+        return RedirectResponse("/einstellungen?tab=token", status_code=303)
+
+    @app.post("/einstellungen/scan-portale")
+    def scan_portals_submit(request: Request, portal_stepstone: str = Form(None),
+                            portal_indeed: str = Form(None), csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+        portals = [name for name, on in (("stepstone", portal_stepstone),
+                                         ("indeed", portal_indeed)) if on is not None]
+        storage.set_scan_portals(request.session["user_id"], portals)
         return RedirectResponse("/einstellungen?tab=token", status_code=303)
 
     @app.post("/einstellungen/notify")

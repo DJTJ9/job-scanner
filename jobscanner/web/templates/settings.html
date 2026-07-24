@@ -132,6 +132,17 @@
              {% if 'en' in spar_modus.languages %}checked{% endif %}> Englisch</label>
       <button type="submit" class="btn btn-secondary">Speichern</button>
     </form>
+
+    <div class="tiefenlinie"></div>
+    <h2>Portal-Auswahl</h2>
+    <p>Welche Anti-Bot-Portale dein bob-scan über deine Heim-IP scannt. Aggregatoren
+       (Adzuna/Jooble) und Arbeitsagentur laufen unabhängig davon als Server-Baseline.</p>
+    <form method="post" action="/einstellungen/scan-portale">
+      {% include "_csrf_field.html" %}
+      <label><input type="checkbox" name="portal_stepstone"{% if 'stepstone' in scan_portals %} checked{% endif %}> StepStone</label>
+      <label><input type="checkbox" name="portal_indeed"{% if 'indeed' in scan_portals %} checked{% endif %}> Indeed</label>
+      <button type="submit" class="btn btn-secondary">Speichern</button>
+    </form>
   </section>
 
   <section class="tab-panel{% if active_tab == 'notify' %} tab-panel-active{% endif %}"

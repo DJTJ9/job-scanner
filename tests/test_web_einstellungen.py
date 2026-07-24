@@ -166,3 +166,31 @@ def test_spar_modus_form_renders_location_language_controls(member):
     assert 'name="locations"' in r.text
     assert 'name="lang_de"' in r.text
     assert 'name="lang_en"' in r.text
+
+
+def test_settings_shows_scan_portal_checkboxes_default_checked(member):
+    body = member.get("/einstellungen").text
+    assert 'name="portal_stepstone" checked' in body
+    assert 'name="portal_indeed" checked' in body
+
+
+def test_scan_portals_submit_persists_selection(tmp_path, monkeypatch):
+    monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "geheim123")
+    monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
+    monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
+    app = create_app(db_path=tmp_path / "jobs.db")
+    uid = storage.create_user("p@test.de", "pw", role="member")
+    storage.create_profile("P", {}, user_id=uid)
+    c = CSRFTestClient(app)
+    c.post("/login", data={"email": "p@test.de", "password": "pw"})
+
+    resp = c.post("/einstellungen/scan-portale",
+                  data={"portal_stepstone": "on"}, follow_redirects=False)
+    assert resp.status_code == 303
+    profile = storage.list_profiles(user_id=uid)[0]
+    assert storage.get_scan_portals(profile["data"]) == ["stepstone"]
+
+    # Beide abgewählt = bewusstes Opt-out, bleibt leer (kein Default-Rückfall).
+    c.post("/einstellungen/scan-portale", data={}, follow_redirects=False)
+    profile = storage.list_profiles(user_id=uid)[0]
+    assert storage.get_scan_portals(profile["data"]) == []
