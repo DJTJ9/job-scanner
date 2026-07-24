@@ -45,6 +45,9 @@ def run(provider: SearchProvider | None = None, limit_per_query: int | None = No
         (p for p in active_profiles if p["is_default"]), active_profiles[0])
 
     portals = config.load_portals()
+    # Anti-Bot-Portale (StepStone/Indeed) laufen residential via bob-scan (Kit),
+    # nicht mehr über die Datacenter-IP — Firecrawl-Config bleibt als Notfall in YAML.
+    portals = [p for p in portals if not p.get("residential")]
     custom_active = storage.list_custom_portals(status="active")
     portals = portals + [
         {"name": f"custom:{cp['id']}", "site": cp["url"],

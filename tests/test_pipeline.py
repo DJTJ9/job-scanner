@@ -188,6 +188,19 @@ def test_location_threaded_to_discover(env, monkeypatch):
     assert seen["location"] == "Berlin"   # erste = primäre
 
 
+def test_residential_portal_skipped_in_server_discover(env, monkeypatch):
+    both = [{"name": "stepstone", "site": "stepstone.de", "detail_url_pattern": "x",
+             "search_type": "html", "search_url_template": "x", "residential": True},
+            *PORTALS]
+    monkeypatch.setattr(pipeline.config, "load_portals", lambda: both)
+    urls = [f"https://indeed.test/Unity Developer-{i}" for i in range(2)]
+    scrape_map = {u: "Rohtext" for u in urls}
+    with patch("jobscanner.search.discover_urls", return_value=urls):
+        report = _run(env, scrape_map)
+    assert "stepstone" not in report["portals"]      # residential raus
+    assert report["portals"]["indeed"]["scraped"] == 2  # Rest unverändert
+
+
 class TestHybridRouting:
     def test_api_portal_uses_cached_description(self, tmp_path, monkeypatch):
         monkeypatch.setattr(pipeline.config, "load_portals",

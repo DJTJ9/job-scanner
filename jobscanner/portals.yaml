@@ -6,6 +6,8 @@
   search_type: html
   search_url_template: 'https://www.stepstone.de/jobs/{query}'
   detail_fetch: firecrawl        # Detailseiten blocken Playwright+requests (Live-E2E 2026-07-11)
+  residential: true              # Discovery via bob-scan (Heim-IP), nicht Server-Discover
+  engine: playwright
 - name: arbeitsagentur
   site: arbeitsagentur.de
   detail_url_pattern: 'arbeitsagentur\.de/jobsuche/jobdetail/'
@@ -26,6 +28,8 @@
   detail_fetch: firecrawl
   max_search_terms: 3            # Credit-Deckel: ~5 Credits/Suche (Auto-Stealth) — nur Kern-Terme
   skip_neighbor_roles: true      # Neighbor-Rollen laufen über die 0-Credit-Quellen (Adzuna/Jooble)
+  residential: true              # Discovery via bob-scan (Heim-IP), nicht Server-Discover
+  engine: patchright             # Turnstile: nur Patchright headful kommt durch (Gate 2026-07-24)
 - name: adzuna
   site: adzuna.de
   detail_url_pattern: 'adzuna\.(de|com)/(land/ad|details)/'
