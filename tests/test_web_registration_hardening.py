@@ -96,3 +96,58 @@ def test_owner_bypasses_hard_lock_without_verification(app):
     client.post("/login", data={"email": "owner@test.de", "password": "ownerpw"})
     resp = client.get("/")
     assert resp.status_code == 200
+
+
+def test_verify_email_resend_sends_mail_and_redirects_sent(app, monkeypatch):
+    client = CSRFTestClient(app)
+    _register(client)
+    calls = []
+    monkeypatch.setattr(
+        "jobscanner.web.app.mailer.send_verification_email",
+        lambda email, token, base_url: calls.append((email, token, base_url)))
+    resp = client.post("/verify-email/resend", data={}, follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/verify-pending?sent=1"
+    user = storage.get_user_by_email("m@test.de")
+    assert calls == [(user["email"], user["verify_token"], "https://job-scanner.thinkshark.de")]
+
+
+def test_verify_email_resend_second_call_within_cooldown_redirects_cooldown(app, monkeypatch):
+    client = CSRFTestClient(app)
+    _register(client)
+    monkeypatch.setattr(
+        "jobscanner.web.app.mailer.send_verification_email", lambda *a: None)
+    client.post("/verify-email/resend", data={})
+    resp = client.post("/verify-email/resend", data={}, follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/verify-pending?cooldown=1"
+
+
+def test_verify_email_resend_smtp_failure_redirects_error(app, monkeypatch):
+    client = CSRFTestClient(app)
+    _register(client)
+
+    def _raise(*a):
+        raise RuntimeError("smtp down")
+
+    monkeypatch.setattr("jobscanner.web.app.mailer.send_verification_email", _raise)
+    resp = client.post("/verify-email/resend", data={}, follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/verify-pending?error=1"
+
+
+def test_verify_email_resend_requires_login(app):
+    client = CSRFTestClient(app)
+    resp = client.post("/verify-email/resend", data={}, follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/login"
+
+
+def test_verify_email_resend_after_already_verified_redirects_home(app):
+    client = CSRFTestClient(app)
+    _register(client)
+    token = storage.get_user_by_email("m@test.de")["verify_token"]
+    client.get(f"/verify-email?token={token}")
+    resp = client.post("/verify-email/resend", data={}, follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/"
