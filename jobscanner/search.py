@@ -72,6 +72,14 @@ class SearchProvider(Protocol):
     def search(self, query: str, limit: int = 10, location: str | None = None) -> list[str]: ...
 
 
+def build_search_url(portal: dict, term: str, location: str | None = None) -> str:
+    """Fertige Such-URL für ein HTML-Portal — der EINE Ort für den URL-Bau:
+    Server-Discover (PortalSearchProvider) und get_scan_config (residential
+    Browser-Scan) nutzen dieselbe Logik, kein Kit-Drift."""
+    q = f"{term} {location}" if location else term
+    return portal["search_url_template"].format(query=quote_plus(q))
+
+
 class PortalSearchProvider:
     """HTML-Portale: Such-URL per Playwright rendern, Links per detail_url_pattern filtern.
 
@@ -83,8 +91,7 @@ class PortalSearchProvider:
         self.portal = portal
 
     def search(self, query: str, limit: int = 10, location: str | None = None) -> list[str]:
-        term = f"{query} {location}" if location else query
-        url = self.portal["search_url_template"].format(query=quote_plus(term))
+        url = build_search_url(self.portal, query, location)
         html = browser.fetch(url, method=self.portal.get("search_fetch", "playwright"),
                              failover=self.portal.get("firecrawl_failover", False),
                              cost=browser.FC_COST_SEARCH)

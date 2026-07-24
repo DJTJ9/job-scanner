@@ -4,7 +4,8 @@ from unittest.mock import patch, MagicMock
 import requests
 
 from jobscanner.search import (PortalSearchProvider, ArbeitsagenturSearchProvider,
-                               discover_urls, provider_for, classify_location)
+                               discover_urls, provider_for, classify_location,
+                               build_search_url)
 from jobscanner import browser
 
 HTML = """
@@ -240,6 +241,18 @@ def test_portal_search_passes_search_cost_to_fetch():
     with patch("jobscanner.search.browser.fetch", return_value=None) as fetch:
         PortalSearchProvider(portal).search("Unity")
     assert fetch.call_args.kwargs["cost"] == browser.FC_COST_SEARCH
+
+
+class TestBuildSearchUrl:
+    def test_quotes_term_and_appends_location(self):
+        portal = {"search_url_template": "https://x.de/jobs?q={query}"}
+        assert build_search_url(portal, "Unity Dev", "Berlin") == \
+            "https://x.de/jobs?q=Unity+Dev+Berlin"
+
+    def test_without_location(self):
+        portal = {"search_url_template": "https://x.de/jobs/{query}"}
+        assert build_search_url(portal, "Unity Dev") == \
+            "https://x.de/jobs/Unity+Dev"
 
 
 class TestClassifyLocation:
