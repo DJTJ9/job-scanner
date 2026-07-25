@@ -248,6 +248,7 @@ body.has-drawer.drawer-collapsed .topbar, body.has-drawer.drawer-collapsed .page
   max-height: min(80vh, 640px);
   overflow-y: auto;
 }
+.feedback-panel.panel-hidden { display: none; }
 .feedback-panel-close {
   position: sticky;
   top: 0;
@@ -539,7 +540,11 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
 }
 .scan-bg {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100lvh; /* iOS: lvh ignoriert das URL-Bar-Resize — Bild skaliert beim Scrollen nicht neu */
   z-index: 0;
   background-image: url("/static/img/Bob-Scan-Anleitung-Background.png");
   background-size: cover;
@@ -571,7 +576,7 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
 .scan-steps li { margin: 0.35rem 0; }
 
 @media (max-width: 900px) {
-  .scan-bg { background-attachment: fixed; background-position: center; }
+  .scan-bg { background-position: center; }
   .scan-grid { grid-template-columns: 1fr; }
   .scan-left { display: none; }
   .scan-content { padding: 1rem 0.75rem 3rem; max-width: 100%; }
