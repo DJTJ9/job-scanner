@@ -10,7 +10,7 @@ from jobscanner import precheck
 def _public_dns(monkeypatch):
     # Hostnamen (foo.de etc.) hermetisch auf eine öffentliche IP auflösen,
     # damit kein echtes DNS im Test nötig ist. Literal-IP-Tests umgehen dies.
-    monkeypatch.setattr("jobscanner.precheck.socket.getaddrinfo",
+    monkeypatch.setattr("jobscanner.browser.socket.getaddrinfo",
                         lambda *a, **k: [(2, 1, 6, "", ("93.184.216.34", 0))])
 
 
@@ -100,7 +100,7 @@ def test_private_ip_blocked_before_render():
 
 def test_hostname_resolving_to_private_ip_blocked(monkeypatch):
     # DNS-Rebinding-Stil: öffentlich aussehender Host, der auf eine interne IP zeigt.
-    monkeypatch.setattr("jobscanner.precheck.socket.getaddrinfo",
+    monkeypatch.setattr("jobscanner.browser.socket.getaddrinfo",
                         lambda *a, **k: [(2, 1, 6, "", ("10.0.0.5", 0))])
     render = MagicMock()
     with patch("jobscanner.precheck.browser.render", render):

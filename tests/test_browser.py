@@ -202,3 +202,63 @@ class TestFetch:
             assert b.fetch("https://example.com/x", failover=True,
                            cost=b.FC_COST_SEARCH) == "<html>fc</html>"
         fc.assert_called_once_with("https://example.com/x", cost=b.FC_COST_SEARCH)
+
+
+from unittest.mock import patch, MagicMock
+
+from jobscanner.browser import render, _reject_ssrf
+
+
+class TestRejectSsrf:
+    def test_blocks_file_scheme(self):
+        assert _reject_ssrf("file:///etc/passwd") is not None
+
+    def test_blocks_loopback_literal(self):
+        assert _reject_ssrf("http://127.0.0.1/") is not None
+
+    def test_blocks_metadata_literal(self):
+        assert _reject_ssrf("http://169.254.169.254/latest/meta-data/") is not None
+
+    def test_allows_public_host(self):
+        with patch("jobscanner.browser.socket.getaddrinfo",
+                   return_value=[(2, 1, 6, "", ("93.184.216.34", 0))]):
+            assert _reject_ssrf("https://example.com/") is None
+
+
+class TestRenderSsrfGuard:
+    def _handler_from(self, cm):
+        page = cm.__enter__.return_value.chromium.launch.return_value.new_page.return_value
+        # page.route("**/*", _guard) — Handler ist das zweite Positional-Argument
+        return page.route.call_args[0][1]
+
+    def test_render_registers_route_guard(self):
+        cm = _mock_playwright("<html>ok</html>")
+        with patch("jobscanner.browser.sync_playwright", return_value=cm):
+            render("https://example.com/")
+        page = cm.__enter__.return_value.chromium.launch.return_value.new_page.return_value
+        page.route.assert_called_once()
+        assert page.route.call_args[0][0] == "**/*"
+
+    def test_guard_aborts_private_redirect_hop(self):
+        cm = _mock_playwright("<html>ok</html>")
+        with patch("jobscanner.browser.sync_playwright", return_value=cm):
+            render("https://example.com/")
+        guard = self._handler_from(cm)
+        route = MagicMock()
+        req = MagicMock(url="http://169.254.169.254/latest/meta-data/")
+        guard(route, req)
+        route.abort.assert_called_once()
+        route.continue_.assert_not_called()
+
+    def test_guard_continues_global_request(self):
+        cm = _mock_playwright("<html>ok</html>")
+        with patch("jobscanner.browser.sync_playwright", return_value=cm):
+            render("https://example.com/")
+        guard = self._handler_from(cm)
+        route = MagicMock()
+        req = MagicMock(url="https://example.com/next")
+        with patch("jobscanner.browser.socket.getaddrinfo",
+                   return_value=[(2, 1, 6, "", ("93.184.216.34", 0))]):
+            guard(route, req)
+        route.continue_.assert_called_once()
+        route.abort.assert_not_called()
