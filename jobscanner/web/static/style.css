@@ -222,6 +222,8 @@ body.has-drawer.drawer-collapsed .topbar, body.has-drawer.drawer-collapsed .page
   .drawer-toggle, .drawer-close { display: block; }
   .drawer-collapse { display: none; }
   h1 { font-size: 1.5rem; }
+  .tabs { overflow-x: auto; }
+  .portale-table { display: block; overflow-x: auto; }
 }
 
 .feedback-fab {
