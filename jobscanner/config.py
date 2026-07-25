@@ -42,12 +42,19 @@ def load_portals() -> list[dict]:
 
 
 def _load_env() -> None:
-    if _ENV_FILE.exists():
-        for line in _ENV_FILE.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, _, v = line.partition("=")
-                os.environ.setdefault(k.strip(), v.strip())
+    try:
+        if not _ENV_FILE.exists():
+            return
+        text = _ENV_FILE.read_text(encoding="utf-8")
+    except OSError:
+        # .env fehlt oder ist für diesen User nicht lesbar (z.B. non-root web,
+        # dessen Vars ohnehin per systemd EnvironmentFile gesetzt sind). Still überspringen.
+        return
+    for line in text.splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, _, v = line.partition("=")
+            os.environ.setdefault(k.strip(), v.strip())
 
 
 def load_web_settings() -> dict:

@@ -95,3 +95,15 @@ def test_firecrawl_budget_default_and_env(monkeypatch):
     assert config.firecrawl_budget() == 100
     monkeypatch.setenv("JOBSCANNER_FC_BUDGET", "42")
     assert config.firecrawl_budget() == 42
+
+
+def test_load_env_tolerates_unreadable_env_file(monkeypatch):
+    """Non-root web-Prozess kann die Bot-.env unter /root (mode 0700) nicht mal
+    stat'en → PermissionError. _load_env() muss still überspringen statt zu werfen
+    (Vars kommen ohnehin per systemd EnvironmentFile)."""
+    class _Unreadable:
+        def exists(self):
+            raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(config, "_ENV_FILE", _Unreadable())
+    config._load_env()  # darf nicht werfen
