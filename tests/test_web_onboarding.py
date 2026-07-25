@@ -243,3 +243,33 @@ def test_wizard_has_cancel_to_home(owner_client):
     resp = owner_client.get("/wizard/basis")
     assert 'Abbrechen' in resp.text
     assert '→ Startseite' not in resp.text
+
+
+# --- .hinweis-Klasse vereinheitlicht ---
+
+def test_settings_hint_texts_use_hinweis_class(owner_client):
+    resp = owner_client.get("/einstellungen?tab=token")
+    assert '<p class="hinweis">' in resp.text
+    assert resp.text.count('<p class="hinweis">') >= 2  # Spar-Modus + Portal-Auswahl
+
+
+def test_portale_beispiel_uses_hinweis_class(owner_client):
+    resp = owner_client.get("/portale")
+    assert 'class="hinweis"' in resp.text
+    assert "z.B. https://bar.de/jobs?q={query}" in resp.text
+
+
+def test_keys_hint_box_uses_hinweis_class(owner_client):
+    resp = owner_client.get("/anleitung/keys")
+    assert 'class="anl-shot-hinweis hinweis"' in resp.text
+
+
+def test_hinweis_class_is_unscoped_in_css():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert ".logbuch .hinweis" not in css
+    assert ".hinweis {" in css
+
+
+def test_datenschutz_hinweis_still_renders(owner_client):
+    resp = owner_client.get("/datenschutz")
+    assert 'class="hinweis"' in resp.text

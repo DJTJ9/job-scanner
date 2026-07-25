@@ -44,7 +44,7 @@
     <p>Danach Bob mit deinem Claude verbinden — <a class="link" href="/anleitung">volle Anleitung</a>:
        Plugin installieren mit <code>/plugin install bob@bob-kit</code>, Token bei der Nachfrage einfügen.</p>
     {% else %}
-    <p>Für den Bob-Member-Kit-Zugang mit deinem eigenen Claude-Abo. Ein neues Token
+    <p class="hinweis">Für den Bob-Member-Kit-Zugang mit deinem eigenen Claude-Abo. Ein neues Token
        ersetzt das alte und wird nur einmalig angezeigt. Anleitung: <a class="link" href="/anleitung">/anleitung</a>.</p>
     {% endif %}
     <form method="post" action="/profiles/api-token">
@@ -106,7 +106,7 @@
 
     <div class="tiefenlinie"></div>
     <h2>Spar-Modus</h2>
-    <p>Schützt dein Claude-Abo vor Überraschungsverbrauch — die Bob-Befehle respektieren diese Limits.</p>
+    <p class="hinweis">Schützt dein Claude-Abo vor Überraschungsverbrauch — die Bob-Befehle respektieren diese Limits.</p>
     <form method="post" action="/einstellungen/spar-modus">
       {% include "_csrf_field.html" %}
       <label><input type="radio" name="modus" value="unbegrenzt"
@@ -135,7 +135,7 @@
 
     <div class="tiefenlinie"></div>
     <h2>Portal-Auswahl</h2>
-    <p>Welche Anti-Bot-Portale dein bob-scan über deine Heim-IP scannt. Aggregatoren
+    <p class="hinweis">Welche Anti-Bot-Portale dein bob-scan über deine Heim-IP scannt. Aggregatoren
        (Adzuna/Jooble) und Arbeitsagentur laufen unabhängig davon als Server-Baseline.</p>
     <form method="post" action="/einstellungen/scan-portale">
       {% include "_csrf_field.html" %}

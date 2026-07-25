@@ -274,7 +274,7 @@ body.has-drawer .site-footer { margin-left: 240px; }
 body.has-drawer.drawer-collapsed .site-footer { margin-left: 56px; }
 .logbuch { max-width: 640px; margin: 2rem auto; }
 .logbuch h1 { margin: 0.5rem 0 0; }
-.logbuch .hinweis { font-size: 0.8rem; color: var(--wasser); margin-top: 1.5rem; }
+.hinweis { font-size: 0.8rem; color: var(--wasser); margin-top: 1.5rem; }
 .logbuch .success-msg { color: var(--beute); font-weight: 600; }
 .tiefenlinie {
   height: 2px;
