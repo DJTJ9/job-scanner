@@ -44,13 +44,22 @@ def test_onboarding_route_requires_login():
     assert resp.headers["location"] == "/login"
 
 
-def test_onboarding_page_has_four_sections(member_client):
+def test_onboarding_page_has_five_sections_in_order(member_client):
     resp = member_client.get("/onboarding")
     assert resp.status_code == 200
-    assert "Wer bin ich?" in resp.text
-    assert "Was kann ich?" in resp.text
-    assert "Wer bist du?" in resp.text
-    assert "Wie ich arbeite" in resp.text
+    text = resp.text
+    positions = [text.index(h) for h in (
+        "Wer bin ich?", "Was kann ich?", "Wie ich arbeite",
+        "Wer bist du?", "Wie kannst du mitmachen?")]
+    assert positions == sorted(positions)
+
+
+def test_onboarding_mitmachen_panel_content(member_client):
+    text = member_client.get("/onboarding").text
+    assert "Invite" in text
+    assert "Heim-IP" in text
+    assert 'href="/anleitung">Zur Anleitung' in text
+    assert "/static/img/bob/bob-pose-daumen-hoch.png" in text
 
 
 def test_onboarding_page_keeps_bot_avatar_images(member_client):
