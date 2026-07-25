@@ -584,3 +584,41 @@ class TestGetScanConfig:
     def test_no_profile_returns_empty_targets(self, client, member):
         cfg = mcp_api.get_scan_config_data({"id": member["id"]})
         assert cfg["targets"] == [] and cfg["queries"] == []
+
+    def _custom_portal(self, uid):
+        pid = storage.create_custom_portal(
+            "https://jobs.example.com", "portal", uid,
+            search_url_template="https://jobs.example.com/s?q={query}",
+            detail_url_pattern=r"jobs\.example\.com/job/")
+        storage.save_check_result(pid, {"compatible": True})
+        storage.activate_custom_portal(pid)
+        return pid
+
+    def test_custom_portal_target_built_from_row(self, client, member):
+        pid = self._custom_portal(member["id"])
+        self._profile(member["id"], {"target_roles": ["Unity Dev"],
+                                     "scan_portals": ["stepstone", f"custom:{pid}"]})
+        cfg = mcp_api.get_scan_config_data({"id": member["id"]})
+        by_portal = {t["portal"]: t for t in cfg["targets"]}
+        assert set(by_portal) == {"stepstone", f"custom:{pid}"}
+        custom = by_portal[f"custom:{pid}"]
+        assert custom["engine"] == "playwright"
+        assert custom["search_url"] == "https://jobs.example.com/s?q=Unity+Dev"
+        assert custom["detail_url_pattern"] == r"jobs\.example\.com/job/"
+
+    def test_custom_portal_location_substituted(self, client, member):
+        pid = self._custom_portal(member["id"])
+        self._profile(member["id"], {"target_roles": ["Dev"],
+                                     "scan_portals": [f"custom:{pid}"],
+                                     "spar_modus": {"max_jobs": None,
+                                                    "locations": ["Berlin"]}})
+        cfg = mcp_api.get_scan_config_data({"id": member["id"]})
+        assert cfg["targets"][0]["search_url"] == \
+            "https://jobs.example.com/s?q=Dev+Berlin"
+
+    def test_unselected_custom_portal_not_in_targets(self, client, member):
+        self._custom_portal(member["id"])
+        self._profile(member["id"], {"target_roles": ["Dev"],
+                                     "scan_portals": ["stepstone"]})
+        cfg = mcp_api.get_scan_config_data({"id": member["id"]})
+        assert {t["portal"] for t in cfg["targets"]} == {"stepstone"}

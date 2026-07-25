@@ -55,7 +55,9 @@ def get_scan_config_data(user: dict) -> dict:
     """Baut aus dem Profil des Tokens fertige Browser-Scan-Targets: Queries aus
     target_roles (Fallback skills), Standort aus spar_modus.locations, Portal-
     Auswahl aus scan_portals, Caps aus spar_modus.max_jobs. Die URL-Logik bleibt
-    server-seitig (build_search_url/portals.yaml) — das Kit-Script bleibt dumm."""
+    server-seitig (build_search_url/portals.yaml) — das Kit-Script bleibt dumm.
+    Gewählte custom:<id>-Portale werden aus der custom_portals-Row zum
+    Playwright-Target."""
     profiles = _user_profiles(user["id"])
     if not profiles:
         return {"targets": [], "caps": {}, "queries": [],
@@ -78,6 +80,12 @@ def get_scan_config_data(user: dict) -> dict:
     chosen = storage.get_scan_portals(data0)
     portals = [p for p in config.load_portals()
                if p.get("residential") and p["name"] in chosen]
+    portals += [{"name": f"custom:{cp['id']}",
+                 "engine": "playwright",
+                 "search_url_template": cp["search_url_template"],
+                 "detail_url_pattern": cp["detail_url_pattern"]}
+                for cp in storage.list_scannable_custom_portals()
+                if f"custom:{cp['id']}" in chosen]
     targets = [{"portal": p["name"],
                 "engine": p.get("engine", "playwright"),
                 "search_url": search.build_search_url(p, q, location),
