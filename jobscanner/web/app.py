@@ -159,6 +159,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def anleitung_scan_view(request: Request):
         return templates.TemplateResponse(request, "anleitung_scan.html", {})
 
+    @app.get("/hilfe")
+    def hilfe_view(request: Request):
+        return templates.TemplateResponse(request, "hilfe.html", {})
+
     @app.get("/onboarding")
     def onboarding_view(request: Request):
         if (redirect := require_user(request)) is not None:

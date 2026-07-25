@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Hilfe — Bob der Job-Bot{% endblock %}
+{% block content %}
+<h1>Hilfe</h1>
+<p class="hinweis">Alle Anleitungen an einem Ort.</p>
+<div class="cc-grid">
+  <a class="cc-card" href="/anleitung">
+    <span class="cc-icon">📖</span>
+    <span class="cc-label">Anleitung</span>
+    <span class="cc-desc">Einstieg, Zugang, Features</span>
+  </a>
+  <a class="cc-card" href="/anleitung/scan">
+    <span class="cc-icon">🛰</span>
+    <span class="cc-label">Scan-Anleitung</span>
+    <span class="cc-desc">Heim-IP-Scan einrichten</span>
+  </a>
+  <a class="cc-card" href="/anleitung/keys">
+    <span class="cc-icon">🔑</span>
+    <span class="cc-label">API-Keys holen</span>
+    <span class="cc-desc">Adzuna/Jooble Schritt für Schritt</span>
+  </a>
+</div>
+{% endblock %}
