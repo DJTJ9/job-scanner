@@ -303,3 +303,57 @@ def test_onboarding_page_has_tech_stack_chips(member_client):
     for tech in ("Python", "FastAPI", "Jinja2", "SQLite", "Playwright", "Firecrawl",
                  "Claude", "Claude Agents", "systemd", "NocoDB", "Caddy"):
         assert f'<span class="chip">{tech}</span>' in resp.text
+
+
+def test_erstbesuch_banner_links_to_onboarding_instead_of_hero_buttons(member_client):
+    resp = member_client.get("/")
+    assert "onboarding-hero" not in resp.text
+    assert 'data-onboarding-open="onboarding-bot"' not in resp.text
+    assert 'href="/onboarding"' in resp.text
+    assert "Neu hier?" in resp.text
+
+
+def test_command_center_shows_four_cards_for_existing_profile(owner_client):
+    resp = owner_client.get("/")
+    assert 'class="cc-grid"' in resp.text
+    assert "Scan starten" in resp.text
+    assert "Ergebnisse" in resp.text
+    assert "Feedback geben" in resp.text
+    assert "Profil pflegen" in resp.text
+
+
+def test_command_center_cards_link_to_existing_routes(owner_client):
+    from jobscanner import storage
+    pid = storage.list_profiles(user_id=1)[0]["id"]
+    resp = owner_client.get("/")
+    assert 'href="/einstellungen?tab=token"' in resp.text
+    assert f'href="/dashboard/{pid}#kontakte"' in resp.text
+    assert f'href="/wizard/edit/{pid}"' in resp.text
+    assert "data-feedback-toggle" in resp.text
+
+
+def test_command_center_hero_greets_with_profile_name(owner_client):
+    resp = owner_client.get("/")
+    assert "Willkommen zurück, Tjark" in resp.text
+
+
+def test_command_center_no_new_matches_shows_neutral_status(owner_client):
+    resp = owner_client.get("/")
+    assert "Alles im Blick" in resp.text
+
+
+def test_command_center_shows_new_matches_badge(owner_client):
+    from jobscanner import storage
+    from jobscanner.models import Job
+    pid = storage.list_profiles(user_id=1)[0]["id"]
+    fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
+                                first_seen="2026-07-11"))
+    storage.upsert_job_score(pid, fp, 90, "Pass", "Pass", {})
+    resp = owner_client.get("/")
+    assert "1 neue Top-Treffer" in resp.text
+
+
+def test_profile_list_still_present_below_command_center(owner_client):
+    resp = owner_client.get("/")
+    assert 'data-profile-exists="true"' in resp.text
+    assert "<h2>Profile</h2>" in resp.text

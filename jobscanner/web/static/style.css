@@ -477,6 +477,38 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
   font-weight: 600;
 }
 
+.cc-hero { gap: 1rem; }
+.cc-hero .bob-avatar { height: 56px; }
+.cc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.cc-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--wasser);
+  border: none;
+  border-radius: 8px;
+  padding: 1.5rem 1rem;
+  color: var(--gischt);
+  text-decoration: none;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: 1rem;
+  cursor: pointer;
+  text-align: center;
+}
+.cc-card:hover { background: var(--tiefe); }
+.cc-icon { font-size: 1.75rem; }
+.cc-label { font-weight: 600; }
+.cc-erstbesuch { display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+@media (max-width: 900px) {
+  .cc-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 .dash-search {
   display: flex;
   align-items: center;

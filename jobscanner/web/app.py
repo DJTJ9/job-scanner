@@ -347,9 +347,16 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return redirect
         profiles = storage.list_profiles(active_only=True,
                                           user_id=request.session.get("user_id"))
+        primary = None
+        new_matches = 0
+        if profiles:
+            primary = next((p for p in profiles if p["is_default"]), profiles[0])
+            new_matches = len(storage.list_unnotified_top_matches(primary["id"]))
         return templates.TemplateResponse(request, "profiles.html", {
             "profiles": profiles,
-            "profile_exists": len(profiles) > 0})
+            "profile_exists": len(profiles) > 0,
+            "primary_profile": primary,
+            "new_matches": new_matches})
 
     @app.post("/profiles/{profile_id}/delete")
     def delete_profile_route(request: Request, profile_id: int, csrf_token: str = Form("")):
