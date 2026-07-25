@@ -100,13 +100,13 @@ def test_erstbesuch_banner_links_to_onboarding_instead_of_hero_buttons(member_cl
     assert "Neu hier?" in resp.text
 
 
-def test_command_center_shows_four_cards_for_existing_profile(owner_client):
+def test_command_center_shows_three_cards_for_existing_profile(owner_client):
     resp = owner_client.get("/")
     assert 'class="cc-grid"' in resp.text
     assert "Scan starten" in resp.text
     assert "Ergebnisse" in resp.text
     assert "Feedback geben" in resp.text
-    assert "Profil pflegen" in resp.text
+    assert "Profil pflegen" not in resp.text
 
 
 def test_command_center_cards_link_to_existing_routes(owner_client):
@@ -118,24 +118,20 @@ def test_command_center_cards_link_to_existing_routes(owner_client):
     assert "data-feedback-toggle" in resp.text
 
 
-def test_command_center_hero_greets_with_profile_name(owner_client):
+def test_command_center_no_welcome_banner(owner_client):
     resp = owner_client.get("/")
-    assert "Willkommen zurück, Tjark" in resp.text
+    assert "Willkommen zurück" not in resp.text
+    assert "cc-hero" not in resp.text
 
 
-def test_command_center_no_new_matches_shows_neutral_status(owner_client):
-    resp = owner_client.get("/")
-    assert "Alles im Blick" in resp.text
-
-
-def test_command_center_shows_new_matches_badge(owner_client):
+def test_command_center_shows_new_matches_in_results_card(owner_client):
     from jobscanner.models import Job
     pid = storage.list_profiles(user_id=1)[0]["id"]
     fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
                                 first_seen="2026-07-11"))
     storage.upsert_job_score(pid, fp, 90, "Pass", "Pass", {})
     resp = owner_client.get("/")
-    assert "1 neue Top-Treffer" in resp.text
+    assert "Ergebnisse (1)" in resp.text
 
 
 def test_profile_list_still_present_below_command_center(owner_client):

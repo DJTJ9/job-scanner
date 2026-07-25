@@ -11,15 +11,6 @@
 </div>
 {% endif %}
 {% if profile_exists %}
-<div class="hero-landscape-band cc-hero">
-  <img class="bob-avatar" src="/static/img/bob/bob-pose-winken.png" alt="Bob">
-  <div>
-    <h1>Willkommen zurück, {{ primary_profile.name }}</h1>
-    <p class="job-meta">
-      {% if new_matches %}⭐ {{ new_matches }} neue Top-Treffer{% else %}Alles im Blick — keine neuen Top-Treffer{% endif %}
-    </p>
-  </div>
-</div>
 <div class="cc-grid">
   <a class="cc-card" href="/einstellungen?tab=token">
     <span class="cc-icon">🔍</span>
@@ -32,12 +23,7 @@
   <button type="button" class="cc-card" data-feedback-toggle>
     <span class="cc-icon">💬</span>
     <span class="cc-label">Feedback geben</span>
-  </button>
-  <a class="cc-card" href="/wizard/edit/{{ primary_profile.id }}">
-    <span class="cc-icon">👤</span>
-    <span class="cc-label">Profil pflegen</span>
-  </a>
-</div>
+  </button></div>
 <div class="panel profiles-panel" data-profile-exists="{{ profile_exists|lower }}">
   <div class="onboarding-header">
     <h2>Profile</h2>
