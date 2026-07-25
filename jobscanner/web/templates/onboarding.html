@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Onboarding — Bob der Job-Bot{% endblock %}
+{% block content %}
+<a class="link" href="/">← Zurück</a>
+<h1>Willkommen bei Bob der Job-Bot</h1>
+
+<section class="panel onboarding-section">
+  <div class="onboarding-avatar-wrap">
+    <img class="bob-avatar ping" src="/static/img/bob/bob-pose-rakete.png" alt="Bob">
+  </div>
+  <h2>Wer bin ich?</h2>
+  <p>Ich bin <strong>Bob der Job-Bot</strong>. Ich durchsuche laufend Jobportale nach Stellen, die zu deinem Profil passen — du musst nicht mehr selbst suchen.</p>
+  <p>Jede gefundene Stelle vergleiche ich mit deinen Kriterien (Skills, Zielrollen, Domänen, Standort, Sprache) und errechne eine Passung von 0–100.</p>
+  <p>Deine Treffer findest du in deinem Profil. Stellenangebote, die ein oder mehrere No-gos enthalten, filtere ich automatisch raus. Du kannst diese Jobs aber weiterhin in deinem Profil unter "Aussortiert" finden.</p>
+  <p>Für dich heißt das: weniger Zeit mit manuellem Suchen, mehr passende Treffer.</p>
+</section>
+
+<section class="panel onboarding-section">
+  <div class="onboarding-avatar-wrap">
+    <img class="bob-avatar" src="/static/img/bob/bob-pose-herz.png" alt="Bob">
+  </div>
+  <h2>Was kann ich?</h2>
+  <p><strong>Profil</strong> — deine Skills, Zielrollen, Domänen, Standort, Sprachen und No-Gos. Danach bewerte ich den kompletten Job-Pool automatisch für dich.</p>
+  <p><strong>Job-Angebote</strong> — Treffer sortiert nach Passung (0–100), mit nachvollziehbarer Begründung pro Kriterium.</p>
+  <p><strong>Bewerten</strong> — 👍/👎 auf einzelne Treffer; ich lerne daraus und passe die Gewichtung über die Zeit an.</p>
+  <p><strong>Feintuning</strong> — du kannst die Gewichte deiner Kriterien jederzeit selbst nachjustieren.</p>
+  <p><strong>Aussortiert</strong> — Stellen, die ein No-Go treffen, landen hier statt in den Job-Angeboten — du kannst sie trotzdem einsehen.</p>
+  <p><strong>Original-Anzeige</strong> — ein Klick auf den Job-Titel öffnet die Ursprungsanzeige im Portal.</p>
+  <div class="onboarding-footer">
+    <a class="btn btn-secondary" target="_blank" rel="noopener" href="https://djtj9.github.io/teach-lessons/job-scanner/job-scanner-nutzen/lessons/job-scanner-nutzen.html">Ausführliche Anleitung →</a>
+  </div>
+</section>
+
+<section class="panel onboarding-section">
+  <div class="onboarding-avatar-wrap">
+    <img class="bob-avatar" src="/static/img/bob/bob-pose-frage.png" alt="Bob">
+  </div>
+  <h2>Wer bist du?</h2>
+  <p>Erzähl mir, wonach du suchst — dann finde ich passende Stellen für dich. Leg dazu ein Profil mit deinen Skills, Zielrollen und Wünschen an.</p>
+  <div class="onboarding-footer">
+    <a class="btn btn-primary" href="/wizard/new">Profil erstellen →</a>
+  </div>
+</section>
+
+<section class="panel onboarding-section">
+  <div class="onboarding-avatar-wrap">
+    <img class="bob-avatar ping" src="/static/img/bob/bob-pose-rakete.png" alt="Bob">
+  </div>
+  <h2>Wie ich arbeite</h2>
+  <p><strong>1. Ingestion</strong> — Jobportale (StepStone, Arbeitsagentur, Indeed, Stellenanzeigen.de) werden nach hinterlegten Such-Queries durchsucht.</p>
+  <p><strong>2. Extraktion &amp; Dedup</strong> — rohe Seiten werden in strukturierte Felder (Titel, Anforderungen, Gehalt, Standort) umgewandelt; ein Fingerabdruck verhindert doppelte Einträge über Portale hinweg.</p>
+  <p><strong>3. Storage</strong> — landet in SQLite, der einzigen Wahrheitsquelle des Systems.</p>
+  <p><strong>4. Scoring</strong> — jede Anzeige wird gegen die persönlichen Kriterien eines Profils bewertet (Skills, Zielrollen, Domänen, Standort, Sprache, No-Gos) und bekommt eine Punktzahl 0–100.</p>
+  <p><strong>5. Dashboard</strong> — die Web-Oberfläche zeigt die Treffer sortiert nach Score, mit nachvollziehbarer Begründung pro Kriterium.</p>
+  <p><strong>6. Feedback-Loop</strong> — Daumen hoch/runter auf einzelne Treffer fließen zurück: ein Claude-Agent analysiert die Bewertungsmuster und schlägt Anpassungen an den Kriterien-Gewichten vor.</p>
+  <p>
+    <span class="chip">Python</span><span class="chip">FastAPI</span><span class="chip">Jinja2</span><span class="chip">SQLite</span><span class="chip">Playwright</span><span class="chip">Firecrawl</span><span class="chip">Claude</span><span class="chip">Claude Agents</span><span class="chip">systemd</span><span class="chip">NocoDB</span><span class="chip">Caddy</span>
+  </p>
+  <div class="onboarding-footer">
+    <a class="btn btn-secondary" target="_blank" rel="noopener" href="https://djtj9.github.io/teach-lessons/job-scanner/job-scanner-erklaert/lessons/job-scanner-erklaert.html">Ausführliche Erklärung →</a>
+    <a class="link" href="/anleitung">Setup-Anleitung →</a>
+  </div>
+</section>
+{% endblock %}

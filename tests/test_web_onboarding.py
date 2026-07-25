@@ -252,3 +252,54 @@ def test_wizard_has_cancel_to_home(owner_client):
     resp = owner_client.get("/wizard/basis")
     assert 'Abbrechen' in resp.text
     assert '→ Startseite' not in resp.text
+
+
+def test_onboarding_route_requires_login():
+    import os
+    from fastapi.testclient import TestClient
+    from jobscanner.web.app import create_app
+    os.environ.setdefault("JOBSCANNER_SESSION_SECRET", "test-secret-key")
+    client = TestClient(create_app(db_path="/tmp/na_onboarding_preauth.db"))
+    resp = client.get("/onboarding", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/login"
+
+
+def test_onboarding_page_has_four_sections(member_client):
+    resp = member_client.get("/onboarding")
+    assert resp.status_code == 200
+    assert "Wer bin ich?" in resp.text
+    assert "Was kann ich?" in resp.text
+    assert "Wer bist du?" in resp.text
+    assert "Wie ich arbeite" in resp.text
+
+
+def test_onboarding_page_keeps_bot_avatar_images(member_client):
+    resp = member_client.get("/onboarding")
+    assert "/static/img/bob/bob-pose-rakete.png" in resp.text
+    assert "/static/img/bob/bob-pose-herz.png" in resp.text
+    assert "/static/img/bob/bob-pose-frage.png" in resp.text
+
+
+def test_onboarding_page_wizard_section_links_to_new_profile(member_client):
+    resp = member_client.get("/onboarding")
+    assert 'href="/wizard/new"' in resp.text
+    assert "Profil erstellen" in resp.text
+
+
+def test_onboarding_page_links_to_setup_anleitung(member_client):
+    resp = member_client.get("/onboarding")
+    assert 'href="/anleitung">Setup-Anleitung' in resp.text
+
+
+def test_onboarding_page_mentions_aussortiert(member_client):
+    resp = member_client.get("/onboarding")
+    assert "Aussortiert" in resp.text
+    assert "filtere ich automatisch raus" in resp.text
+
+
+def test_onboarding_page_has_tech_stack_chips(member_client):
+    resp = member_client.get("/onboarding")
+    for tech in ("Python", "FastAPI", "Jinja2", "SQLite", "Playwright", "Firecrawl",
+                 "Claude", "Claude Agents", "systemd", "NocoDB", "Caddy"):
+        assert f'<span class="chip">{tech}</span>' in resp.text
