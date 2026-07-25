@@ -28,9 +28,7 @@
   <nav class="drawer panel-hidden" id="drawer">
     <button type="button" class="drawer-close" data-drawer-close aria-label="Menü schließen">✕</button>
     <a class="drawer-item" href="/">⌂ <span class="drawer-item-label">Startseite</span></a>
-    <button type="button" class="drawer-item" data-onboarding-open="onboarding-bot">🤖 <span class="drawer-item-label">Wer bin ich?</span></button>
-    <button type="button" class="drawer-item" data-onboarding-open="onboarding-was-kann">💡 <span class="drawer-item-label">Was kann ich?</span></button>
-    <button type="button" class="drawer-item" data-onboarding-open="onboarding-wizard">📋 <span class="drawer-item-label">Wer bist du?</span></button>
+    <a class="drawer-item" href="/onboarding">🎓 <span class="drawer-item-label">Onboarding</span></a>
     <a class="drawer-item" href="/wizard/new">＋ <span class="drawer-item-label">Neues Profil</span></a>
     <a class="drawer-item" href="/anleitung">📖 <span class="drawer-item-label">Anleitung</span></a>
     <a class="drawer-item" href="/anleitung/scan">🛰 <span class="drawer-item-label">Scan-Anleitung</span></a>
@@ -47,10 +45,6 @@
     {% block content %}{% endblock %}
   </main>
   {% if request.session.get("user_id") %}
-  {% include "_onboarding_bot.html" %}
-  {% include "_onboarding_was_kann.html" %}
-  {% include "_onboarding_wizard.html" %}
-  {% include "_onboarding_lesson.html" %}
   {% include "_feedback_widget.html" %}
   {% endif %}
   <footer class="site-footer">

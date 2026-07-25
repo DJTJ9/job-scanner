@@ -1,4 +1,4 @@
-"""Member-Onboarding-Anleitung: profile_exists-Flag, Buttons/Partials, CSS/JS-Reuse."""
+"""Command-Center-Startseite, gebündelte /onboarding-Seite, Panel-Overflow-Fix (.safe-sheet)."""
 from pathlib import Path
 
 import pytest
@@ -33,231 +33,10 @@ def member_client(tmp_path, monkeypatch):
     return c
 
 
-def test_profile_exists_true_for_owner_with_migrated_profile(owner_client):
-    resp = owner_client.get("/")
-    assert 'data-profile-exists="true"' in resp.text
-
-
-def test_profile_exists_false_for_member_without_profile(member_client):
-    resp = member_client.get("/")
-    assert 'data-profile-exists="false"' in resp.text
-
-
-def test_hero_buttons_render_when_no_profile(member_client):
-    resp = member_client.get("/")
-    assert "onboarding-hero" in resp.text
-    assert 'data-onboarding-open="onboarding-bot"' in resp.text
-    assert 'data-onboarding-open="onboarding-was-kann"' in resp.text
-    assert 'data-onboarding-open="onboarding-wizard"' in resp.text
-    assert "🤖 Wer bin ich?" in resp.text
-    assert "💡 Was kann ich?" in resp.text
-    assert "📋 Wer bist du?" in resp.text
-
-
-def test_corner_icons_render_when_profile_exists_not_hero(owner_client):
-    resp = owner_client.get("/")
-    assert "onboarding-hero" not in resp.text
-
-
-def test_onboarding_panels_hidden_by_default_and_wizard_links_to_new(member_client):
-    resp = member_client.get("/")
-    assert 'id="onboarding-bot" class="panel onboarding-panel panel-hidden"' in resp.text
-    assert 'id="onboarding-wizard" class="panel onboarding-panel panel-hidden"' in resp.text
-    assert 'href="/wizard/new"' in resp.text
-    assert 'data-onboarding-close="onboarding-bot"' in resp.text
-    assert 'data-onboarding-close="onboarding-wizard"' in resp.text
-
-
-def test_onboarding_css_classes_present_and_reuse_theme():
-    css = Path("jobscanner/web/static/style.css").read_text()
-    for cls in (".onboarding-hero", ".onboarding-header", ".onboarding-corner",
-                ".onboarding-icon-btn", ".onboarding-panel", ".onboarding-avatar-wrap"):
-        assert cls in css
-    assert "var(--signal)" in css.split(".onboarding-icon-btn")[1].split("}")[0]
-
-
-def test_onboarding_css_reuses_ping_keyframes_only():
-    css = Path("jobscanner/web/static/style.css").read_text()
-    assert css.count("@keyframes") == 2   # ping-pulse + feedback-fab-pulse (Sag's-Bob-Widget)
-
-
-def test_app_js_has_onboarding_toggle_snippet():
-    js = Path("jobscanner/web/static/app.js").read_text()
-    assert 'data-onboarding-open' in js
-    assert 'data-onboarding-close' in js
-    assert 'panel-hidden' in js
-
-
-def test_bot_panel_has_portfolio_framing_and_tech_stack_chips(member_client):
-    resp = member_client.get("/")
-    assert "Portfolio-Projekt" in resp.text
-    for tech in ("Python", "FastAPI", "Jinja2", "SQLite", "Playwright", "Firecrawl",
-                 "Groq", "Claude Agents", "systemd", "NocoDB", "Caddy"):
-        assert f'<span class="chip">{tech}</span>' in resp.text
-
-
-def test_bot_panel_trigger_link_opens_lesson_panel(member_client):
-    resp = member_client.get("/")
-    assert 'data-onboarding-open="onboarding-lesson"' in resp.text
-    assert "Wie das genau funktioniert" in resp.text
-
-
-def test_lesson_panel_renders_hidden_with_full_tour(member_client):
-    resp = member_client.get("/")
-    assert 'id="onboarding-lesson" class="panel onboarding-panel panel-hidden"' in resp.text
-    for step in ("Ingestion", "Extraktion", "Storage", "Scoring", "Dashboard", "Feedback-Loop"):
-        assert step in resp.text
-    assert 'data-onboarding-close="onboarding-lesson"' in resp.text
-
-
-def test_lesson_panel_links_to_external_teach_lesson(member_client):
-    resp = member_client.get("/")
-    assert 'href="https://djtj9.github.io/teach-lessons/job-scanner/job-scanner-erklaert/lessons/job-scanner-erklaert.html"' in resp.text
-    assert 'target="_blank"' in resp.text
-
-
-def test_bot_panel_last_paragraph_has_no_employer_address(member_client):
-    resp = member_client.get("/")
-    assert "Für dich heißt das: weniger Zeit mit manuellem Suchen, mehr passende Treffer." in resp.text
-    assert "Bewerber" not in resp.text
-    assert "selbst gerade" not in resp.text
-
-
-def test_lesson_panel_heading_has_der(member_client):
-    resp = member_client.get("/")
-    assert "Wie Bob der Job-Bot funktioniert" in resp.text
-    assert "<h2>Wie Job-Scanner funktioniert</h2>" not in resp.text
-
-
-def test_app_js_closes_all_onboarding_panels_before_opening_target():
-    js = Path("jobscanner/web/static/app.js").read_text()
-    open_block = js.split('querySelectorAll("[data-onboarding-open]")')[1].split("});")[0]
-    assert 'querySelectorAll(".onboarding-panel")' in open_block
-    close_all_pos = open_block.index('querySelectorAll(".onboarding-panel")')
-    open_target_pos = open_block.index('classList.remove("panel-hidden")')
-    assert close_all_pos < open_target_pos
-
-
-def test_bot_panel_mentions_aussortiert_in_profil(member_client):
-    resp = member_client.get("/")
-    assert "Aussortiert" in resp.text
-    assert "filtere ich automatisch raus" in resp.text
-
-
-def test_dashboard_renames_tabs_to_jobangebote_and_aussortiert(owner_client):
-    pid = storage.list_profiles(user_id=1)[0]["id"]
-    resp = owner_client.get(f"/dashboard/{pid}")
-    # Top-Tab + Panel-Überschrift umbenannt, Query-Param/ID unverändert
-    assert 'data-tab-target="kontakte">Job-Angebote' in resp.text
-    assert "<h2>Job-Angebote</h2>" in resp.text
-    # Top-Tab-Label No-Go → Aussortiert (Link-Target ?tab=no_go bleibt)
-    assert '?tab=no_go">Aussortiert' in resp.text
-
-
-def test_wizard_panel_shows_function_overview_and_two_buttons(member_client):
-    resp = member_client.get("/")
-    # id + panel-Klassen + Close bleiben erhalten (bestehende Tests hängen daran)
-    assert 'id="onboarding-wizard" class="panel onboarding-panel panel-hidden"' in resp.text
-    assert 'data-onboarding-close="onboarding-wizard"' in resp.text
-    # Wizard-Panel führt direkt zum Profil-Start (Guide-Button wurde ins Was-kann-Panel gemergt)
-    assert 'href="/wizard/new"' in resp.text
-    assert "Profil erstellen" in resp.text
-
-
-def test_hero_wizard_button_uses_clipboard_icon(member_client):
-    resp = member_client.get("/")
-    assert "📋 Wer bist du?" in resp.text
-    assert "🧭" not in resp.text  # altes Icon vollständig ersetzt (Hero + Corner)
-
-
-def test_hero_buttons_have_filled_color_rules():
-    css = Path("jobscanner/web/static/style.css").read_text(encoding="utf-8")
-    assert '.onboarding-hero .btn[data-onboarding-open="onboarding-bot"]' in css
-    assert '.onboarding-hero .btn[data-onboarding-open="onboarding-wizard"]' in css
-    assert "var(--beute)" in css
-    assert "var(--signal)" in css
-
-
-def test_drawer_and_panels_present_on_non_home_page(owner_client):
-    pid = storage.list_profiles(user_id=1)[0]["id"]
-    resp = owner_client.get(f"/dashboard/{pid}")
-    assert "data-drawer-open" in resp.text
-    assert '<a class="drawer-item" href="/">' in resp.text
-    assert 'id="onboarding-bot" class="panel onboarding-panel panel-hidden"' in resp.text
-    assert 'id="onboarding-was-kann" class="panel onboarding-panel panel-hidden"' in resp.text
-    assert 'id="onboarding-wizard" class="panel onboarding-panel panel-hidden"' in resp.text
-
-
-def test_was_kann_panel_has_function_overview(member_client):
-    resp = member_client.get("/")
-    assert 'id="onboarding-was-kann" class="panel onboarding-panel panel-hidden"' in resp.text
-    # Guide-Modal wurde hier reingemergt: 6 Detail-Absätze + Anleitung-Link statt Guide-Button
-    assert "job-scanner-nutzen/lessons/job-scanner-nutzen.html" in resp.text
-    assert 'data-onboarding-open="onboarding-guide"' not in resp.text
-    assert 'data-onboarding-close="onboarding-was-kann"' in resp.text
-
-
-def test_wizard_panel_trimmed_to_profile_start(member_client):
-    resp = member_client.get("/")
-    assert 'id="onboarding-wizard" class="panel onboarding-panel panel-hidden"' in resp.text
-    assert 'href="/wizard/new"' in resp.text
-    assert "Profil erstellen" in resp.text
-    wizard_block = resp.text.split('id="onboarding-wizard"')[1].split("</div>")[0]
-    assert "👍/👎 Jobs bewerten" not in wizard_block
-
-
-def test_app_js_has_drawer_toggle():
-    js = Path("jobscanner/web/static/app.js").read_text()
-    assert "data-drawer-open" in js
-    assert "data-drawer-close" in js
-    assert 'getElementById("drawer")' in js
-
-
-def test_drawer_and_panels_absent_pre_auth():
-    import os
-    from fastapi.testclient import TestClient
-    from jobscanner.web.app import create_app
-    os.environ.setdefault("JOBSCANNER_SESSION_SECRET", "test-secret-key")
-    client = TestClient(create_app(db_path="/tmp/na_preauth.db"))
-    resp = client.get("/login")
-    assert "data-drawer-open" not in resp.text
-    assert 'id="onboarding-bot"' not in resp.text
-
-
-def test_hero_has_three_equal_onboarding_buttons(member_client):
-    resp = member_client.get("/")
-    assert "onboarding-hero" in resp.text
-    assert 'data-onboarding-open="onboarding-bot">🤖 Wer bin ich?' in resp.text
-    assert 'data-onboarding-open="onboarding-was-kann">💡 Was kann ich?' in resp.text
-    assert 'data-onboarding-open="onboarding-wizard">📋 Wer bist du?' in resp.text
-
-
-def test_hero_grid_is_three_equal_columns():
-    css = Path("jobscanner/web/static/style.css").read_text()
-    hero_rule = css.split(".onboarding-hero {")[1].split("}")[0]
-    assert "grid-template-columns: repeat(3, 1fr)" in hero_rule
-
-
-def test_wizard_step_two_has_back_link_to_previous(owner_client):
-    resp = owner_client.get("/wizard/skills")
-    assert 'href="/wizard/basis">← Zurück' in resp.text
-
-
-def test_wizard_first_step_has_no_back_link(owner_client):
-    resp = owner_client.get("/wizard/basis")
-    assert "← Zurück" not in resp.text
-
-
-def test_wizard_has_cancel_to_home(owner_client):
-    resp = owner_client.get("/wizard/basis")
-    assert 'Abbrechen' in resp.text
-    assert '→ Startseite' not in resp.text
-
+# --- /onboarding ---
 
 def test_onboarding_route_requires_login():
     import os
-    from fastapi.testclient import TestClient
-    from jobscanner.web.app import create_app
     os.environ.setdefault("JOBSCANNER_SESSION_SECRET", "test-secret-key")
     client = TestClient(create_app(db_path="/tmp/na_onboarding_preauth.db"))
     resp = client.get("/onboarding", follow_redirects=False)
@@ -305,6 +84,14 @@ def test_onboarding_page_has_tech_stack_chips(member_client):
         assert f'<span class="chip">{tech}</span>' in resp.text
 
 
+def test_onboarding_partials_deleted():
+    for name in ("_onboarding_bot.html", "_onboarding_was_kann.html",
+                 "_onboarding_wizard.html", "_onboarding_lesson.html"):
+        assert not Path(f"jobscanner/web/templates/{name}").exists()
+
+
+# --- Command-Center-Startseite ---
+
 def test_erstbesuch_banner_links_to_onboarding_instead_of_hero_buttons(member_client):
     resp = member_client.get("/")
     assert "onboarding-hero" not in resp.text
@@ -323,7 +110,6 @@ def test_command_center_shows_four_cards_for_existing_profile(owner_client):
 
 
 def test_command_center_cards_link_to_existing_routes(owner_client):
-    from jobscanner import storage
     pid = storage.list_profiles(user_id=1)[0]["id"]
     resp = owner_client.get("/")
     assert 'href="/einstellungen?tab=token"' in resp.text
@@ -343,7 +129,6 @@ def test_command_center_no_new_matches_shows_neutral_status(owner_client):
 
 
 def test_command_center_shows_new_matches_badge(owner_client):
-    from jobscanner import storage
     from jobscanner.models import Job
     pid = storage.list_profiles(user_id=1)[0]["id"]
     fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
@@ -357,3 +142,104 @@ def test_profile_list_still_present_below_command_center(owner_client):
     resp = owner_client.get("/")
     assert 'data-profile-exists="true"' in resp.text
     assert "<h2>Profile</h2>" in resp.text
+
+
+# --- base.html / Drawer ---
+
+def test_drawer_has_single_onboarding_link_not_three_buttons(owner_client):
+    pid = storage.list_profiles(user_id=1)[0]["id"]
+    resp = owner_client.get(f"/dashboard/{pid}")
+    assert '<a class="drawer-item" href="/onboarding">' in resp.text
+    assert 'data-onboarding-open="onboarding-bot"' not in resp.text
+    assert 'data-onboarding-open="onboarding-was-kann"' not in resp.text
+    assert 'data-onboarding-open="onboarding-wizard"' not in resp.text
+
+
+def test_base_no_longer_includes_onboarding_panels(owner_client):
+    pid = storage.list_profiles(user_id=1)[0]["id"]
+    resp = owner_client.get(f"/dashboard/{pid}")
+    assert 'id="onboarding-bot"' not in resp.text
+    assert 'id="onboarding-was-kann"' not in resp.text
+    assert 'id="onboarding-wizard"' not in resp.text
+    assert 'id="onboarding-lesson"' not in resp.text
+
+
+def test_drawer_and_panels_absent_pre_auth():
+    import os
+    os.environ.setdefault("JOBSCANNER_SESSION_SECRET", "test-secret-key")
+    client = TestClient(create_app(db_path="/tmp/na_preauth.db"))
+    resp = client.get("/login")
+    assert "data-drawer-open" not in resp.text
+    assert 'id="onboarding-bot"' not in resp.text
+
+
+def test_app_js_has_drawer_toggle():
+    js = Path("jobscanner/web/static/app.js").read_text()
+    assert "data-drawer-open" in js
+    assert "data-drawer-close" in js
+    assert 'getElementById("drawer")' in js
+
+
+# --- .safe-sheet Panel-Fix ---
+
+def test_feedback_panel_has_safe_sheet_class(owner_client):
+    pid = storage.list_profiles(user_id=1)[0]["id"]
+    resp = owner_client.get(f"/dashboard/{pid}")
+    assert 'class="panel feedback-panel safe-sheet panel-hidden"' in resp.text
+
+
+def test_feedback_panel_close_button_before_body_in_markup(owner_client):
+    pid = storage.list_profiles(user_id=1)[0]["id"]
+    resp = owner_client.get(f"/dashboard/{pid}")
+    assert resp.text.index('data-feedback-close') < resp.text.index('feedback-panel-body')
+
+
+def test_safe_sheet_css_defined():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert ".safe-sheet {" in css
+    safe_sheet_rule = css.split(".safe-sheet {")[1].split("}")[0]
+    assert "overflow-y: auto" in safe_sheet_rule
+    assert "max-height:" in safe_sheet_rule
+
+
+def test_feedback_panel_close_uses_sticky_positioning():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    close_rule = css.split(".feedback-panel-close {")[1].split("}")[0]
+    assert "position: sticky" in close_rule
+
+
+def test_onboarding_dead_css_removed():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert ".onboarding-hero {" not in css
+    assert ".onboarding-panel {" not in css
+
+
+def test_onboarding_css_reuses_ping_keyframes_only():
+    css = Path("jobscanner/web/static/style.css").read_text()
+    assert css.count("@keyframes") == 2   # ping-pulse + feedback-fab-pulse (Sag's-Bob-Widget)
+
+
+# --- Unabhängig von diesem Feature, unverändert übernommen ---
+
+def test_dashboard_renames_tabs_to_jobangebote_and_aussortiert(owner_client):
+    pid = storage.list_profiles(user_id=1)[0]["id"]
+    resp = owner_client.get(f"/dashboard/{pid}")
+    assert 'data-tab-target="kontakte">Job-Angebote' in resp.text
+    assert "<h2>Job-Angebote</h2>" in resp.text
+    assert '?tab=no_go">Aussortiert' in resp.text
+
+
+def test_wizard_step_two_has_back_link_to_previous(owner_client):
+    resp = owner_client.get("/wizard/skills")
+    assert 'href="/wizard/basis">← Zurück' in resp.text
+
+
+def test_wizard_first_step_has_no_back_link(owner_client):
+    resp = owner_client.get("/wizard/basis")
+    assert "← Zurück" not in resp.text
+
+
+def test_wizard_has_cancel_to_home(owner_client):
+    resp = owner_client.get("/wizard/basis")
+    assert 'Abbrechen' in resp.text
+    assert '→ Startseite' not in resp.text
