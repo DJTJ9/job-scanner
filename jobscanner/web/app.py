@@ -41,6 +41,16 @@ def _read_asset_version(base_dir: Path) -> str:
         return "unknown"
 
 
+def client_ip(request: Request) -> str:
+    """Echte Client-IP hinter Caddy: rechtester X-Forwarded-For-Eintrag (der von
+    Caddy angehängte Peer); linke Werte sind client-spoofbar und werden ignoriert.
+    Fallback request.client.host, dann 'unknown'."""
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[-1].strip()
+    return request.client.host if request.client else "unknown"
+
+
 def create_app(db_path: str | Path | None = None) -> FastAPI:
     settings = config.load_web_settings()
     storage.init_db(db_path or _DEFAULT_DB)
@@ -120,7 +130,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                      csrf_token: str = Form("")):
         if not csrf.verify(request, csrf_token):
             return JSONResponse({"error": "csrf"}, status_code=403)
-        ip = request.client.host if request.client else "unknown"
+        ip = client_ip(request)
         if not app.state.rate_limiter.hit(f"login:{ip}"):
             return templates.TemplateResponse(
                 request, "login.html", {"error": "Zu viele Versuche — bitte später erneut"},
@@ -285,7 +295,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                         consent: str = Form(None), csrf_token: str = Form("")):
         if not csrf.verify(request, csrf_token):
             return JSONResponse({"error": "csrf"}, status_code=403)
-        ip = request.client.host if request.client else "unknown"
+        ip = client_ip(request)
         if not app.state.rate_limiter.hit(f"register:{ip}"):
             return templates.TemplateResponse(
                 request, "register.html", {"error": "Zu viele Versuche — bitte später erneut"},
