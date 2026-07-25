@@ -194,3 +194,39 @@ def test_scan_portals_submit_persists_selection(tmp_path, monkeypatch):
     c.post("/einstellungen/scan-portale", data={}, follow_redirects=False)
     profile = storage.list_profiles(user_id=uid)[0]
     assert storage.get_scan_portals(profile["data"]) == []
+
+
+def _activate_portal(uid, url="https://jobs.example.com"):
+    pid = storage.create_custom_portal(url, "portal", uid,
+                                       search_url_template=url + "/s?q={query}",
+                                       detail_url_pattern=r"jobs\.example\.com/job/")
+    storage.save_check_result(pid, {"compatible": True})
+    storage.activate_custom_portal(pid)
+    return pid
+
+
+def test_settings_renders_active_custom_portal_checkbox(member):
+    uid = storage.get_user_by_email("m@test.de")["id"]
+    pid = _activate_portal(uid)
+    body = member.get("/einstellungen").text
+    assert f'name="portal_custom_{pid}"' in body
+    assert "jobs.example.com" in body
+
+
+def test_scan_portals_submit_persists_custom_selection(tmp_path, monkeypatch):
+    monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "geheim123")
+    monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
+    monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
+    app = create_app(db_path=tmp_path / "jobs.db")
+    uid = storage.create_user("p@test.de", "pw", role="member")
+    storage.create_profile("P", {}, user_id=uid)
+    pid = _activate_portal(uid)
+    c = CSRFTestClient(app)
+    c.post("/login", data={"email": "p@test.de", "password": "pw"})
+
+    resp = c.post("/einstellungen/scan-portale",
+                  data={"portal_indeed": "on", f"portal_custom_{pid}": "on"},
+                  follow_redirects=False)
+    assert resp.status_code == 303
+    profile = storage.list_profiles(user_id=uid)[0]
+    assert storage.get_scan_portals(profile["data"]) == ["indeed", f"custom:{pid}"]

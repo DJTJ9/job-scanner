@@ -141,6 +141,9 @@
       {% include "_csrf_field.html" %}
       <label><input type="checkbox" name="portal_stepstone"{% if 'stepstone' in scan_portals %} checked{% endif %}> StepStone</label>
       <label><input type="checkbox" name="portal_indeed"{% if 'indeed' in scan_portals %} checked{% endif %}> Indeed</label>
+      {% for cp in custom_scan_portals %}
+      <label><input type="checkbox" name="portal_custom_{{ cp.id }}"{% if 'custom:' ~ cp.id in scan_portals %} checked{% endif %}> {{ cp.domain }}</label>
+      {% endfor %}
       <button type="submit" class="btn btn-secondary">Speichern</button>
     </form>
   </section>

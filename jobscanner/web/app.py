@@ -9,6 +9,7 @@ import threading
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -184,7 +185,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return {"has_claude_kit": bool(user.get("api_token_hash")), "spar_modus": spar,
                 "notify_pref": notify_pref,
                 "scan_portals": (storage.get_scan_portals(own[0]["data"]) if own
-                                 else list(storage.SCAN_PORTALS_DEFAULT))}
+                                 else list(storage.SCAN_PORTALS_DEFAULT)),
+                "custom_scan_portals": [
+                    {"id": cp["id"], "domain": urlparse(cp["url"]).netloc or cp["url"]}
+                    for cp in storage.list_scannable_custom_portals()]}
 
     @app.post("/account/passwort")
     def account_password_submit(
@@ -246,14 +250,18 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return RedirectResponse("/einstellungen?tab=token", status_code=303)
 
     @app.post("/einstellungen/scan-portale")
-    def scan_portals_submit(request: Request, portal_stepstone: str = Form(None),
-                            portal_indeed: str = Form(None), csrf_token: str = Form("")):
+    async def scan_portals_submit(request: Request):
         if (redirect := require_user(request)) is not None:
             return redirect
-        if not csrf.verify(request, csrf_token):
+        form = await request.form()
+        if not csrf.verify(request, form.get("csrf_token", "")):
             return JSONResponse({"error": "csrf"}, status_code=403)
-        portals = [name for name, on in (("stepstone", portal_stepstone),
-                                         ("indeed", portal_indeed)) if on is not None]
+        portals = [name for name in ("stepstone", "indeed")
+                   if f"portal_{name}" in form]
+        portals += [f"custom:{key.removeprefix('portal_custom_')}"
+                    for key in form
+                    if key.startswith("portal_custom_")
+                    and key.removeprefix("portal_custom_").isdigit()]
         storage.set_scan_portals(request.session["user_id"], portals)
         return RedirectResponse("/einstellungen?tab=token", status_code=303)
 
