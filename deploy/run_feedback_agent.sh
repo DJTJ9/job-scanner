@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd /root/projekte/job-scanner
+cd /opt/jobscanner
 PASS="$1"       # analyze | synthesize
 AID="$2"        # analysis_id
 case "$PASS" in
@@ -14,6 +14,6 @@ claude -p "$PROMPT" \
   --allowedTools "Bash(python3 -m jobscanner.feedback_agent read $AID)" \
                "Bash(python3 -m jobscanner.feedback_agent write-cards $AID)" \
                "Bash(python3 -m jobscanner.feedback_agent write-insights $AID)" \
-               "Write(/root/projekte/job-scanner/data/feedback_cards.json)" \
-               "Write(/root/projekte/job-scanner/data/feedback_insights.json)" \
+               "Write(/opt/jobscanner/data/feedback_cards.json)" \
+               "Write(/opt/jobscanner/data/feedback_insights.json)" \
   --output-format text

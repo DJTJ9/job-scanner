@@ -5,7 +5,7 @@ OnFailure=jobscanner-alert@%n.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=/root/projekte/job-scanner
+WorkingDirectory=/opt/jobscanner
 EnvironmentFile=/root/projekte/telegram-bot-army/.env
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/usr/bin/python3 -m jobscanner.notify

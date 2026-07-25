@@ -3,7 +3,7 @@ Description=Job Scanner Alert für %i
 
 [Service]
 Type=oneshot
-WorkingDirectory=/root/projekte/job-scanner
+WorkingDirectory=/opt/jobscanner
 EnvironmentFile=/root/projekte/telegram-bot-army/.env
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/usr/bin/bash -c 'LOG="$(journalctl -u %i -n 15 --no-pager -o cat 2>/dev/null || echo kein-log)"; python /root/projekte/telegram-bot-army/scripts/telegram_notify.py "❌ Job-Scanner Unit %i fehlgeschlagen:\n$LOG"'

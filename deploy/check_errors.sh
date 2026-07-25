@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_DIR="/root/projekte/job-scanner"
+PROJECT_DIR="/opt/jobscanner"
 REPORT="$PROJECT_DIR/data/last_discover_report.json"
 NOTIFY="/root/projekte/telegram-bot-army/scripts/telegram_notify.py"
 
