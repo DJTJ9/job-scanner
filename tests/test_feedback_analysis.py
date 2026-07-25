@@ -175,7 +175,8 @@ def test_feedback_agent_write_insights_adds_proposed_and_finalizes(tmp_path):
 
 def test_run_feedback_agent_script_wires_cli_commands():
     from pathlib import Path
-    txt = Path("/root/projekte/job-scanner/deploy/run_feedback_agent.sh").read_text()
+    deploy = Path(__file__).resolve().parent.parent / "deploy"
+    txt = (deploy / "run_feedback_agent.sh").read_text()
     assert "feedback_analysis_prompt.txt" in txt
     assert "feedback_synthesis_prompt.txt" in txt
     # allowedTools müssen die konkrete Analysis-ID einsetzen (kein Wildcard):
@@ -186,7 +187,8 @@ def test_run_feedback_agent_script_wires_cli_commands():
 
 def test_feedback_prompts_exist_and_name_cli():
     from pathlib import Path
-    analyze = Path("/root/projekte/job-scanner/deploy/feedback_analysis_prompt.txt").read_text()
-    synth = Path("/root/projekte/job-scanner/deploy/feedback_synthesis_prompt.txt").read_text()
+    deploy = Path(__file__).resolve().parent.parent / "deploy"
+    analyze = (deploy / "feedback_analysis_prompt.txt").read_text()
+    synth = (deploy / "feedback_synthesis_prompt.txt").read_text()
     assert "feedback_agent read" in analyze and "write-cards" in analyze
     assert "feedback_agent read" in synth and "write-insights" in synth
