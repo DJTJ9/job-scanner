@@ -755,6 +755,55 @@ def delete_profile(profile_id: int) -> None:
 
 
 @_retry_on_locked
+def delete_user(user_id: int) -> None:
+    """Löscht User + alle abhängigen Zeilen (SQLite-FKs sind aus, daher manuell,
+    in Abhängigkeitsreihenfolge). Geteilte Tabellen (jobs, custom_portals) bleiben."""
+    conn = _require_conn()
+    with conn:
+        profile_ids = [r["id"] for r in conn.execute(
+            "SELECT id FROM profiles WHERE user_id = ?", (user_id,))]
+        for pid in profile_ids:
+            for tbl in ("criteria", "feedback", "favorites", "job_scores",
+                        "feedback_analysis", "insights", "member_rescore_queue"):
+                conn.execute(f"DELETE FROM {tbl} WHERE profile_id = ?", (pid,))
+        conn.execute("DELETE FROM profiles WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM member_feedback WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM events WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+
+
+def export_user_data(user_id: int) -> dict:
+    """DSGVO-Export: alle personenbezogenen Daten eines Users (ohne Secrets)."""
+    conn = _require_conn()
+    urow = conn.execute(
+        "SELECT id, email, role, created_at, email_verified_at FROM users WHERE id = ?",
+        (user_id,)).fetchone()
+    if urow is None:
+        return {}
+    data = {"user": dict(urow), "profiles": []}
+    for prow in conn.execute("SELECT * FROM profiles WHERE user_id = ?", (user_id,)):
+        p = dict(prow)
+        pid = p["id"]
+        p["criteria"] = [dict(r) for r in conn.execute(
+            "SELECT * FROM criteria WHERE profile_id = ?", (pid,))]
+        p["feedback"] = [dict(r) for r in conn.execute(
+            "SELECT * FROM feedback WHERE profile_id = ?", (pid,))]
+        p["favorites"] = [dict(r) for r in conn.execute(
+            "SELECT * FROM favorites WHERE profile_id = ?", (pid,))]
+        data["profiles"].append(p)
+    data["member_feedback"] = [dict(r) for r in conn.execute(
+        "SELECT * FROM member_feedback WHERE user_id = ?", (user_id,))]
+    return data
+
+
+def admin_list_members() -> list[dict]:
+    """Admin-Support: alle User (ohne Secrets), aufsteigend nach id."""
+    conn = _require_conn()
+    return [dict(r) for r in conn.execute(
+        "SELECT id, email, role, email_verified_at FROM users ORDER BY id ASC")]
+
+
+@_retry_on_locked
 def update_profile(profile_id: int, name: str, data: dict) -> None:
     """Überschreibt Name + data_json eines bestehenden Profils (Wizard-Edit)."""
     conn = _require_conn()

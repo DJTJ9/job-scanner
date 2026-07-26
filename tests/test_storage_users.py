@@ -170,3 +170,36 @@ def test_confirm_email_change_swaps_email_and_verifies(db):
 def test_confirm_email_change_rejects_unknown_token(db):
     assert db.confirm_email_change("nope") is None
     assert db.confirm_email_change("") is None
+
+
+def test_delete_user_removes_user_and_profiles(db):
+    uid = db.create_user("del@example.com", "pw123456")
+    pid = db.create_profile("Testprofil", {}, user_id=uid)
+    db.delete_user(uid)
+    assert db.get_user(uid) is None
+    assert db.list_profiles(user_id=uid) == []
+    # Row in profiles wirklich weg (Orphan-Check)
+    import jobscanner.storage as s
+    conn = s._require_conn()
+    assert conn.execute("SELECT COUNT(*) FROM profiles WHERE id = ?", (pid,)).fetchone()[0] == 0
+    assert conn.execute(
+        "SELECT COUNT(*) FROM criteria WHERE profile_id = ?", (pid,)).fetchone()[0] == 0
+
+
+def test_export_user_data_contains_email_and_profiles_no_secrets(db):
+    uid = db.create_user("exp@example.com", "pw123456")
+    db.create_profile("Exportprofil", {}, user_id=uid)
+    data = db.export_user_data(uid)
+    assert data["user"]["email"] == "exp@example.com"
+    assert "pw_hash" not in data["user"]
+    assert "salt" not in data["user"]
+    assert len(data["profiles"]) == 1
+
+
+def test_admin_list_members_returns_all_users(db):
+    db.create_user("m1@example.com", "pw123456")
+    db.create_user("m2@example.com", "pw123456")
+    members = db.admin_list_members()
+    emails = {m["email"] for m in members}
+    assert {"m1@example.com", "m2@example.com"} <= emails
+    assert all("email_verified_at" in m and "role" in m for m in members)
