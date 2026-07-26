@@ -795,6 +795,55 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "registrations": registrations,
         })
 
+    @app.get("/admin/members")
+    def admin_members_view(request: Request):
+        if (resp := require_owner(request)) is not None:
+            return resp
+        return templates.TemplateResponse(request, "admin_members.html", {
+            "members": storage.admin_list_members(),
+        })
+
+    @app.post("/admin/members/{user_id}/verify")
+    def admin_member_verify(request: Request, user_id: int, csrf_token: str = Form("")):
+        if (resp := require_owner(request)) is not None:
+            return resp
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+        storage.mark_email_verified(user_id)
+        return RedirectResponse("/admin/members", status_code=303)
+
+    @app.post("/admin/members/{user_id}/resend-verify")
+    def admin_member_resend(request: Request, user_id: int, csrf_token: str = Form("")):
+        if (resp := require_owner(request)) is not None:
+            return resp
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+        user = storage.get_user(user_id)
+        if user is not None:
+            token = storage.ensure_verify_token(user_id)
+            if token:
+                try:
+                    mailer.send_verification_email(user["email"], token, settings["base_url"])
+                except Exception:
+                    pass
+        return RedirectResponse("/admin/members", status_code=303)
+
+    @app.post("/admin/members/{user_id}/reset-password")
+    def admin_member_reset(request: Request, user_id: int, csrf_token: str = Form("")):
+        if (resp := require_owner(request)) is not None:
+            return resp
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+        user = storage.get_user(user_id)
+        if user is not None:
+            token = storage.create_reset_token(user["email"])
+            if token:
+                try:
+                    mailer.send_password_reset_email(user["email"], token, settings["base_url"])
+                except Exception:
+                    pass
+        return RedirectResponse("/admin/members", status_code=303)
+
     def _launch_feedback_agent(pass_name: str, analysis_id: int) -> None:
         try:
             subprocess.Popen(

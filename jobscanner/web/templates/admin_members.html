@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Mitglieder — Bob der Job-Bot{% endblock %}
+{% block content %}
+<h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> BOB DER JOB-BOT — Mitglieder <a class="link" href="/">◂ zurück</a></h1>
+<div class="panel">
+  <table>
+    <thead><tr><th>Email</th><th>Verifiziert</th><th>Rolle</th><th>Aktionen</th></tr></thead>
+    <tbody>
+    {% for m in members %}
+      <tr>
+        <td>{{ m.email }}</td>
+        <td>{{ "✓" if m.email_verified_at else "✗" }}</td>
+        <td>{{ m.role }}</td>
+        <td>
+          {% if not m.email_verified_at %}
+          <form method="post" action="/admin/members/{{ m.id }}/verify" style="display:inline">
+            {% include "_csrf_field.html" %}
+            <button type="submit" class="btn btn-secondary">Verifizieren</button>
+          </form>
+          {% endif %}
+          <form method="post" action="/admin/members/{{ m.id }}/resend-verify" style="display:inline">
+            {% include "_csrf_field.html" %}
+            <button type="submit" class="btn btn-secondary">Verify-Mail</button>
+          </form>
+          <form method="post" action="/admin/members/{{ m.id }}/reset-password" style="display:inline">
+            {% include "_csrf_field.html" %}
+            <button type="submit" class="btn btn-secondary">PW-Reset</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
