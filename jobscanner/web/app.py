@@ -234,6 +234,68 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
              "active_tab": "profil",
              **_settings_extra(request.session["user_id"])})
 
+    @app.get("/account/email")
+    def account_email_form(request: Request):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        return templates.TemplateResponse(request, "account_email.html",
+                                          {"error": None, "success": None})
+
+    @app.post("/account/email")
+    def account_email_submit(request: Request, new_email: str = Form(...),
+                             csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+        token = storage.request_email_change(request.session["user_id"], new_email)
+        if token is None:
+            return templates.TemplateResponse(request, "account_email.html",
+                {"error": "Email bereits vergeben", "success": None}, status_code=409)
+        try:
+            mailer.send_email_change_verification(
+                new_email.strip().lower(), token, settings["base_url"])
+        except Exception:
+            pass
+        return templates.TemplateResponse(request, "account_email.html",
+            {"error": None, "success": "Bestätigungs-Mail an neue Adresse gesendet"})
+
+    @app.get("/account/email/confirm")
+    def account_email_confirm(request: Request, token: str = ""):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        user = storage.confirm_email_change(token)
+        if user is None:
+            return templates.TemplateResponse(request, "account_email.html",
+                {"error": "Link ungültig", "success": None}, status_code=400)
+        request.session["email"] = user["email"]
+        request.session["email_verified"] = True
+        return templates.TemplateResponse(request, "account_email.html",
+            {"error": None, "success": "Email geändert"})
+
+    @app.get("/account/export")
+    def account_export(request: Request):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        data = storage.export_user_data(request.session["user_id"])
+        return JSONResponse(data, headers={
+            "Content-Disposition": "attachment; filename=meine-daten.json"})
+
+    @app.post("/account/loeschen")
+    def account_delete(request: Request, current_password: str = Form(...),
+                       csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+        email = request.session.get("email")
+        if storage.verify_password(email, current_password) is None:
+            return templates.TemplateResponse(request, "account_email.html",
+                {"error": "Passwort ist falsch", "success": None}, status_code=400)
+        storage.delete_user(request.session["user_id"])
+        request.session.clear()
+        return RedirectResponse("/login", status_code=303)
+
     @app.get("/einstellungen")
     def settings_view(request: Request, tab: str = "profil"):
         if (redirect := require_user(request)) is not None:

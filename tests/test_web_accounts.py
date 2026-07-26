@@ -232,3 +232,45 @@ def test_reset_password_invalid_token_shows_error(app):
     resp = c.get("/reset-password?token=falsch")
     assert resp.status_code == 400
     assert "ung" in resp.text.lower()
+
+
+def test_account_email_change_flow(app):
+    c = _owner_client(app)  # owner@test.de eingeloggt
+    resp = c.post("/account/email", data={"new_email": "neu-owner@test.de"})
+    assert resp.status_code == 200
+    assert "gesendet" in resp.text.lower()
+    uid = storage.get_user_by_email("owner@test.de")["id"]
+    token = storage.get_user(uid)["pending_email_token"]
+    resp2 = c.get(f"/account/email/confirm?token={token}")
+    assert resp2.status_code == 200
+    assert storage.get_user_by_email("neu-owner@test.de") is not None
+
+
+def test_account_export_returns_json_attachment(app):
+    c = _owner_client(app)
+    resp = c.get("/account/export")
+    assert resp.status_code == 200
+    assert "attachment" in resp.headers.get("content-disposition", "")
+    assert resp.json()["user"]["email"] == "owner@test.de"
+
+
+def test_account_delete_requires_correct_password(app):
+    storage.create_user("delweb@test.de", "geheim1", role="member")
+    c = CSRFTestClient(app)
+    c.post("/login", data={"email": "delweb@test.de", "password": "geheim1"})
+    bad = c.post("/account/loeschen", data={"current_password": "falsch"},
+                 follow_redirects=False)
+    assert bad.status_code == 400
+    assert storage.get_user_by_email("delweb@test.de") is not None
+    ok = c.post("/account/loeschen", data={"current_password": "geheim1"},
+                follow_redirects=False)
+    assert ok.status_code == 303
+    assert ok.headers["location"] == "/login"
+    assert storage.get_user_by_email("delweb@test.de") is None
+
+
+def test_account_email_requires_login(app):
+    c = CSRFTestClient(app)
+    resp = c.get("/account/email", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/login"
