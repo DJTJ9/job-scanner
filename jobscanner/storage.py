@@ -393,6 +393,36 @@ def clear_reset_token(user_id: int) -> None:
     conn.commit()
 
 
+@_retry_on_locked
+def request_email_change(user_id: int, new_email: str) -> str | None:
+    conn = _require_conn()
+    new_email = new_email.strip().lower()
+    if get_user_by_email(new_email) is not None:
+        return None
+    token = secrets.token_urlsafe(32)
+    conn.execute(
+        "UPDATE users SET pending_email = ?, pending_email_token = ? WHERE id = ?",
+        (new_email, token, user_id))
+    conn.commit()
+    return token
+
+
+@_retry_on_locked
+def confirm_email_change(token: str) -> dict | None:
+    if not token:
+        return None
+    conn = _require_conn()
+    row = conn.execute(
+        "SELECT * FROM users WHERE pending_email_token = ?", (token,)).fetchone()
+    if row is None:
+        return None
+    conn.execute(
+        "UPDATE users SET email = pending_email, email_verified_at = datetime('now'), "
+        "pending_email = NULL, pending_email_token = NULL WHERE id = ?", (row["id"],))
+    conn.commit()
+    return dict(conn.execute("SELECT * FROM users WHERE id = ?", (row["id"],)).fetchone())
+
+
 def list_registrations() -> list[dict]:
     conn = _require_conn()
     rows = conn.execute(

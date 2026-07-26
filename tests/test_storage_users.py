@@ -140,3 +140,33 @@ def test_clear_reset_token_invalidates(db):
     token = db.create_reset_token("clear@example.com")
     db.clear_reset_token(uid)
     assert db.get_user_by_reset_token(token) is None
+
+
+def test_request_email_change_sets_pending_and_returns_token(db):
+    uid = db.create_user("old@example.com", "pw123456")
+    token = db.request_email_change(uid, "new@example.com")
+    assert token
+    assert db.get_user(uid)["pending_email"] == "new@example.com"
+    assert db.get_user(uid)["email"] == "old@example.com"  # alte bleibt aktiv
+
+
+def test_request_email_change_rejects_taken_email(db):
+    db.create_user("taken@example.com", "pw123456")
+    uid = db.create_user("me@example.com", "pw123456")
+    assert db.request_email_change(uid, "taken@example.com") is None
+
+
+def test_confirm_email_change_swaps_email_and_verifies(db):
+    uid = db.create_user("old2@example.com", "pw123456")
+    token = db.request_email_change(uid, "new2@example.com")
+    user = db.confirm_email_change(token)
+    assert user["email"] == "new2@example.com"
+    assert user["email_verified_at"] is not None
+    assert user["pending_email"] is None
+    assert user["pending_email_token"] is None
+    assert db.get_user_by_email("new2@example.com") is not None
+
+
+def test_confirm_email_change_rejects_unknown_token(db):
+    assert db.confirm_email_change("nope") is None
+    assert db.confirm_email_change("") is None
