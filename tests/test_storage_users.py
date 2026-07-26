@@ -115,3 +115,28 @@ def test_list_registrations_lists_members_only_oldest_first(db):
     assert rows[0]["email_verified_at"] is not None
     assert rows[1]["email_verified_at"] is None
     assert rows[0]["registered_ip"] == "9.9.9.9"
+
+
+def test_create_reset_token_returns_token_for_known_email(db):
+    db.create_user("reset@example.com", "pw123456")
+    token = db.create_reset_token("reset@example.com")
+    assert token
+    user = db.get_user_by_reset_token(token)
+    assert user is not None
+    assert user["email"] == "reset@example.com"
+
+
+def test_create_reset_token_unknown_email_returns_none(db):
+    assert db.create_reset_token("nobody@example.com") is None
+
+
+def test_get_user_by_reset_token_rejects_unknown_and_empty(db):
+    assert db.get_user_by_reset_token("nope") is None
+    assert db.get_user_by_reset_token("") is None
+
+
+def test_clear_reset_token_invalidates(db):
+    uid = db.create_user("clear@example.com", "pw123456")
+    token = db.create_reset_token("clear@example.com")
+    db.clear_reset_token(uid)
+    assert db.get_user_by_reset_token(token) is None

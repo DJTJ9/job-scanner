@@ -210,6 +210,14 @@ def init_db(path: str | Path) -> None:
         _conn.execute("ALTER TABLE users ADD COLUMN consent_at TEXT")
     if "registered_ip" not in user_cols:
         _conn.execute("ALTER TABLE users ADD COLUMN registered_ip TEXT")
+    if "reset_token" not in user_cols:
+        _conn.execute("ALTER TABLE users ADD COLUMN reset_token TEXT")
+    if "reset_expires" not in user_cols:
+        _conn.execute("ALTER TABLE users ADD COLUMN reset_expires TEXT")
+    if "pending_email" not in user_cols:
+        _conn.execute("ALTER TABLE users ADD COLUMN pending_email TEXT")
+    if "pending_email_token" not in user_cols:
+        _conn.execute("ALTER TABLE users ADD COLUMN pending_email_token TEXT")
     score_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(job_scores)")}
     if "notified_at" not in score_cols:
         _conn.execute("ALTER TABLE job_scores ADD COLUMN notified_at TEXT")
@@ -351,6 +359,38 @@ def verify_token_owner(token: str) -> dict | None:
     conn = _require_conn()
     row = conn.execute("SELECT * FROM users WHERE verify_token = ?", (token,)).fetchone()
     return dict(row) if row else None
+
+
+@_retry_on_locked
+def create_reset_token(email: str) -> str | None:
+    conn = _require_conn()
+    user = get_user_by_email(email)
+    if user is None:
+        return None
+    token = secrets.token_urlsafe(32)
+    conn.execute(
+        "UPDATE users SET reset_token = ?, reset_expires = datetime('now', '+1 hour') "
+        "WHERE id = ?", (token, user["id"]))
+    conn.commit()
+    return token
+
+
+def get_user_by_reset_token(token: str) -> dict | None:
+    if not token:
+        return None
+    conn = _require_conn()
+    row = conn.execute(
+        "SELECT * FROM users WHERE reset_token = ? AND reset_expires > datetime('now')",
+        (token,)).fetchone()
+    return dict(row) if row else None
+
+
+@_retry_on_locked
+def clear_reset_token(user_id: int) -> None:
+    conn = _require_conn()
+    conn.execute(
+        "UPDATE users SET reset_token = NULL, reset_expires = NULL WHERE id = ?", (user_id,))
+    conn.commit()
 
 
 def list_registrations() -> list[dict]:
