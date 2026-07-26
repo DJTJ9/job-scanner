@@ -59,3 +59,39 @@ def test_send_match_digest_raises_when_smtp_not_configured(monkeypatch):
     with pytest.raises(RuntimeError, match="SMTP"):
         mailer.send_match_digest("m@test.de", 1, [{"title": "X", "company": "Y",
                                  "score": 90}], "https://job-scanner.thinkshark.de")
+
+
+def test_send_password_reset_email_builds_reset_link(monkeypatch):
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "bob@example.com")
+    monkeypatch.setenv("SMTP_PASS", "geheim")
+    monkeypatch.setenv("SMTP_FROM", "bob@example.com")
+    mock_smtp = MagicMock()
+    with patch("smtplib.SMTP", return_value=mock_smtp):
+        mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
+        mock_smtp.__exit__ = MagicMock(return_value=False)
+        mailer.send_password_reset_email("u@x.de", "tok123",
+                                         "https://job-scanner.thinkshark.de")
+    to_addr = mock_smtp.sendmail.call_args[0][1]
+    sent_msg = mock_smtp.sendmail.call_args[0][2]
+    assert to_addr == ["u@x.de"]
+    assert "https://job-scanner.thinkshark.de/reset-password?token=tok123" in sent_msg
+
+
+def test_send_email_change_verification_builds_confirm_link(monkeypatch):
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "bob@example.com")
+    monkeypatch.setenv("SMTP_PASS", "geheim")
+    monkeypatch.setenv("SMTP_FROM", "bob@example.com")
+    mock_smtp = MagicMock()
+    with patch("smtplib.SMTP", return_value=mock_smtp):
+        mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
+        mock_smtp.__exit__ = MagicMock(return_value=False)
+        mailer.send_email_change_verification("n@x.de", "tok456",
+                                              "https://job-scanner.thinkshark.de")
+    to_addr = mock_smtp.sendmail.call_args[0][1]
+    sent_msg = mock_smtp.sendmail.call_args[0][2]
+    assert to_addr == ["n@x.de"]
+    assert "https://job-scanner.thinkshark.de/account/email/confirm?token=tok456" in sent_msg

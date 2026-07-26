@@ -33,6 +33,55 @@ def send_verification_email(email: str, token: str, base_url: str) -> None:
         server.sendmail(from_addr, [email], msg.as_string())
 
 
+def send_password_reset_email(email: str, token: str, base_url: str) -> None:
+    host = os.environ.get("SMTP_HOST", "")
+    if not host:
+        raise RuntimeError("SMTP nicht konfiguriert (SMTP_HOST fehlt)")
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    user = os.environ.get("SMTP_USER", "")
+    password = os.environ.get("SMTP_PASS", "")
+    from_addr = os.environ.get("SMTP_FROM", user)
+    link = f"{base_url}/reset-password?token={token}"
+
+    msg = EmailMessage()
+    msg["Subject"] = "Bob der Job-Bot — Passwort zuruecksetzen"
+    msg["From"] = from_addr
+    msg["To"] = email
+    msg.set_content(
+        f"Du hast ein neues Passwort angefordert.\n\n"
+        f"Setze es hier (Link 1 Stunde gueltig):\n\n{link}\n\n"
+        f"Falls du das nicht warst, ignoriere diese Mail.\n")
+
+    with smtplib.SMTP(host, port) as server:
+        server.starttls()
+        server.login(user, password)
+        server.sendmail(from_addr, [email], msg.as_string())
+
+
+def send_email_change_verification(new_email: str, token: str, base_url: str) -> None:
+    host = os.environ.get("SMTP_HOST", "")
+    if not host:
+        raise RuntimeError("SMTP nicht konfiguriert (SMTP_HOST fehlt)")
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    user = os.environ.get("SMTP_USER", "")
+    password = os.environ.get("SMTP_PASS", "")
+    from_addr = os.environ.get("SMTP_FROM", user)
+    link = f"{base_url}/account/email/confirm?token={token}"
+
+    msg = EmailMessage()
+    msg["Subject"] = "Bob der Job-Bot — Neue Email bestaetigen"
+    msg["From"] = from_addr
+    msg["To"] = new_email
+    msg.set_content(
+        f"Bitte bestaetige deine neue Email-Adresse:\n\n{link}\n\n"
+        f"Erst nach Klick wird sie aktiv.\n")
+
+    with smtplib.SMTP(host, port) as server:
+        server.starttls()
+        server.login(user, password)
+        server.sendmail(from_addr, [new_email], msg.as_string())
+
+
 def send_match_digest(email: str, profile_id: int, rows: list[dict], base_url: str) -> None:
     host = os.environ.get("SMTP_HOST", "")
     if not host:
