@@ -324,6 +324,59 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         request.session["email_verified"] = False
         return RedirectResponse("/", status_code=303)
 
+    @app.get("/forgot-password")
+    def forgot_password_form(request: Request):
+        return templates.TemplateResponse(request, "forgot_password.html", {"sent": False})
+
+    @app.post("/forgot-password")
+    def forgot_password_submit(request: Request, email: str = Form(...),
+                               csrf_token: str = Form("")):
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+        token = storage.create_reset_token(email)
+        if token:
+            try:
+                mailer.send_password_reset_email(
+                    email.strip().lower(), token, settings["base_url"])
+            except Exception:
+                pass
+        return templates.TemplateResponse(request, "forgot_password.html", {"sent": True})
+
+    @app.get("/reset-password")
+    def reset_password_form(request: Request, token: str = ""):
+        if storage.get_user_by_reset_token(token) is None:
+            return templates.TemplateResponse(
+                request, "reset_password.html",
+                {"token": "", "error": "Link ungültig oder abgelaufen", "done": False},
+                status_code=400)
+        return templates.TemplateResponse(
+            request, "reset_password.html", {"token": token, "error": None, "done": False})
+
+    @app.post("/reset-password")
+    def reset_password_submit(request: Request, token: str = Form(""),
+                              new_password: str = Form(...),
+                              new_password_repeat: str = Form(...),
+                              csrf_token: str = Form("")):
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+
+        def _err(msg):
+            return templates.TemplateResponse(
+                request, "reset_password.html",
+                {"token": token, "error": msg, "done": False}, status_code=400)
+
+        user = storage.get_user_by_reset_token(token)
+        if user is None:
+            return _err("Link ungültig oder abgelaufen")
+        if new_password != new_password_repeat:
+            return _err("Passwörter stimmen nicht überein")
+        if len(new_password) < 6:
+            return _err("Passwort muss mindestens 6 Zeichen haben")
+        storage.set_password(user["id"], new_password)
+        storage.clear_reset_token(user["id"])
+        return templates.TemplateResponse(
+            request, "reset_password.html", {"token": "", "error": None, "done": True})
+
     @app.get("/verify-pending")
     def verify_pending_view(request: Request, sent: str = "", cooldown: str = "", error: str = ""):
         if (redirect := require_user(request)) is not None:

@@ -206,3 +206,29 @@ def test_password_change_too_short(app):
         "new_password_repeat": "kurz"}, follow_redirects=False)
     assert resp.status_code == 400
     assert "mindestens" in resp.text
+
+
+def test_forgot_password_always_neutral(app):
+    c = CSRFTestClient(app)
+    resp = c.post("/forgot-password", data={"email": "nobody@nirgends.de"})
+    assert resp.status_code == 200
+    assert "existiert" in resp.text.lower()
+
+
+def test_reset_password_full_flow_sets_new_pw(app):
+    storage.create_user("resetme@test.de", "altpw1", role="member")
+    token = storage.create_reset_token("resetme@test.de")
+    c = CSRFTestClient(app)
+    assert c.get(f"/reset-password?token={token}").status_code == 200
+    resp = c.post("/reset-password", data={
+        "token": token, "new_password": "neupw1", "new_password_repeat": "neupw1"})
+    assert resp.status_code == 200
+    assert storage.verify_password("resetme@test.de", "neupw1") is not None
+    assert storage.get_user_by_reset_token(token) is None
+
+
+def test_reset_password_invalid_token_shows_error(app):
+    c = CSRFTestClient(app)
+    resp = c.get("/reset-password?token=falsch")
+    assert resp.status_code == 400
+    assert "ung" in resp.text.lower()
