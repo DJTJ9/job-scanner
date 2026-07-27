@@ -1,4 +1,4 @@
-"""Tests für die öffentliche Member-Anleitung /anleitung."""
+"""Tests für die Member-Anleitung — jetzt Sektion #anleitung im Hilfe-Center /hilfe."""
 from pathlib import Path
 
 import pytest
@@ -16,13 +16,14 @@ def client(tmp_path, monkeypatch):
     return TestClient(app)
 
 
-def test_anleitung_is_public(client):
+def test_anleitung_redirects_301_to_hilfe(client):
     resp = client.get("/anleitung", follow_redirects=False)
-    assert resp.status_code == 200
+    assert resp.status_code == 301
+    assert resp.headers["location"] == "/hilfe#anleitung"
 
 
 def test_anleitung_has_all_key_commands(client):
-    body = client.get("/anleitung").text
+    body = client.get("/hilfe").text
     assert "irm https://claude.ai/install.ps1 | iex" in body
     assert "curl -fsSL https://claude.ai/install.sh | bash" in body
     assert "/plugin marketplace add DJTJ9/bob-member-kit" in body
@@ -32,24 +33,24 @@ def test_anleitung_has_all_key_commands(client):
 
 
 def test_anleitung_embeds_real_screenshots(client):
-    body = client.get("/anleitung").text
+    body = client.get("/hilfe").text
     assert "/static/img/anleitung/01-register.png" in body
     assert "/static/img/anleitung/03-token.png" in body
 
 
 def test_anleitung_links_register(client):
-    body = client.get("/anleitung").text
+    body = client.get("/hilfe").text
     assert 'href="/register"' in body
 
 
 def test_anleitung_mentions_no_zip_and_no_bob_setup(client):
-    body = client.get("/anleitung").text.lower()
+    body = client.get("/hilfe").text.lower()
     assert "zip" not in body
     assert "/bob-setup" not in body
 
 
 def test_anleitung_links_to_keys_guide(client):
-    body = client.get("/anleitung").text
+    body = client.get("/hilfe").text
     assert 'href="/anleitung/keys"' in body
 
 

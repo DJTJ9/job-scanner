@@ -204,7 +204,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/anleitung")
     def anleitung_view(request: Request):
-        return templates.TemplateResponse(request, "anleitung.html", {})
+        return RedirectResponse("/hilfe#anleitung", status_code=301)
 
     @app.get("/anleitung/keys")
     def anleitung_keys_view(request: Request):
@@ -220,9 +220,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/onboarding")
     def onboarding_view(request: Request):
-        if (redirect := require_user(request)) is not None:
-            return redirect
-        return templates.TemplateResponse(request, "onboarding.html", {})
+        return RedirectResponse("/hilfe#erste-schritte", status_code=301)
 
     @app.get("/account/passwort")
     def account_password_form(request: Request):

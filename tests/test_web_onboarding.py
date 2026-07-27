@@ -33,61 +33,61 @@ def member_client(tmp_path, monkeypatch):
     return c
 
 
-# --- /onboarding ---
+# --- /onboarding → Hilfe-Center ---
 
-def test_onboarding_route_requires_login():
+def test_onboarding_redirects_301_to_hilfe():
     import os
     os.environ.setdefault("JOBSCANNER_SESSION_SECRET", "test-secret-key")
     client = TestClient(create_app(db_path="/tmp/na_onboarding_preauth.db"))
     resp = client.get("/onboarding", follow_redirects=False)
-    assert resp.status_code == 303
-    assert resp.headers["location"] == "/login"
+    assert resp.status_code == 301
+    assert resp.headers["location"] == "/hilfe#erste-schritte"
 
 
-def test_onboarding_page_has_five_sections_in_order(member_client):
-    resp = member_client.get("/onboarding")
+def test_onboarding_sections_on_hilfe_in_order(member_client):
+    resp = member_client.get("/hilfe")
     assert resp.status_code == 200
     text = resp.text
     positions = [text.index(h) for h in (
-        "Wer bin ich?", "Was kann ich?", "Wie ich arbeite",
-        "Wer bist du?", "Wie kannst du mitmachen?")]
+        "Wer bin ich?", "Wer bist du?", "Wie kannst du mitmachen?",
+        "Was kann ich?", "Wie ich arbeite")]
     assert positions == sorted(positions)
 
 
 def test_onboarding_mitmachen_panel_content(member_client):
-    text = member_client.get("/onboarding").text
+    text = member_client.get("/hilfe").text
     assert "Invite" in text
     assert "Heim-IP" in text
-    assert 'href="/anleitung">Zur Anleitung' in text
+    assert 'href="#anleitung">Zur Anleitung' in text
     assert "/static/img/bob/bob-pose-daumen-hoch.png" in text
 
 
 def test_onboarding_page_keeps_bot_avatar_images(member_client):
-    resp = member_client.get("/onboarding")
+    resp = member_client.get("/hilfe")
     assert "/static/img/bob/bob-pose-rakete.png" in resp.text
     assert "/static/img/bob/bob-pose-herz.png" in resp.text
     assert "/static/img/bob/bob-pose-frage.png" in resp.text
 
 
 def test_onboarding_page_wizard_section_links_to_new_profile(member_client):
-    resp = member_client.get("/onboarding")
+    resp = member_client.get("/hilfe")
     assert 'href="/wizard/new"' in resp.text
     assert "Profil erstellen" in resp.text
 
 
 def test_onboarding_page_links_to_setup_anleitung(member_client):
-    resp = member_client.get("/onboarding")
-    assert 'href="/anleitung">Setup-Anleitung' in resp.text
+    resp = member_client.get("/hilfe")
+    assert 'href="#anleitung">Setup-Anleitung' in resp.text
 
 
 def test_onboarding_page_mentions_aussortiert(member_client):
-    resp = member_client.get("/onboarding")
+    resp = member_client.get("/hilfe")
     assert "Aussortiert" in resp.text
     assert "filtere ich automatisch raus" in resp.text
 
 
 def test_onboarding_page_has_tech_stack_chips(member_client):
-    resp = member_client.get("/onboarding")
+    resp = member_client.get("/hilfe")
     for tech in ("Python", "FastAPI", "Jinja2", "SQLite", "Playwright", "Firecrawl",
                  "Claude", "Claude Agents", "systemd", "NocoDB", "Caddy"):
         assert f'<span class="chip">{tech}</span>' in resp.text
