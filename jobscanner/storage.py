@@ -13,7 +13,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from jobscanner import config, scoring
-from jobscanner.models import Job
+from jobscanner.models import Job, match_key
 from jobscanner.search import classify_location
 
 _SCHEMA = """
@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     nocodb_row_id INTEGER,
     raw_text TEXT,
     extraction_status TEXT DEFAULT 'extracted',
-    is_ausland INTEGER DEFAULT 0
+    is_ausland INTEGER DEFAULT 0,
+    match_key TEXT
 )
 """
 
@@ -192,6 +193,10 @@ def init_db(path: str | Path) -> None:
         _conn.execute("ALTER TABLE jobs ADD COLUMN is_ausland INTEGER DEFAULT 0")
     if "unavailable_strikes" not in existing_cols:
         _conn.execute("ALTER TABLE jobs ADD COLUMN unavailable_strikes INTEGER DEFAULT 0")
+    match_key_added = False
+    if "match_key" not in existing_cols:
+        _conn.execute("ALTER TABLE jobs ADD COLUMN match_key TEXT")
+        match_key_added = True
     _conn.executescript(_SCHEMA_PROFILES)
     _conn.executescript(_SCHEMA_CUSTOM_PORTALS)
     cp_sql = _conn.execute(
@@ -248,6 +253,9 @@ def init_db(path: str | Path) -> None:
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_extraction_status ON jobs(extraction_status)")
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)")
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_category ON jobs(category)")
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_match_key ON jobs(match_key)")
+    if match_key_added:
+        _retro_merge_by_match_key(_conn)
     _conn.commit()
 
 
@@ -491,8 +499,8 @@ def upsert_job(job: Job) -> str:
             """INSERT INTO jobs (fingerprint, title, company, location, remote_flag,
                    employment_type, language, salary_text, role, is_neighbor, requirements_json,
                    tech_stack_json, sources_json, first_seen, last_seen, archive_path,
-                   score, score_reason, category, status, nocodb_row_id, is_ausland)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   score, score_reason, category, status, nocodb_row_id, is_ausland, match_key)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (fp, job.title, job.company, job.location, job.remote_flag,
              job.employment_type, job.language, job.salary_text, job.role, int(job.is_neighbor),
              json.dumps(job.requirements, ensure_ascii=False),
@@ -500,7 +508,8 @@ def upsert_job(job: Job) -> str:
              json.dumps(job.sources, ensure_ascii=False),
              job.first_seen, job.last_seen, job.archive_path,
              job.score, job.score_reason, job.category, job.status, job.nocodb_row_id,
-             int(classify_location(job.location))),
+             int(classify_location(job.location)),
+             match_key(job.company, job.title, job.location)),
         )
     else:
         existing = json.loads(row["sources_json"] or "[]")
@@ -636,17 +645,22 @@ def list_unscored_for_profiles(profile_ids: list[int], limit: int | None = None)
 @_retry_on_locked
 def apply_extraction(raw_fingerprint: str, job: Job) -> str:
     """Schreibt das Agent-Extraktionsergebnis in die Raw-Zeile — merged in eine bestehende
-    Zeile, falls derselbe Job über 2 Portale vor der Extraktion gefunden wurde (die
-    Content-Fingerprint-Zeile existiert dann schon, unabhängig vom Extraction-Status)."""
+    EXTRAHIERTE Zeile mit gleichem match_key (Content-Level-Dedup: derselbe Job in
+    abweichender Location-/Titel-Schreibweise). Der Survivor behält seinen Fingerprint,
+    seine job_scores/Favoriten bleiben gültig; die raw-Zeile wird gemerged + gelöscht."""
     conn = _require_conn()
     new_fp = job.fingerprint
+    new_match_key = match_key(job.company, job.title, job.location)
     raw_row = conn.execute(
         "SELECT sources_json FROM jobs WHERE fingerprint = ?", (raw_fingerprint,)).fetchone()
     raw_sources = json.loads(raw_row["sources_json"] or "[]") if raw_row else []
     other = conn.execute(
-        "SELECT sources_json FROM jobs WHERE fingerprint = ? AND fingerprint != ?",
-        (new_fp, raw_fingerprint)).fetchone()
+        "SELECT fingerprint, sources_json FROM jobs "
+        "WHERE match_key = ? AND fingerprint != ? AND extraction_status = 'extracted' "
+        "LIMIT 1",
+        (new_match_key, raw_fingerprint)).fetchone()
     if other is not None:
+        survivor_fp = other["fingerprint"]
         other_sources = json.loads(other["sources_json"] or "[]")
         known_urls = {s.get("url") for s in other_sources}
         merged = other_sources + [s for s in raw_sources if s.get("url") not in known_urls]
@@ -654,27 +668,28 @@ def apply_extraction(raw_fingerprint: str, job: Job) -> str:
             """UPDATE jobs SET title = ?, company = ?, location = ?, remote_flag = ?,
                    employment_type = ?, language = ?, salary_text = ?, requirements_json = ?,
                    tech_stack_json = ?, sources_json = ?, last_seen = ?,
-                   extraction_status = 'extracted', is_ausland = ?
+                   extraction_status = 'extracted', is_ausland = ?, match_key = ?
                WHERE fingerprint = ?""",
             (job.title, job.company, job.location, job.remote_flag, job.employment_type,
              job.language, job.salary_text, json.dumps(job.requirements, ensure_ascii=False),
              json.dumps(job.tech_stack, ensure_ascii=False),
              json.dumps(merged, ensure_ascii=False), job.last_seen,
-             int(classify_location(job.location)), new_fp))
-        if raw_fingerprint != new_fp:
+             int(classify_location(job.location)), new_match_key, survivor_fp))
+        if raw_fingerprint != survivor_fp:
             conn.execute("DELETE FROM jobs WHERE fingerprint = ?", (raw_fingerprint,))
-    else:
-        conn.execute(
-            """UPDATE jobs SET fingerprint = ?, title = ?, company = ?, location = ?,
-                   remote_flag = ?, employment_type = ?, language = ?, salary_text = ?,
-                   requirements_json = ?, tech_stack_json = ?, extraction_status = 'extracted',
-                   is_ausland = ?
-               WHERE fingerprint = ?""",
-            (new_fp, job.title, job.company, job.location, job.remote_flag,
-             job.employment_type, job.language, job.salary_text,
-             json.dumps(job.requirements, ensure_ascii=False),
-             json.dumps(job.tech_stack, ensure_ascii=False),
-             int(classify_location(job.location)), raw_fingerprint))
+        conn.commit()
+        return survivor_fp
+    conn.execute(
+        """UPDATE jobs SET fingerprint = ?, title = ?, company = ?, location = ?,
+               remote_flag = ?, employment_type = ?, language = ?, salary_text = ?,
+               requirements_json = ?, tech_stack_json = ?, extraction_status = 'extracted',
+               is_ausland = ?, match_key = ?
+           WHERE fingerprint = ?""",
+        (new_fp, job.title, job.company, job.location, job.remote_flag,
+         job.employment_type, job.language, job.salary_text,
+         json.dumps(job.requirements, ensure_ascii=False),
+         json.dumps(job.tech_stack, ensure_ascii=False),
+         int(classify_location(job.location)), new_match_key, raw_fingerprint))
     conn.commit()
     return new_fp
 

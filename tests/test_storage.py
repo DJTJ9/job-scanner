@@ -386,6 +386,28 @@ class TestRawJobs:
         urls = {s["url"] for s in merged.sources}
         assert urls == {"https://indeed.test/1", "https://stepstone.test/1"}
 
+    def test_apply_extraction_merges_near_dup_by_match_key(self, db):
+        pid = storage.create_profile("Testi", {}, is_default=True)
+        # Survivor: bereits extrahiert, abweichende Location-Schreibweise + Gender-Marker im Titel.
+        survivor_fp = storage.apply_extraction(
+            storage.insert_raw_job("https://stepstone.test/1", "stepstone", "T", "2026-07-12"),
+            Job(title="Unity Developer (m/w/d)", company="ACME GmbH",
+                location="Berlin, 10115 DE", first_seen="2026-07-12", last_seen="2026-07-12"))
+        # Near-Dup über anderes Portal: andere Location-/Titel-Schreibweise, gleiche Firma+Rolle+Stadt.
+        raw_fp = storage.insert_raw_job("https://indeed.test/2", "indeed", "T", "2026-07-12")
+        near = Job(title="Unity Developer", company="ACME",
+                   location="Berlin", first_seen="2026-07-12", last_seen="2026-07-12")
+        assert near.fingerprint != survivor_fp          # Content-Fingerprint würde NICHT matchen
+        result_fp = storage.apply_extraction(raw_fp, near)
+
+        assert result_fp == survivor_fp                 # Survivor behält Fingerprint
+        assert storage.get_job(raw_fp) is None          # Near-Dup-Zeile gelöscht
+        merged = storage.get_job(survivor_fp)
+        urls = {s["url"] for s in merged.sources}
+        assert urls == {"https://stepstone.test/1", "https://indeed.test/2"}
+        # Nur EIN Scoring-Kandidat statt zwei.
+        assert len(storage.list_unscored_extracted()) == 1
+
     def test_apply_extraction_sets_is_ausland_for_foreign_location(self, db):
         pid = storage.create_profile("Testi", {}, is_default=True)
         raw_fp = storage.insert_raw_job("https://a.test/1", "indeed", "Text", "2026-07-12")
