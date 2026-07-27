@@ -111,6 +111,10 @@ input[type="text"], input[type="url"], input[type="password"], input[type="numbe
 .tiefenmesser .mark.done { color: var(--beute); }
 .chip { display: inline-block; background: var(--tiefe); border: 1px solid var(--signal); border-radius: 12px; padding: 0.2rem 0.6rem; margin: 0.2rem; font-size: 0.85rem; }
 .chip input { margin-right: 0.3rem; }
+.chip-removable button.chip-remove { background: none; border: none; color: var(--veto); cursor: pointer; font-size: 0.9rem; margin-left: 0.3rem; padding: 0; }
+.chip-add-input { display: block; margin: 0.5rem 0; padding: 0.3rem 0.6rem; background: var(--tiefe); border: 1px solid var(--wasser); border-radius: 6px; color: var(--gischt); }
+.query-role { margin-bottom: 1.25rem; }
+.query-preview { color: var(--beute); }
 .tabs, .subtabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--wasser); padding-bottom: 0.5rem; }
 .tab, .subtab { color: var(--gischt); text-decoration: none; opacity: 0.6; font-family: "IBM Plex Mono", monospace; }
 .tab.active, .subtab.active { opacity: 1; color: var(--signal); border-bottom: 2px solid var(--signal); }

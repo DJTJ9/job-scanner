@@ -50,6 +50,58 @@
       <label class="chip"><input type="checkbox" name="suggested_roles" value="{{ r }}"
         {{ 'checked' if r in data.get('target_roles', []) else '' }}>{{ r }}</label>
     {% endfor %}
+  {% elif step == "suchbegriffe" %}
+    <p class="job-meta">Für welche Begriffe soll Bob konkret suchen? (pro Zielrolle)</p>
+    {% for role in data.get('target_roles', []) %}
+      {% set terms = data.get('queries', {}).get(role, {}).get('alle', [role]) %}
+      <div class="query-role">
+        <label>{{ role }}</label>
+        <div class="chip-tags" data-chip-container="{{ loop.index0 }}">
+          {% for t in terms %}
+            <span class="chip chip-removable">{{ t }}
+              <button type="button" class="chip-remove">×</button>
+              <input type="hidden" name="terms_{{ loop.index0 }}" value="{{ t }}">
+            </span>
+          {% endfor %}
+        </div>
+        <input type="text" class="chip-add-input" data-role-index="{{ loop.index0 }}"
+               placeholder="+ Begriff hinzufügen…">
+        <p class="mono query-preview" data-preview-for="{{ loop.index0 }}">&gt; {{ terms | join(' OR ') }}</p>
+      </div>
+    {% endfor %}
+    <label class="chip"><input type="checkbox" name="no_custom_queries" value="1"
+      {{ 'checked' if not data.get('queries') else '' }}> Ohne eigene Begriffe — Standard Bob-Suche nutzen</label>
+    <script>
+      document.querySelectorAll('.chip-tags').forEach(function (container) {
+        var idx = container.dataset.chipContainer;
+        var preview = document.querySelector('.query-preview[data-preview-for="' + idx + '"]');
+        function updatePreview() {
+          var terms = Array.from(container.querySelectorAll('input[type=hidden]')).map(function (i) { return i.value; });
+          preview.textContent = '> ' + terms.join(' OR ');
+        }
+        container.addEventListener('click', function (ev) {
+          if (ev.target.classList.contains('chip-remove')) {
+            ev.target.closest('.chip-removable').remove();
+            updatePreview();
+          }
+        });
+        var input = document.querySelector('.chip-add-input[data-role-index="' + idx + '"]');
+        input.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            var term = input.value.trim();
+            if (!term) return;
+            var chip = document.createElement('span');
+            chip.className = 'chip chip-removable';
+            chip.innerHTML = term + ' <button type="button" class="chip-remove">×</button>' +
+              '<input type="hidden" name="terms_' + idx + '" value="' + term.replace(/"/g, '&quot;') + '">';
+            container.appendChild(chip);
+            input.value = '';
+            updatePreview();
+          }
+        });
+      });
+    </script>
   {% elif step == "domaenen" %}
     <p class="job-meta">In welchen Branchen suchst du?</p>
     {% for d in domains_catalog %}
