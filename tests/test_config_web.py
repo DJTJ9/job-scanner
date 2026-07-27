@@ -2,7 +2,8 @@
 from jobscanner import config
 
 
-def test_load_web_settings_reads_env(monkeypatch):
+def test_load_web_settings_reads_env(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "_ENV_FILE", tmp_path / "none.env")
     monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "testpw123")
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "testsecret")
     monkeypatch.setenv("JOBSCANNER_WEB_PORT", "9999")
@@ -15,6 +16,12 @@ def test_load_web_settings_reads_env(monkeypatch):
         "port": 9999,
         "invite_code": "",
         "owner_email": "",
+        "base_url": "https://job-scanner.thinkshark.de",
+        "smtp_host": "",
+        "smtp_port": 587,
+        "smtp_user": "",
+        "smtp_pass": "",
+        "smtp_from": "",
     }
 
 
