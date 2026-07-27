@@ -817,6 +817,54 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                        "bewertet": len(bewertet), "ausland": len(ausland)},
         })
 
+    @app.get("/favoriten")
+    def favoriten_view(request: Request):
+        profile, resp = _active_profile(request)
+        if resp is not None:
+            return resp
+        if profile is None:
+            return RedirectResponse("/", status_code=303)
+        pid = profile["id"]
+        spar = profile["data"].get("spar_modus") or {}
+        return templates.TemplateResponse(request, "favoriten.html", {
+            "profile": profile,
+            "fav_entries": storage.list_favorites_with_scores(
+                pid, locations=spar.get("locations"), languages=spar.get("languages")),
+            "feedback": storage.get_feedback_map(pid),
+            "favorites": storage.get_favorites_set(pid),
+            "criteria": storage.list_criteria(pid),
+        })
+
+    @app.get("/feintuning")
+    def feintuning_view(request: Request):
+        profile, resp = _active_profile(request)
+        if resp is not None:
+            return resp
+        if profile is None:
+            return RedirectResponse("/", status_code=303)
+        return templates.TemplateResponse(request, "feintuning.html", {
+            "profile": profile,
+            "criteria": storage.list_criteria(profile["id"]),
+        })
+
+    @app.get("/lernen")
+    def lernen_view(request: Request):
+        profile, resp = _active_profile(request)
+        if resp is not None:
+            return resp
+        if profile is None:
+            return RedirectResponse("/", status_code=303)
+        pid = profile["id"]
+        feedback = storage.get_feedback_map(pid)
+        return templates.TemplateResponse(request, "lernen.html", {
+            "profile": profile,
+            "analysis": storage.get_latest_analysis(pid),
+            "proposed_insights": storage.list_insights(pid, status="proposed"),
+            "active_insights": storage.list_insights(pid, status="confirmed"),
+            "vote_count": len(feedback),
+            "learn_reminder": storage.learn_reminder_status(pid),
+        })
+
     @app.get("/dashboard/{profile_id}/metriken")
     def metrics_view(request: Request, profile_id: int):
         if (redirect := require_verified_user(request)) is not None:
@@ -890,7 +938,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 threading.Thread(target=_push_changed, args=(changed,), daemon=True).start()
         else:
             storage.score_profile_deterministic(profile_id)
-        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+        return RedirectResponse("/feintuning", status_code=303)
 
     @app.post("/dashboard/{profile_id}/feedback/{fingerprint}")
     async def feedback_route(request: Request, profile_id: int, fingerprint: str):
@@ -1037,7 +1085,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return JSONResponse({"error": "csrf"}, status_code=403)
         analysis_id = storage.create_analysis(profile_id)
         _launch_feedback_agent("analyze", analysis_id)
-        return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
+        return RedirectResponse("/lernen", status_code=303)
 
     @app.get("/dashboard/{profile_id}/analysis")
     def analysis_status(request: Request, profile_id: int):
@@ -1084,7 +1132,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if analysis is not None:
             storage.set_analysis_status(analysis["id"], "synthesizing")
             _launch_feedback_agent("synthesize", analysis["id"])
-        return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
+        return RedirectResponse("/lernen", status_code=303)
 
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/confirm")
     def confirm_insight_route(request: Request, profile_id: int, insight_id: int,
@@ -1099,7 +1147,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if not csrf.verify(request, csrf_token):
             return JSONResponse({"error": "csrf"}, status_code=403)
         storage.confirm_insight(insight_id)
-        return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
+        return RedirectResponse("/lernen", status_code=303)
 
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/reject")
     def reject_insight_route(request: Request, profile_id: int, insight_id: int,
@@ -1114,7 +1162,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if not csrf.verify(request, csrf_token):
             return JSONResponse({"error": "csrf"}, status_code=403)
         storage.reject_insight(insight_id)
-        return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
+        return RedirectResponse("/lernen", status_code=303)
 
     @app.post("/dashboard/{profile_id}/apply")
     def apply_insights(request: Request, profile_id: int, csrf_token: str = Form("")):
@@ -1152,7 +1200,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                         except Exception:
                             pass
             threading.Thread(target=_push_changed, args=(changed,), daemon=True).start()
-        return RedirectResponse(f"/dashboard/{profile_id}#lernen", status_code=303)
+        return RedirectResponse("/lernen", status_code=303)
 
     STEP_ORDER = ["basis", "skills", "zielrollen", "domaenen", "ort_umfang", "no_gos", "gewichte"]
     STEP_LABELS = {

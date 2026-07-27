@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Feintuning — Bob der Job-Bot{% endblock %}
+{% block content %}
+<h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> Feintuning</h1>
+<div class="panel feintuning">
+  <form method="post" action="/dashboard/{{ profile.id }}/criteria" data-criteria-form>
+    {% include "_csrf_field.html" %}
+    {% for c in criteria %}
+      <div class="criterion">
+        <label for="weight_{{ c.key }}">{{ c.label }} <span class="weight">{{ c.weight }}</span></label>
+        <input type="range" id="weight_{{ c.key }}" name="weight_{{ c.key }}" min="0" max="5" value="{{ c.weight }}">
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Speichern</button>
+  </form>
+</div>
+{% endblock %}

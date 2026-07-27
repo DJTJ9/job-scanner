@@ -56,3 +56,35 @@ def test_feedback_redirect_ziel_jobs(client):
                        follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/jobs"
+
+
+def test_favoriten_zeigt_favorisierte_jobs(client):
+    pid = _pid()
+    fp = storage.upsert_job(Job(title="Fav Dev", company="ACME", location="HH",
+                                first_seen="2026-07-27"))
+    storage.upsert_job_score(pid, fp, 80, "gut", "Pass", {})
+    storage.toggle_favorite(pid, fp)
+    resp = client.get("/favoriten")
+    assert resp.status_code == 200
+    assert "Fav Dev" in resp.text
+
+
+def test_feintuning_zeigt_kriterien(client):
+    resp = client.get("/feintuning")
+    assert resp.status_code == 200
+    assert "Passung zu Zielrollen" in resp.text     # DEFAULT_CRITERIA-Label
+
+
+def test_criteria_post_redirect_feintuning(client):
+    pid = _pid()
+    key = storage.list_criteria(pid)[0]["key"]
+    resp = client.post(f"/dashboard/{pid}/criteria", data={f"weight_{key}": "2"},
+                       follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/feintuning"
+
+
+def test_lernen_rendert_mit_analysis_base(client):
+    resp = client.get("/lernen")
+    assert resp.status_code == 200
+    assert f'data-analysis-base="/dashboard/{_pid()}"' in resp.text

@@ -123,13 +123,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Lernen: Status pollen, bei Wechsel neu laden (Karten sind server-rendered)
-  const lernenPanel = document.querySelector('[data-tab-panel="lernen"]');
+  const lernenPanel = document.querySelector("[data-analysis-status]");
   if (lernenPanel) {
     const status = lernenPanel.dataset.analysisStatus;
     if (status === "analyzing" || status === "synthesizing") {
       const poll = setInterval(async () => {
         try {
-          const resp = await fetch(window.location.pathname + "/analysis",
+          const resp = await fetch(lernenPanel.dataset.analysisBase + "/analysis",
                                    { headers: { "Accept": "application/json" } });
           if (!resp.ok) return;
           const data = await resp.json();
@@ -148,7 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
       answersForm.querySelectorAll('input[type="text"]').forEach((inp) => {
         answers[inp.name] = inp.value;
       });
-      const base = window.location.pathname.replace(/\/$/, "");
+      const base = answersForm.closest("[data-analysis-base]").dataset.analysisBase;
       try {
         await fetch(base + "/analysis/answers", {
           method: "POST",

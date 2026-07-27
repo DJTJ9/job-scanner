@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_job_card.html" import job_card %}
+{% block title %}Favoriten — Bob der Job-Bot{% endblock %}
+{% block content %}
+<h1><img class="bob-title" src="/static/img/bob/bob-pose-herz.png" alt=""> Favoriten</h1>
+<div class="panel">
+  <h2>⭐ Deine Favoriten <span class="mono">({{ fav_entries|length }})</span></h2>
+  {% if not fav_entries %}
+    <p class="job-meta">Noch keine Favoriten — klick ★ an einem Job unter <a class="link" href="/jobs">Job-Angebote</a>, um ihn hier zu sammeln.</p>
+  {% endif %}
+  {% for e in fav_entries %}
+    {{ job_card(e, profile, feedback, favorites, criteria) }}
+  {% endfor %}
+</div>
+<script src="/static/dashboard.js?v={{ asset_version }}" defer></script>
+{% endblock %}

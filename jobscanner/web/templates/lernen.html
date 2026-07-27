@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Lernen — Bob der Job-Bot{% endblock %}
+{% block content %}
+<h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> Lernen</h1>
+<div class="panel" data-analysis-base="/dashboard/{{ profile.id }}"
+     data-analysis-status="{{ analysis.status if analysis else '' }}">
+  {% if request.session.get("role") == "owner" %}
+  {% if not analysis or analysis.status == 'finalized' %}
+    <p class="job-meta">
+      {% if analysis %}Letzte Analyse abgeschlossen.{% endif %}
+      {{ vote_count }} Votes bewertet.
+    </p>
+    <form method="post" action="/dashboard/{{ profile.id }}/analyze">
+      {% include "_csrf_field.html" %}
+      <button type="submit" class="btn btn-primary">Votes analysieren</button>
+    </form>
+  {% elif analysis.status in ('analyzing', 'synthesizing') %}
+    <p class="job-meta" data-analysis-spinner>⏳ {{ 'Analyse' if analysis.status == 'analyzing' else 'Synthese' }} läuft …</p>
+  {% elif analysis.status == 'pending_review' %}
+    <form method="post" action="/dashboard/{{ profile.id }}/analysis/answers" data-answers-form
+          data-analysis-id="{{ analysis.id }}">
+      <div class="insight-card"><strong>Muster in deinen ↑-Votes</strong>
+        {% for m in analysis.cards.get('up_muster', []) %}<p class="job-meta">„{{ m }}"</p>{% endfor %}
+      </div>
+      <div class="insight-card"><strong>Muster in deinen ↓-Votes</strong>
+        {% for m in analysis.cards.get('down_muster', []) %}<p class="job-meta">„{{ m }}"</p>{% endfor %}
+      </div>
+      {% for w in analysis.cards.get('widersprüche', []) %}
+        <div class="insight-card"><strong>Widerspruch — warum?</strong>
+          <p class="job-meta">↑ {{ w.jobA }} · ↓ {{ w.jobB }}</p>
+          <p class="job-meta">{{ w.frage }}</p>
+          <input type="text" name="widerspruch_{{ loop.index0 }}" placeholder="warum …">
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-primary">Erkenntnisse finalisieren</button>
+    </form>
+  {% endif %}
+
+  {% if proposed_insights %}
+    <h3>Vorgeschlagene Erkenntnisse</h3>
+    {% for ins in proposed_insights %}
+      <div class="insight-card">
+        {% if ins.kind == 'preference' %}🅟 „{{ ins.text }}"
+        {% elif ins.kind == 'weight' %}⚖ Gewicht {{ ins.payload.key }}: {{ ins.payload.old_weight }} → {{ ins.payload.new_weight }}
+        {% endif %}
+        <form method="post" action="/dashboard/{{ profile.id }}/insights/{{ ins.id }}/confirm" class="feedback-form">
+          {% include "_csrf_field.html" %}
+          <button type="submit" class="btn btn-secondary">Übernehmen</button></form>
+        <form method="post" action="/dashboard/{{ profile.id }}/insights/{{ ins.id }}/reject" class="feedback-form">
+          {% include "_csrf_field.html" %}
+          <button type="submit" class="btn btn-secondary">×</button></form>
+      </div>
+    {% endfor %}
+    <form method="post" action="/dashboard/{{ profile.id }}/apply">
+      {% include "_csrf_field.html" %}
+      <button type="submit" class="btn btn-primary">Übernehmen & Jobs neu bewerten</button>
+    </form>
+  {% endif %}
+
+  {% if active_insights %}
+    <h3>Aktive Erkenntnisse</h3>
+    {% for ins in active_insights %}
+      <div class="insight-card">
+        {% if ins.kind == 'preference' %}🅟 „{{ ins.text }}"{% elif ins.kind == 'weight' %}⚖ {{ ins.payload.key }} → {{ ins.payload.new_weight }}{% endif %}
+        <span class="mono">{{ ins.created_at }}</span>
+        <form method="post" action="/dashboard/{{ profile.id }}/insights/{{ ins.id }}/reject" class="feedback-form">
+          {% include "_csrf_field.html" %}
+          <button type="submit" class="btn btn-secondary">entfernen</button></form>
+      </div>
+    {% endfor %}
+  {% endif %}
+  {% else %}
+  {% if learn_reminder.due %}
+  <p><span class="chip">Neue Analyse verfügbar — {{ learn_reminder.new_votes }} neue Votes seit letzter Analyse</span></p>
+  <p class="job-meta">öffnet dein Claude Code, dort läuft das Gespräch</p>
+  {% endif %}
+  <p><a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-learn">Öffne /bob:bob-learn in Claude Code →</a></p>
+  <div class="copy-block"><code>/bob:bob-learn</code>
+    <button type="button" class="copy-btn" data-copy="/bob:bob-learn" aria-label="Befehl kopieren">⧉</button>
+  </div>
+  {% if active_insights %}
+  <h3>Aktive Erkenntnisse</h3>
+  {% for ins in active_insights %}
+    <div class="insight-card">
+      {% if ins.kind == 'preference' %}🅟 „{{ ins.text }}"{% elif ins.kind == 'weight' %}⚖ {{ ins.payload.key }} → {{ ins.payload.new_weight }}{% endif %}
+      <span class="mono">{{ ins.created_at }}</span>
+    </div>
+  {% endfor %}
+  {% endif %}
+  {% endif %}
+</div>
+<script src="/static/dashboard.js?v={{ asset_version }}" defer></script>
+{% endblock %}
