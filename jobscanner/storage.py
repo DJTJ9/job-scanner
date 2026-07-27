@@ -9,6 +9,7 @@ import os
 import secrets
 import sqlite3
 import time
+from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -692,6 +693,46 @@ def apply_extraction(raw_fingerprint: str, job: Job) -> str:
          int(classify_location(job.location)), new_match_key, raw_fingerprint))
     conn.commit()
     return new_fp
+
+
+def _retro_merge_by_match_key(conn: sqlite3.Connection) -> None:
+    """Einmaliger Bestands-Sweep: backfillt match_key für alle extrahierten Zeilen und
+    führt Gruppen mit gleichem match_key zusammen. Survivor = Zeile mit Score (sonst
+    frühestes first_seen). FK-Tabellen werden per UPDATE OR IGNORE auf den Survivor
+    umgehängt, Verlierer-Reste + Verlierer-jobs-Zeile gelöscht."""
+    rows = conn.execute(
+        "SELECT id, fingerprint, company, title, location, score, first_seen, sources_json "
+        "FROM jobs WHERE extraction_status = 'extracted'").fetchall()
+    groups: dict[str, list] = defaultdict(list)
+    for r in rows:
+        mk = match_key(r["company"] or "", r["title"] or "", r["location"] or "")
+        conn.execute("UPDATE jobs SET match_key = ? WHERE id = ?", (mk, r["id"]))
+        groups[mk].append(r)
+    for mk, grp in groups.items():
+        if not mk or len(grp) < 2:
+            continue
+        survivor = min(grp, key=lambda x: (x["score"] is None, x["first_seen"] or "9999-99-99"))
+        survivor_fp = survivor["fingerprint"]
+        survivor_sources = json.loads(survivor["sources_json"] or "[]")
+        known_urls = {s.get("url") for s in survivor_sources}
+        for loser in grp:
+            loser_fp = loser["fingerprint"]
+            if loser_fp == survivor_fp:
+                continue
+            for s in json.loads(loser["sources_json"] or "[]"):
+                if s.get("url") not in known_urls:
+                    survivor_sources.append(s)
+                    known_urls.add(s.get("url"))
+            for tbl in ("feedback", "favorites", "job_scores", "member_rescore_queue"):
+                conn.execute(
+                    f"UPDATE OR IGNORE {tbl} SET fingerprint = ? WHERE fingerprint = ?",
+                    (survivor_fp, loser_fp))
+                conn.execute(f"DELETE FROM {tbl} WHERE fingerprint = ?", (loser_fp,))
+            conn.execute("DELETE FROM jobs WHERE fingerprint = ?", (loser_fp,))
+        conn.execute(
+            "UPDATE jobs SET sources_json = ? WHERE fingerprint = ?",
+            (json.dumps(survivor_sources, ensure_ascii=False), survivor_fp))
+    conn.commit()
 
 
 def _row_to_job(row: sqlite3.Row) -> Job:

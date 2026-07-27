@@ -424,3 +424,61 @@ class TestRawJobs:
         entries = storage.list_jobs_with_scores(pid)
         assert len(entries) == 1
         assert entries[0]["job"].title != ""
+
+
+class TestRetroMerge:
+    def test_retro_merge_consolidates_and_rehangs_fks(self, db):
+        conn = storage._require_conn()
+        pid = storage.create_profile("Testi", {}, is_default=True)
+        # Zwei Bestands-Dups: gleiche Firma+Rolle+Stadt, abweichende Schreibweise → gleicher match_key,
+        # unterschiedliche Fingerprints. Survivor (mit Score) + Loser (ohne Score, aber mit Favorit).
+        survivor = Job(title="Unity Developer", company="ACME", location="Berlin",
+                       first_seen="2026-07-01", last_seen="2026-07-01",
+                       sources=[{"portal": "stepstone", "url": "https://s.test/1"}])
+        loser = Job(title="Unity Developer (m/w/d)", company="ACME GmbH",
+                    location="Berlin, 10115 DE", first_seen="2026-07-05", last_seen="2026-07-05",
+                    sources=[{"portal": "indeed", "url": "https://i.test/2"}])
+        survivor_fp = storage.upsert_job(survivor)
+        loser_fp = storage.upsert_job(loser)
+        assert survivor_fp != loser_fp
+        # Survivor hat einen Score; Loser einen Favoriten + Feedback (müssen umgehängt werden).
+        storage.upsert_job_score(pid, survivor_fp, 80, "gut", "Pass", {})
+        storage.toggle_favorite(pid, loser_fp)
+        storage.add_feedback(pid, loser_fp, "up")
+
+        storage._retro_merge_by_match_key(conn)
+
+        assert storage.get_job(loser_fp) is None            # Loser-Zeile weg
+        merged = storage.get_job(survivor_fp)
+        assert merged is not None                           # Survivor bleibt
+        urls = {s["url"] for s in merged.sources}
+        assert urls == {"https://s.test/1", "https://i.test/2"}
+        assert storage.get_job_score(pid, survivor_fp)["score"] == 80  # Score erhalten
+        # Favorit + Feedback auf Survivor umgehängt.
+        assert conn.execute(
+            "SELECT COUNT(*) FROM favorites WHERE profile_id=? AND fingerprint=?",
+            (pid, survivor_fp)).fetchone()[0] == 1
+        assert conn.execute(
+            "SELECT COUNT(*) FROM favorites WHERE fingerprint=?", (loser_fp,)).fetchone()[0] == 0
+        assert conn.execute(
+            "SELECT COUNT(*) FROM feedback WHERE profile_id=? AND fingerprint=?",
+            (pid, survivor_fp)).fetchone()[0] == 1
+
+    def test_retro_merge_survivor_collision_keeps_survivor(self, db):
+        conn = storage._require_conn()
+        pid = storage.create_profile("Testi", {}, is_default=True)
+        survivor_fp = storage.upsert_job(Job(title="Unity Developer", company="ACME",
+                                             location="Berlin", first_seen="2026-07-01"))
+        loser_fp = storage.upsert_job(Job(title="Unity Developer (m/w/d)", company="ACME GmbH",
+                                          location="Berlin, DE", first_seen="2026-07-05"))
+        # BEIDE haben einen Favoriten desselben Profils → (profile_id, fingerprint)-Kollision beim Umhang.
+        storage.toggle_favorite(pid, survivor_fp)
+        storage.toggle_favorite(pid, loser_fp)
+
+        storage._retro_merge_by_match_key(conn)
+
+        # Genau ein Favorit übrig, auf dem Survivor; kein UNIQUE-Fehler.
+        assert conn.execute(
+            "SELECT COUNT(*) FROM favorites WHERE fingerprint=?", (survivor_fp,)).fetchone()[0] == 1
+        assert conn.execute(
+            "SELECT COUNT(*) FROM favorites WHERE fingerprint=?", (loser_fp,)).fetchone()[0] == 0
