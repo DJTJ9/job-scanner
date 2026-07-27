@@ -60,7 +60,12 @@ def run(provider: SearchProvider | None = None, limit_per_query: int | None = No
     profile = default_profile["data"]  # Neighbors laufen weiter nur fürs Default-Profil
     neighbor_roles = neighbors.get_neighbor_roles(
         profile, profile_name, set(core_queries), today=today)
-    queries = {**core_queries, **{name: r["terms"] for name, r in neighbor_roles.items()}}
+    merged_profile_queries: dict = {}
+    for p in active_profiles:
+        merged_profile_queries.update(p.get("queries") or {})
+    queries = {**core_queries,
+               **{name: r["terms"] for name, r in neighbor_roles.items()},
+               **merged_profile_queries}
     neighbor_role_names = set(neighbor_roles)
     known = dedup.known_source_urls()
     touched: set[str] = set()

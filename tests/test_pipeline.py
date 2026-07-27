@@ -108,6 +108,52 @@ def test_neighbor_role_jobs_get_is_neighbor_flag(env, monkeypatch):
     assert bool(row["is_neighbor"]) is True
 
 
+def test_member_profile_queries_merged_into_scan(env):
+    storage.init_db(env)
+    storage.create_profile("Member1", {}, queries={"backend_dev": {"alle": ["Backend Engineer"]}})
+    url = "https://indeed.test/backend_dev-Backend Engineer-0"
+
+    def discover(portal, term, provider, limit=10, location=None):
+        return [url] if term == "Backend Engineer" else []
+
+    with patch("jobscanner.search.discover_urls", side_effect=discover):
+        _run(env, {url: "Rohtext"})
+    storage.init_db(env)
+    job = storage.list_pending_extraction()[0]
+    conn = storage._conn
+    row = conn.execute("SELECT role FROM jobs WHERE fingerprint = ?",
+                       (job["fingerprint"],)).fetchone()
+    assert row["role"] == "backend_dev"
+
+
+def test_member_profile_queries_override_same_role_key(env):
+    storage.init_db(env)
+    storage.migrate_yaml_profile()  # Tjark-Default-Profil zuerst anlegen (reale Bootstrap-Reihenfolge:
+    # niedrigere id als Member-Profile, sonst würde Tjarks core-Query-Kopie das Member-Override
+    # per id-Reihenfolge zurücküberschreiben — pipeline.run() ruft migrate_yaml_profile() ohnehin
+    # idempotent selbst auf, hier nur vorgezogen für deterministische id-Reihenfolge im Test)
+    storage.create_profile("Member2", {}, queries={"unity_games": {"alle": ["Custom Override Term"]}})
+    url = "https://indeed.test/unity_games-Custom Override Term-0"
+
+    def discover(portal, term, provider, limit=10, location=None):
+        return [url] if term == "Custom Override Term" else []
+
+    with patch("jobscanner.search.discover_urls", side_effect=discover):
+        _run(env, {url: "Rohtext"})
+    storage.init_db(env)
+    assert len(storage.list_pending_extraction()) == 1
+
+
+def test_profile_without_queries_unaffected(env):
+    storage.init_db(env)
+    storage.create_profile("Member3", {})
+    url = "https://indeed.test/unity_games-Unity Developer-0"
+    with patch("jobscanner.search.discover_urls", return_value=[url]):
+        _run(env, {url: "Rohtext"})
+    storage.init_db(env)
+    assert len(storage.list_pending_extraction()) == 1
+
+
 def test_run_writes_discover_report_json(env):
     url = "https://indeed.test/unity_games-Unity Developer-0"
     with patch("jobscanner.search.discover_urls", return_value=[url]), \
