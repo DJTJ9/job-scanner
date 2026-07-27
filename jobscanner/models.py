@@ -25,6 +25,35 @@ def make_fingerprint(company: str, title: str, location: str) -> str:
     return "|".join([company_norm, _norm(title or ""), _norm(location or "")])
 
 
+_ABBREV = {"sr": "senior", "jr": "junior"}
+_GENDER_TOKENS = {"m", "w", "d", "f", "x", "gn"}
+_COUNTRY_TOKENS = {"deutschland", "germany", "de", "österreich", "austria", "schweiz"}
+_PLACE_QUALIFIERS = {"remote", "hybrid", "onsite", "homeoffice"}
+_PLZ_RE = re.compile(r"^\d{4,5}$")
+
+
+def _canonical_title(title: str) -> str:
+    out = []
+    for tok in _norm(title or "").split():
+        if tok in _GENDER_TOKENS:
+            continue
+        out.append(_ABBREV.get(tok, tok))
+    return " ".join(out)
+
+
+def _city_token(location: str) -> str:
+    for tok in _norm(location or "").split():
+        if tok in _COUNTRY_TOKENS or tok in _PLACE_QUALIFIERS or _PLZ_RE.match(tok):
+            continue
+        return tok
+    return ""
+
+
+def match_key(company: str, title: str, location: str) -> str:
+    company_norm = _strip_legal_suffix(_norm(company or ""))
+    return "|".join([company_norm, _canonical_title(title), _city_token(location)])
+
+
 @dataclass
 class Job:
     title: str

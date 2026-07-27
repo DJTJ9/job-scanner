@@ -1,7 +1,7 @@
 """Tests für models.fingerprint + storage-Schicht (CRUD, Upsert)."""
 import pytest
 
-from jobscanner.models import Job, make_fingerprint
+from jobscanner.models import Job, make_fingerprint, match_key
 
 
 class TestFingerprint:
@@ -47,6 +47,40 @@ class TestFingerprint:
     def test_none_values_treated_as_empty_string(self):
         assert make_fingerprint(None, "Unity Developer", None) == \
             make_fingerprint("", "Unity Developer", "")
+
+
+class TestMatchKey:
+    def test_city_token_ignores_country_and_plz(self):
+        assert match_key("ACME", "Unity Developer", "Berlin") == \
+            match_key("ACME", "Unity Developer", "Berlin, 10115 DE")
+
+    def test_city_token_distinguishes_cities(self):
+        assert match_key("ACME", "Unity Developer", "Berlin") != \
+            match_key("ACME", "Unity Developer", "München")
+
+    def test_empty_location_yields_empty_city(self):
+        assert match_key("ACME", "Unity Developer", "") == \
+            match_key("ACME", "Unity Developer", "Remote")
+
+    def test_drops_gender_marker_tokens(self):
+        assert match_key("ACME", "Unity Developer (m/w/d)", "Berlin") == \
+            match_key("ACME", "Unity Developer", "Berlin")
+
+    def test_gender_marker_variants_collapse(self):
+        assert match_key("ACME", "Unity Developer (f/m/x)", "Berlin") == \
+            match_key("ACME", "Unity Developer (w/m/d)", "Berlin")
+
+    def test_normalizes_seniority_abbrev(self):
+        assert match_key("ACME", "Sr. Unity Developer", "Berlin") == \
+            match_key("ACME", "Senior Unity Developer", "Berlin")
+
+    def test_reuses_company_canonicalization(self):
+        assert match_key("ACME GmbH", "Unity Developer", "Berlin") == \
+            match_key("ACME", "Unity Developer", "Berlin")
+
+    def test_different_role_differs(self):
+        assert match_key("ACME", "Unity Developer", "Berlin") != \
+            match_key("ACME", "Unreal Developer", "Berlin")
 
 
 from jobscanner import storage
