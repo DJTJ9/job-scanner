@@ -141,7 +141,8 @@ CREATE TABLE IF NOT EXISTS custom_portals (
     detail_url_pattern TEXT,
     submitted_by INTEGER NOT NULL REFERENCES users(id),
     status TEXT NOT NULL DEFAULT 'pending_check' CHECK (status IN
-        ('pending_check', 'compatible', 'needs_firecrawl_pending', 'active', 'rejected')),
+        ('pending_check', 'compatible', 'needs_firecrawl_pending', 'active', 'rejected',
+         'inactive', 'deleted')),
     firecrawl_needed INTEGER DEFAULT 0,
     check_ergebnis_json TEXT,
     created_at TEXT NOT NULL,
@@ -193,6 +194,29 @@ def init_db(path: str | Path) -> None:
         _conn.execute("ALTER TABLE jobs ADD COLUMN unavailable_strikes INTEGER DEFAULT 0")
     _conn.executescript(_SCHEMA_PROFILES)
     _conn.executescript(_SCHEMA_CUSTOM_PORTALS)
+    cp_sql = _conn.execute(
+        "SELECT sql FROM sqlite_master WHERE name='custom_portals'").fetchone()
+    if cp_sql and "'inactive'" not in cp_sql[0]:
+        _conn.executescript("""
+            CREATE TABLE custom_portals_new (
+                id INTEGER PRIMARY KEY,
+                url TEXT NOT NULL,
+                typ TEXT NOT NULL CHECK (typ IN ('career_page', 'portal')),
+                search_url_template TEXT,
+                detail_url_pattern TEXT,
+                submitted_by INTEGER NOT NULL REFERENCES users(id),
+                status TEXT NOT NULL DEFAULT 'pending_check' CHECK (status IN
+                    ('pending_check', 'compatible', 'needs_firecrawl_pending', 'active',
+                     'rejected', 'inactive', 'deleted')),
+                firecrawl_needed INTEGER DEFAULT 0,
+                check_ergebnis_json TEXT,
+                created_at TEXT NOT NULL,
+                activated_at TEXT
+            );
+            INSERT INTO custom_portals_new SELECT * FROM custom_portals;
+            DROP TABLE custom_portals;
+            ALTER TABLE custom_portals_new RENAME TO custom_portals;
+        """)
     _conn.executescript(_SCHEMA_MEMBER_RESCORE)
     prof_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(profiles)")}
     if "user_id" not in prof_cols:
@@ -1665,6 +1689,8 @@ def list_custom_portals(status: str | None = None) -> list[dict]:
     if status is not None:
         sql += " WHERE status = ?"
         params.append(status)
+    else:
+        sql += " WHERE status != 'deleted'"
     sql += " ORDER BY id DESC"
     return [_row_to_custom_portal(r) for r in conn.execute(sql, params)]
 
@@ -1690,6 +1716,26 @@ def activate_custom_portal(portal_id: int) -> None:
         """UPDATE custom_portals SET status = 'active', firecrawl_needed = ?,
            activated_at = datetime('now') WHERE id = ?""",
         (firecrawl_needed, portal_id))
+    conn.commit()
+
+
+@_retry_on_locked
+def deactivate_custom_portal(portal_id: int) -> None:
+    """Globales Deaktivieren: active → inactive (reversibel via activate_custom_portal).
+    No-op wenn nicht aktuell 'active'."""
+    conn = _require_conn()
+    conn.execute(
+        "UPDATE custom_portals SET status = 'inactive' WHERE id = ? AND status = 'active'",
+        (portal_id,))
+    conn.commit()
+
+
+@_retry_on_locked
+def soft_delete_custom_portal(portal_id: int) -> None:
+    """Soft-Delete: status = 'deleted'. Row bleibt (auditierbar), aus allen Listen raus."""
+    conn = _require_conn()
+    conn.execute(
+        "UPDATE custom_portals SET status = 'deleted' WHERE id = ?", (portal_id,))
     conn.commit()
 
 
