@@ -1157,10 +1157,12 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             threading.Thread(target=_push_changed, args=(changed,), daemon=True).start()
         return RedirectResponse("/lernen", status_code=303)
 
-    STEP_ORDER = ["basis", "skills", "zielrollen", "domaenen", "ort_umfang", "no_gos", "gewichte"]
+    STEP_ORDER = ["basis", "skills", "zielrollen", "suchbegriffe", "domaenen",
+                  "ort_umfang", "no_gos", "gewichte"]
     STEP_LABELS = {
         "basis": "Basics", "skills": "Skills", "zielrollen": "Zielrollen",
-        "domaenen": "Domänen", "ort_umfang": "Ort und Umfang",
+        "suchbegriffe": "Suchbegriffe", "domaenen": "Domänen",
+        "ort_umfang": "Ort und Umfang",
         "no_gos": "No-Gos", "gewichte": "Gewichte",
     }
 
@@ -1265,6 +1267,14 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             roles = set(_split(form.get("target_roles", "")))
             roles.update(form.getlist("suggested_roles"))
             data["target_roles"] = sorted(roles)
+        elif step == "suchbegriffe":
+            queries: dict[str, dict[str, list[str]]] = {}
+            if not form.get("no_custom_queries"):
+                for i, role in enumerate(data.get("target_roles", [])):
+                    terms = [t.strip() for t in form.getlist(f"terms_{i}") if t.strip()]
+                    if terms:
+                        queries[role] = {"alle": terms}
+            data["queries"] = queries
         elif step == "domaenen":
             valid = {d["key"] for d in scoring.DOMAINS_CATALOG}
             data["domains"] = [k for k in form.getlist("domains") if k in valid]
@@ -1299,14 +1309,15 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             data.setdefault("experience_sources", [])
             data.setdefault("portfolio", [])
             data.pop("weights", None)  # Prefill-Hilfsfeld, nicht persistieren
+            queries = data.pop("queries", {})
             name = data.pop("name", "") or f"Profil {len(storage.list_profiles()) + 1}"
             edit_id = wizard.get("edit_id")
             if edit_id is not None:
-                storage.update_profile(edit_id, name, data)
+                storage.update_profile(edit_id, name, data, queries=queries)
                 storage.save_criteria(edit_id, criteria)
                 pid = edit_id
             else:
-                pid = storage.create_profile(name, data, queries=None,
+                pid = storage.create_profile(name, data, queries=queries,
                                             user_id=request.session.get("user_id"))
                 storage.save_criteria(pid, criteria)
                 storage.log_event("profil_erstellt", user_id=request.session.get("user_id"))

@@ -49,6 +49,49 @@ def test_wizard_full_flow_creates_profile(client):
     assert role_fit["weight"] == 5
 
 
+def test_wizard_suchbegriffe_step_stores_queries_json(client):
+    client.get("/wizard/new")
+    client.post("/wizard/basis", data={"name": "QueryProfil", "level": "junior",
+                                       "experience_years": "1"})
+    client.post("/wizard/skills", data={"skills": "Python"})
+    client.post("/wizard/zielrollen", data={"target_roles": "Unity Developer"})
+    client.post("/wizard/suchbegriffe", data={"terms_0": ["Unity Developer", "Gameplay Engineer"]})
+    client.post("/wizard/domaenen", data={"domains": []})
+    client.post("/wizard/ort_umfang", data={"cities": "Berlin", "languages": ["de"]})
+    client.post("/wizard/no_gos", data={"no_gos": ""})
+    resp = client.post("/wizard/gewichte", data={}, follow_redirects=False)
+    assert resp.status_code == 303
+    profiles = storage.list_profiles()
+    p = next(p for p in profiles if p["name"] == "QueryProfil")
+    assert p["queries"] == {"Unity Developer": {"alle": ["Unity Developer", "Gameplay Engineer"]}}
+
+
+def test_wizard_suchbegriffe_step_no_custom_queries_stores_none(client):
+    client.get("/wizard/new")
+    client.post("/wizard/basis", data={"name": "NoQueryProfil", "level": "junior",
+                                       "experience_years": "1"})
+    client.post("/wizard/skills", data={"skills": "Python"})
+    client.post("/wizard/zielrollen", data={"target_roles": "Backend Dev"})
+    client.post("/wizard/suchbegriffe", data={"no_custom_queries": "1"})
+    client.post("/wizard/domaenen", data={"domains": []})
+    client.post("/wizard/ort_umfang", data={"cities": "Berlin", "languages": ["de"]})
+    client.post("/wizard/no_gos", data={"no_gos": ""})
+    client.post("/wizard/gewichte", data={}, follow_redirects=False)
+    profiles = storage.list_profiles()
+    p = next(p for p in profiles if p["name"] == "NoQueryProfil")
+    assert p["queries"] is None
+
+
+def test_wizard_zielrollen_step_links_to_suchbegriffe_next(client):
+    client.get("/wizard/new")
+    client.post("/wizard/basis", data={"name": "OrderCheck", "level": "junior",
+                                       "experience_years": "1"})
+    client.post("/wizard/skills", data={"skills": "Python"})
+    resp = client.post("/wizard/zielrollen", data={"target_roles": "Dev"},
+                       follow_redirects=False)
+    assert resp.headers["location"] == "/wizard/suchbegriffe"
+
+
 def test_wizard_llm_refine_merges_suggested_skills(client, monkeypatch):
     monkeypatch.setattr(
         llm_refine, "suggest_from_freetext",
