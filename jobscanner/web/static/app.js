@@ -126,6 +126,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const hash = window.location.hash.replace("#", "");
     if (hash === "profil" || hash === "token") activate(hash);
   }
+
+  document.querySelectorAll("[data-profile-switcher]").forEach((sel) => {
+    sel.addEventListener("change", () => sel.form.submit());
+  });
 });
 
 // Passwort-Stärke-Gauge (Tiefenlinie-Form): füllt sich veto→signal→beute

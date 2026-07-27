@@ -6,6 +6,7 @@ from __future__ import annotations
 import hmac
 import subprocess
 import threading
+import time
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
@@ -120,6 +121,44 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if profile.get("user_id") != request.session.get("user_id"):
             return None, JSONResponse({"error": "not found"}, status_code=404)
         return profile, None
+
+    def _active_profile(request: Request):
+        """(profile, None) für das aktive Profil der Session. (None, redirect) wenn
+        nicht eingeloggt/unverifiziert; (None, None) wenn eingeloggt, aber ohne
+        Profil — Seiten zeigen dann den Leer-Zustand mit Profil-anlegen-CTA."""
+        if (redirect := require_verified_user(request)) is not None:
+            return None, redirect
+        profiles = storage.list_profiles(active_only=True,
+                                         user_id=request.session.get("user_id"))
+        if not profiles:
+            return None, None
+        pid = request.session.get("active_profile_id")
+        profile = next((p for p in profiles if p["id"] == pid), None)
+        if profile is None:
+            profile = next((p for p in profiles if p["is_default"]), profiles[0])
+            request.session["active_profile_id"] = profile["id"]
+        return profile, None
+
+    def _nav_profiles(request: Request) -> list[dict]:
+        """Profil-Liste für den Topbar-Switcher (leer wenn ausgeloggt)."""
+        uid = request.session.get("user_id")
+        if uid is None:
+            return []
+        return storage.list_profiles(active_only=True, user_id=uid)
+    templates.env.globals["nav_profiles"] = _nav_profiles
+
+    def _relzeit(ts) -> str:
+        if not ts:
+            return "noch nie"
+        delta = max(0, int(time.time()) - int(ts))
+        if delta < 90:
+            return "gerade eben"
+        if delta < 3600:
+            return f"vor {delta // 60} Min."
+        if delta < 86400:
+            return f"vor {delta // 3600} Std."
+        return f"vor {delta // 86400} Tg."
+    templates.env.filters["relzeit"] = _relzeit
 
     def _may_manage_portal(request: Request, portal: dict) -> bool:
         """True wenn der eingeloggte User Ersteller des Portals ODER Site-Admin ist."""
@@ -521,6 +560,18 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "error": None, "success": None, "api_token": token,
             "active_tab": "token",
             **_settings_extra(request.session["user_id"])})
+
+    @app.post("/profil/aktiv")
+    def set_active_profile(request: Request, profile_id: int = Form(...),
+                           csrf_token: str = Form("")):
+        profile, resp = _require_owned(request, profile_id)
+        if resp is not None:
+            return resp
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+        request.session["active_profile_id"] = profile["id"]
+        ref_path = urlparse(request.headers.get("referer") or "").path or "/"
+        return RedirectResponse(ref_path, status_code=303)
 
     @app.get("/portale")
     def portale_view(request: Request):
