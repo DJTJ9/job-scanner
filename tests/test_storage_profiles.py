@@ -158,3 +158,26 @@ def test_update_profile_overwrites_name_and_data():
     p = storage.get_profile(pid)
     assert p["name"] == "Neu"
     assert p["data"] == {"skills": ["rust"], "level": "senior"}
+
+
+def test_update_profile_with_queries_overwrites_queries_json():
+    pid = storage.create_profile("Alt", {"skills": ["python"]},
+                                 queries={"old_role": {"alle": ["Old Term"]}})
+    storage.update_profile(pid, "Neu", {"skills": ["rust"]},
+                           queries={"new_role": {"alle": ["New Term"]}})
+    p = storage.get_profile(pid)
+    assert p["queries"] == {"new_role": {"alle": ["New Term"]}}
+
+
+def test_update_profile_with_empty_queries_clears_queries_json():
+    pid = storage.create_profile("Alt", {}, queries={"role": {"alle": ["Term"]}})
+    storage.update_profile(pid, "Alt", {}, queries={})
+    p = storage.get_profile(pid)
+    assert p["queries"] is None
+
+
+def test_update_profile_without_queries_arg_preserves_existing_queries_json():
+    pid = storage.create_profile("Alt", {}, queries={"role": {"alle": ["Term"]}})
+    storage.update_profile(pid, "Neu", {"skills": ["rust"]})
+    p = storage.get_profile(pid)
+    assert p["queries"] == {"role": {"alle": ["Term"]}}

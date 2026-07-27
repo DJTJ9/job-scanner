@@ -828,14 +828,24 @@ def admin_list_members() -> list[dict]:
 
 
 @_retry_on_locked
-def update_profile(profile_id: int, name: str, data: dict) -> None:
-    """Überschreibt Name + data_json eines bestehenden Profils (Wizard-Edit)."""
+def update_profile(profile_id: int, name: str, data: dict, queries: dict | None = None) -> None:
+    """Überschreibt Name + data_json eines bestehenden Profils (Wizard-Edit).
+    queries=None (Default) lässt queries_json unangetastet; ein übergebenes Dict
+    (auch {}) überschreibt es immer."""
     conn = _require_conn()
     with conn:
-        conn.execute(
-            "UPDATE profiles SET name = ?, data_json = ? WHERE id = ?",
-            (name, json.dumps(data, ensure_ascii=False), profile_id),
-        )
+        if queries is not None:
+            conn.execute(
+                "UPDATE profiles SET name = ?, data_json = ?, queries_json = ? WHERE id = ?",
+                (name, json.dumps(data, ensure_ascii=False),
+                 json.dumps(queries, ensure_ascii=False) if queries else None,
+                 profile_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE profiles SET name = ?, data_json = ? WHERE id = ?",
+                (name, json.dumps(data, ensure_ascii=False), profile_id),
+            )
 
 
 def get_profile(profile_id: int) -> dict | None:
