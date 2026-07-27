@@ -254,6 +254,8 @@ def push_jobs_data(user: dict, listings: list) -> dict:
                                     today, via=f"member:{user['id']}")
         known[url] = fp
         stats["inserted"] += 1
+    storage.log_event("scan_pushed", user_id=user["id"],
+                      meta={"source": "member", "inserted": stats["inserted"]})
     return stats
 
 

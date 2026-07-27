@@ -156,6 +156,7 @@ def run(provider: SearchProvider | None = None, limit_per_query: int | None = No
     _REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     _REPORT_PATH.write_text(json.dumps(report, ensure_ascii=False, indent=2),
                             encoding="utf-8")
+    storage.log_event("scan_pushed", meta={"source": "server", "new": report["new"]})
     return report
 
 

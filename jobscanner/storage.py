@@ -1646,6 +1646,33 @@ def get_daily_event_counts(days: int = 14) -> list[dict]:
     return out
 
 
+def get_home_summary(profile_id: int) -> dict:
+    """Kennzahlen für die Home-Übersicht in einem Call: ungemeldete Pass-Treffer,
+    Score-Warteschlange, Favoriten, Top-3, Vote-Count, letzter Scan (scan_pushed-Event)
+    und Gesamtzahl aktiver Anzeigen. Markiert nichts als notified — das macht /jobs."""
+    conn = _require_conn()
+    top = [e for e in list_jobs_with_scores(profile_id)
+           if e["score"] is not None and not e["is_ausland"]
+           and e["category"] != "No-Go"][:3]
+    last_scan_row = conn.execute(
+        "SELECT MAX(ts) AS ts FROM events WHERE event_type = 'scan_pushed'").fetchone()
+    last_scan_ts = last_scan_row["ts"]
+    now = conn.execute("SELECT strftime('%s', 'now') AS now").fetchone()["now"]
+    jobs_total = conn.execute(
+        "SELECT COUNT(*) AS n FROM jobs WHERE status != 'expired'").fetchone()["n"]
+    return {
+        "new_matches": len(list_unnotified_top_matches(profile_id)),
+        "score_queue": len(list_unscored_for_profiles([profile_id])),
+        "favorites_count": len(get_favorites_set(profile_id)),
+        "top_matches": top,
+        "vote_count": len(get_feedback_map(profile_id)),
+        "last_scan_ts": last_scan_ts,
+        "scan_frisch": (last_scan_ts is not None
+                        and int(now) - int(last_scan_ts) < 86400),
+        "jobs_total": jobs_total,
+    }
+
+
 def _row_to_custom_portal(row: sqlite3.Row) -> dict:
     return {
         "id": row["id"],
