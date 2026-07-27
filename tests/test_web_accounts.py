@@ -39,7 +39,7 @@ def _wizard_profile(client, name):
                                             "languages": "de"})
     client.post("/wizard/no_gos", data={"no_gos": ""})
     resp = client.post("/wizard/gewichte", data={}, follow_redirects=False)
-    return resp.headers["location"]  # /dashboard/<id>
+    return resp.headers["location"]  # "/" (Wizard-Abschluss → Home)
 
 
 def test_register_valid_invite_creates_member_and_logs_in(app):
@@ -73,34 +73,35 @@ def test_member_profile_isolated_from_other_member(app):
     a = CSRFTestClient(app)
     _register(a, email="a@uni.de", pw="pwa")
     _verify_and_login(a, "a@uni.de", "pwa")
-    a_dash = _wizard_profile(a, "A-Profil")
-    a_pid = int(a_dash.rsplit("/", 1)[1])
+    _wizard_profile(a, "A-Profil")
+    a_pid = storage.get_profile_by_name("A-Profil")["id"]
 
     b = CSRFTestClient(app)
     _register(b, email="b@uni.de", pw="pwb")
     _verify_and_login(b, "b@uni.de", "pwb")
-    # B sieht A's Profil nicht in der Liste …
-    assert "A-Profil" not in b.get("/").text
-    # … und kann es nicht per URL öffnen.
-    assert b.get(f"/dashboard/{a_pid}", follow_redirects=False).status_code == 404
+    # B sieht A's Profil nicht in der Profil-Liste …
+    assert "A-Profil" not in b.get("/profil").text
+    # … und die Alt-URL leakt nichts mehr: generisches 301, ohne A's Profil zu aktivieren.
+    assert b.get(f"/dashboard/{a_pid}", follow_redirects=False).status_code == 301
+    assert "A-Profil" not in b.get("/jobs").text
 
 
 def test_member_sees_own_profile_and_ranking(app):
     c = CSRFTestClient(app)
     _register(c)
     _verify_and_login(c, "stud@uni.de", "studpw")
-    dash = _wizard_profile(c, "Mein-Profil")
-    resp = c.get(dash)
+    assert _wizard_profile(c, "Mein-Profil") == "/"
+    assert "Mein-Profil" in c.get("/profil").text
+    resp = c.get("/jobs")
     assert resp.status_code == 200
-    assert "Mein-Profil" in resp.text
 
 
 def test_member_llm_routes_forbidden(app):
     c = CSRFTestClient(app)
     _register(c)
     _verify_and_login(c, "stud@uni.de", "studpw")
-    dash = _wizard_profile(c, "Mein-Profil")
-    pid = int(dash.rsplit("/", 1)[1])
+    _wizard_profile(c, "Mein-Profil")
+    pid = storage.get_profile_by_name("Mein-Profil")["id"]
     assert c.post("/wizard/llm-refine", data={"freetext": "x"},
                   follow_redirects=False).status_code == 403
     assert c.post(f"/dashboard/{pid}/analyze", follow_redirects=False).status_code == 403

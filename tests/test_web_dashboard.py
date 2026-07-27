@@ -23,22 +23,25 @@ def client(tmp_path, monkeypatch):
     return c
 
 
-def test_profiles_page_lists_active_profiles(client):
-    resp = client.get("/")
+def test_profil_page_lists_active_profiles(client):
+    resp = client.get("/profil")
     assert "Tjark" in resp.text  # migrate_yaml_profile() läuft beim App-Start
 
 
-def test_dashboard_shows_criteria_and_empty_job_list(client):
-    pid = storage.get_profile_by_name("Tjark")["id"]
-    resp = client.get(f"/dashboard/{pid}")
+def test_feintuning_shows_criteria_and_jobs_shows_empty_list(client):
+    resp = client.get("/feintuning")
     assert resp.status_code == 200
     assert "Passung zu Zielrollen" in resp.text  # DEFAULT_CRITERIA-Label
+    resp = client.get("/jobs")
+    assert resp.status_code == 200
+    assert "Keine Jobs in diesem Tab." in resp.text
 
 
-def test_dashboard_unknown_profile_redirects_home(client):
+def test_dashboard_unknown_profile_redirects_jobs(client):
+    # Alt-URL-Redirect prüft keine Profil-Existenz mehr — generisches 301 auf /jobs
     resp = client.get("/dashboard/9999", follow_redirects=False)
-    assert resp.status_code == 303
-    assert resp.headers["location"] == "/"
+    assert resp.status_code == 301
+    assert resp.headers["location"] == "/jobs"
 
 
 def test_save_criteria_updates_weight(client):
@@ -147,14 +150,14 @@ def test_panel_hidden_and_badge_styles_defined():
     assert ".feedback-badge-down { color: var(--veto); }" in css
 
 
-def test_dashboard_has_toplevel_tabs_and_panels(client):
-    pid = storage.get_profile_by_name("Tjark")["id"]
-    resp = client.get(f"/dashboard/{pid}")
-    assert 'data-tab-target="kontakte"' in resp.text
-    assert 'data-tab-target="feintuning"' in resp.text
-    assert 'data-tab-panel="kontakte"' in resp.text
-    assert 'data-tab-panel="feintuning"' in resp.text
-    assert 'class="panel feintuning panel-hidden"' in resp.text
+def test_jobs_has_tab_nav_and_sidebar_links(client):
+    # Ex-Dashboard-Toplevel-Tabs: Sub-Tabs leben auf /jobs, Feintuning/Lernen als Seiten in der Sidebar
+    resp = client.get("/jobs")
+    assert 'href="/jobs?tab=aktiv"' in resp.text
+    assert 'href="/jobs?tab=no_go"' in resp.text
+    assert 'href="/jobs?tab=ausland"' in resp.text
+    assert 'href="/feintuning"' in resp.text
+    assert 'href="/lernen"' in resp.text
     assert '<div class="dashboard">' not in resp.text
 
 
@@ -203,7 +206,11 @@ def test_dashboard_requires_login(tmp_path, monkeypatch):
     app = create_app(db_path=tmp_path / "jobs.db")
     anon = CSRFTestClient(app)
     resp = anon.get("/dashboard/1", follow_redirects=False)
-    assert resp.status_code == 303
+    assert resp.status_code == 301
+    assert resp.headers["location"] == "/jobs"
+    resp2 = anon.get("/jobs", follow_redirects=False)
+    assert resp2.status_code == 303
+    assert resp2.headers["location"] == "/login"
 
 
 def test_read_asset_version_returns_git_short_hash():
@@ -373,7 +380,7 @@ def test_save_criteria_recomputes_scores_from_breakdown(client):
 
 
 def test_breakdown_table_wrapped_in_scroll_container_with_min_width():
-    html = Path("jobscanner/web/templates/dashboard.html").read_text()
+    html = Path("jobscanner/web/templates/_job_card.html").read_text()
     assert '<div class="breakdown-scroll">' in html
     assert html.index('<div class="breakdown-scroll">') < html.index('<table class="breakdown-table">')
     css = Path("jobscanner/web/static/style.css").read_text()
@@ -382,7 +389,7 @@ def test_breakdown_table_wrapped_in_scroll_container_with_min_width():
 
 
 def test_breakdown_spans_full_card_width_outside_flex_column():
-    html = Path("jobscanner/web/templates/dashboard.html").read_text()
+    html = Path("jobscanner/web/templates/_job_card.html").read_text()
     # Breakdown lives in a full-width wrapper at .job-card level, not inside the flex:1 title column
     assert '<div class="breakdown-full">' in html
     assert html.index('<div style="flex:1">') < html.index('<div class="breakdown-full">')
@@ -484,32 +491,32 @@ def test_apply_weight_only_does_not_launch_agent(client):
     popen.assert_not_called()
 
 
-def test_dashboard_has_lernen_tab(client):
-    pid = storage.get_profile_by_name("Tjark")["id"]
-    resp = client.get(f"/dashboard/{pid}")
-    assert 'data-tab-target="lernen"' in resp.text
+def test_lernen_page_has_analyze_button(client):
+    resp = client.get("/lernen")
+    assert resp.status_code == 200
+    assert 'href="/lernen"' in resp.text        # Sidebar-Eintrag
     assert "Votes analysieren" in resp.text
 
 
-def test_dashboard_renders_pending_cards(client):
+def test_lernen_renders_pending_cards(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     aid = storage.create_analysis(pid)
     storage.save_analysis_cards(aid, {
         "up_muster": ["Remote + kleine Studios"], "down_muster": ["Senior onsite"],
         "widersprüche": [{"jobA": "A@HH", "jobB": "B@München", "frage": "warum?"}]})
     storage.set_analysis_status(aid, "pending_review")
-    resp = client.get(f"/dashboard/{pid}")
+    resp = client.get("/lernen")
     assert "Remote + kleine Studios" in resp.text
     assert "Senior onsite" in resp.text
     assert "Erkenntnisse finalisieren" in resp.text
 
 
-def test_dashboard_renders_proposed_insights(client):
+def test_lernen_renders_proposed_insights(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     storage.add_insight(pid, "preference", "Bevorzugt Remote + kleine Studios")
     storage.add_insight(pid, "weight", "",
                         payload={"key": "location", "old_weight": 3, "new_weight": 5})
-    resp = client.get(f"/dashboard/{pid}")
+    resp = client.get("/lernen")
     assert "Bevorzugt Remote + kleine Studios" in resp.text
     assert "Übernehmen &amp; Jobs neu bewerten" in resp.text or "Übernehmen & Jobs neu bewerten" in resp.text
 
@@ -529,16 +536,17 @@ def member_client(tmp_path, monkeypatch):
     return c, pid
 
 
-class TestDashboardMemberLernen:
-    def test_lernen_tab_visible_metriken_hidden(self, member_client):
+class TestLernenPageMember:
+    def test_lernen_page_visible_metriken_hidden(self, member_client):
         c, pid = member_client
-        resp = c.get(f"/dashboard/{pid}")
-        assert 'data-tab-target="lernen"' in resp.text
+        resp = c.get("/lernen")
+        assert resp.status_code == 200
+        assert 'href="/lernen"' in resp.text     # Sidebar-Eintrag
         assert "/metriken" not in resp.text
 
-    def test_panel_is_read_only_no_analyze_or_confirm_form(self, member_client):
+    def test_page_is_read_only_no_analyze_or_confirm_form(self, member_client):
         c, pid = member_client
-        resp = c.get(f"/dashboard/{pid}")
+        resp = c.get("/lernen")
         assert "Votes analysieren" not in resp.text
         assert "/insights/" not in resp.text
 
@@ -546,7 +554,7 @@ class TestDashboardMemberLernen:
         c, pid = member_client
         fp = storage.upsert_job(Job(title="Job A", company="ACME", location="Hamburg"))
         storage.add_feedback(pid, fp, "up")
-        resp = c.get(f"/dashboard/{pid}")
+        resp = c.get("/lernen")
         assert "Neue Analyse verfügbar" not in resp.text
 
     def test_reminder_badge_shown_at_threshold(self, member_client):
@@ -554,7 +562,7 @@ class TestDashboardMemberLernen:
         for i in range(storage._LEARN_REMINDER_THRESHOLD):
             fp = storage.upsert_job(Job(title=f"Job {i}", company="ACME", location="Hamburg"))
             storage.add_feedback(pid, fp, "up")
-        resp = c.get(f"/dashboard/{pid}")
+        resp = c.get("/lernen")
         assert "Neue Analyse verfügbar" in resp.text
 
     def test_shows_confirmed_insights_without_reject_form(self, member_client):
@@ -563,12 +571,12 @@ class TestDashboardMemberLernen:
         user = storage.get_user_by_email("member@test.de")
         mcp_api.apply_member_insights_data(
             user, pid, "preference", text="Bevorzugt Remote, aber Hamburg ok")
-        resp = c.get(f"/dashboard/{pid}")
+        resp = c.get("/lernen")
         assert "Bevorzugt Remote, aber Hamburg ok" in resp.text
         assert "entfernen" not in resp.text
 
 
-def test_lernen_actions_redirect_to_lernen_tab(client):
+def test_lernen_actions_redirect_to_lernen_page(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     for path in (
         f"/dashboard/{pid}/apply",
@@ -577,7 +585,7 @@ def test_lernen_actions_redirect_to_lernen_tab(client):
     ):
         resp = client.post(path, follow_redirects=False)
         assert resp.status_code == 303
-        assert resp.headers["location"] == f"/dashboard/{pid}#lernen", path
+        assert resp.headers["location"] == "/lernen", path
 
 
 def _seed_scored(pid, n, *, prefix="Job", location="Hamburg", category="Pass"):
@@ -591,7 +599,7 @@ def _seed_scored(pid, n, *, prefix="Job", location="Hamburg", category="Pass"):
 def test_dashboard_slices_first_page_to_25(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 30)
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    resp = client.get(f"/jobs?tab=aktiv")
     assert resp.status_code == 200
     assert resp.text.count("data-fingerprint=") == 25
 
@@ -599,7 +607,7 @@ def test_dashboard_slices_first_page_to_25(client):
 def test_dashboard_second_page_shows_remainder(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 30)
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&page=2")
+    resp = client.get("/jobs?tab=aktiv&page=2")
     assert resp.status_code == 200
     assert resp.text.count("data-fingerprint=") == 5
 
@@ -607,7 +615,7 @@ def test_dashboard_second_page_shows_remainder(client):
 def test_dashboard_clamps_too_large_page(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 30)  # 2 Seiten
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&page=99")
+    resp = client.get("/jobs?tab=aktiv&page=99")
     assert resp.status_code == 200
     assert resp.text.count("data-fingerprint=") == 5  # auf letzte Seite geklemmt
 
@@ -615,8 +623,8 @@ def test_dashboard_clamps_too_large_page(client):
 def test_dashboard_remembers_page_per_tab(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 30)
-    client.get(f"/dashboard/{pid}?tab=aktiv&page=2")       # Seite merken
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv")        # ohne page → gemerkte Seite 2
+    client.get("/jobs?tab=aktiv&page=2")       # Seite merken
+    resp = client.get("/jobs?tab=aktiv")        # ohne page → gemerkte Seite 2
     assert resp.text.count("data-fingerprint=") == 5
 
 
@@ -624,17 +632,17 @@ def test_dashboard_pages_are_independent_per_tab(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 30, prefix="DE")                       # aktiv
     _seed_scored(pid, 30, prefix="US", location="New York")  # ausland
-    client.get(f"/dashboard/{pid}?tab=aktiv&page=2")          # aktiv=Seite 2
-    resp_ausland = client.get(f"/dashboard/{pid}?tab=ausland")  # ausland default Seite 1
+    client.get("/jobs?tab=aktiv&page=2")          # aktiv=Seite 2
+    resp_ausland = client.get("/jobs?tab=ausland")  # ausland default Seite 1
     assert resp_ausland.text.count("data-fingerprint=") == 25
-    resp_aktiv = client.get(f"/dashboard/{pid}?tab=aktiv")    # aktiv weiter Seite 2
+    resp_aktiv = client.get("/jobs?tab=aktiv")    # aktiv weiter Seite 2
     assert resp_aktiv.text.count("data-fingerprint=") == 5
 
 
 def test_dashboard_counts_stay_full_despite_slicing(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 30)
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    resp = client.get(f"/jobs?tab=aktiv")
     assert resp.text.count("data-fingerprint=") == 25  # nur 25 gerendert
     assert "(30)" in resp.text                          # Count zeigt volle 30
 
@@ -642,14 +650,14 @@ def test_dashboard_counts_stay_full_despite_slicing(client):
 def test_dashboard_nav_hidden_with_single_page(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 10)  # < 25 → 1 Seite
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    resp = client.get(f"/jobs?tab=aktiv")
     assert 'class="pagination"' not in resp.text
 
 
 def test_dashboard_nav_shown_with_multiple_pages(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 30)  # 2 Seiten
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    resp = client.get(f"/jobs?tab=aktiv")
     assert 'class="pagination"' in resp.text
     assert "Weiter" in resp.text
     assert "Zurück" in resp.text
@@ -658,7 +666,7 @@ def test_dashboard_nav_shown_with_multiple_pages(client):
 def test_dashboard_nav_marks_active_page(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 30)
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&page=2")
+    resp = client.get("/jobs?tab=aktiv&page=2")
     # aktive Seite 2 trägt die active-Klasse
     assert 'page-link active' in resp.text
 
@@ -666,7 +674,7 @@ def test_dashboard_nav_marks_active_page(client):
 def test_dashboard_nav_uses_ellipsis_for_many_pages(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 300)  # 12 Seiten → Fenster mit Ellipse
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&page=6")
+    resp = client.get("/jobs?tab=aktiv&page=6")
     assert "…" in resp.text
 
 
@@ -694,26 +702,24 @@ def test_favorite_toggle_redirect_without_json(client):
     assert storage.get_favorites_set(pid) == {fp}
 
 
-def test_dashboard_shows_star_button_and_favorites_panel(client):
+def test_jobs_shows_star_button_and_favoriten_link(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
                                 first_seen="2026-07-11"))
     storage.upsert_job_score(pid, fp, 80, "gut", "Pass", {})
-    resp = client.get(f"/dashboard/{pid}")
+    resp = client.get("/jobs")
     assert "data-fav-form" in resp.text
-    assert 'data-tab-target="favoriten"' in resp.text
-    assert 'data-tab-panel="favoriten"' in resp.text
+    assert 'href="/favoriten"' in resp.text     # Favoriten sind jetzt eigene Seite
 
 
-def test_favorited_job_renders_in_favorites_panel(client):
+def test_favorited_job_renders_on_favoriten_page(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     fp = storage.upsert_job(Job(title="Sterni Job", company="ACME", location="Hamburg",
                                 first_seen="2026-07-11"))
     storage.upsert_job_score(pid, fp, 80, "gut", "Pass", {})
     storage.toggle_favorite(pid, fp)
-    resp = client.get(f"/dashboard/{pid}")
-    panel = resp.text.split('data-tab-panel="favoriten"')[1]
-    assert "Sterni Job" in panel  # Favorit im Panel gerendert
+    resp = client.get("/favoriten")
+    assert "Sterni Job" in resp.text  # Favorit auf der Favoriten-Seite gerendert
 
 
 def test_dashboard_search_matches_title(client):
@@ -724,7 +730,7 @@ def test_dashboard_search_matches_title(client):
                                  location="Berlin", first_seen="2026-07-11"))
     storage.upsert_job_score(pid, fp1, 80, "", "Pass", {})
     storage.upsert_job_score(pid, fp2, 80, "", "Pass", {})
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=unity")
+    resp = client.get(f"/jobs?tab=aktiv&q=unity")
     assert f'data-fingerprint="{fp1}"' in resp.text
     assert f'data-fingerprint="{fp2}"' not in resp.text
     assert resp.text.count("data-fingerprint=") == 1
@@ -738,7 +744,7 @@ def test_dashboard_search_matches_company(client):
                                  location="Hamburg", first_seen="2026-07-11"))
     storage.upsert_job_score(pid, fp1, 80, "", "Pass", {})
     storage.upsert_job_score(pid, fp2, 80, "", "Pass", {})
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=globex")
+    resp = client.get(f"/jobs?tab=aktiv&q=globex")
     assert f'data-fingerprint="{fp1}"' in resp.text
     assert f'data-fingerprint="{fp2}"' not in resp.text
 
@@ -751,7 +757,7 @@ def test_dashboard_search_matches_location(client):
                                  location="Hamburg", first_seen="2026-07-11"))
     storage.upsert_job_score(pid, fp1, 80, "", "Pass", {})
     storage.upsert_job_score(pid, fp2, 80, "", "Pass", {})
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=bremen")
+    resp = client.get(f"/jobs?tab=aktiv&q=bremen")
     assert f'data-fingerprint="{fp1}"' in resp.text
     assert f'data-fingerprint="{fp2}"' not in resp.text
 
@@ -764,7 +770,7 @@ def test_dashboard_search_matches_reason(client):
                                  location="Hamburg", first_seen="2026-07-11"))
     storage.upsert_job_score(pid, fp1, 80, "Passt wegen Unreal-Erfahrung", "Pass", {})
     storage.upsert_job_score(pid, fp2, 80, "Nur mittelmaessig", "Pass", {})
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=unreal")
+    resp = client.get(f"/jobs?tab=aktiv&q=unreal")
     assert f'data-fingerprint="{fp1}"' in resp.text
     assert f'data-fingerprint="{fp2}"' not in resp.text
 
@@ -774,14 +780,14 @@ def test_dashboard_search_case_insensitive(client):
     fp = storage.upsert_job(Job(title="Unity Developer", company="ACME",
                                 location="Hamburg", first_seen="2026-07-11"))
     storage.upsert_job_score(pid, fp, 80, "", "Pass", {})
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=UNITY")
+    resp = client.get(f"/jobs?tab=aktiv&q=UNITY")
     assert f'data-fingerprint="{fp}"' in resp.text
 
 
 def test_dashboard_search_empty_result(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 3)
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=nichtvorhandenxyz")
+    resp = client.get(f"/jobs?tab=aktiv&q=nichtvorhandenxyz")
     assert resp.status_code == 200
     assert resp.text.count("data-fingerprint=") == 0
 
@@ -792,7 +798,7 @@ def test_dashboard_search_scoped_to_tab_counts_stay_full(client):
     fp = storage.upsert_job(Job(title="Special Unicorn", company="A",
                                 location="Hamburg", first_seen="2026-07-11"))
     storage.upsert_job_score(pid, fp, 80, "", "Pass", {})   # 4. aktiv, matcht
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=unicorn")
+    resp = client.get(f"/jobs?tab=aktiv&q=unicorn")
     assert resp.text.count("data-fingerprint=") == 1   # nur der Treffer gerendert
     assert "(4)" in resp.text                          # Aktiv-Count zeigt volle 4
 
@@ -805,7 +811,7 @@ def test_dashboard_search_ignores_other_tab_matches(client):
                                   location="Hamburg", first_seen="2026-07-11"))
     storage.upsert_job_score(pid, fp_a, 80, "", "Pass", {})
     storage.upsert_job_score(pid, fp_n, 10, "", "No-Go", {})
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=zephyr")
+    resp = client.get(f"/jobs?tab=aktiv&q=zephyr")
     assert f'data-fingerprint="{fp_a}"' in resp.text
     assert f'data-fingerprint="{fp_n}"' not in resp.text
 
@@ -814,25 +820,25 @@ def test_dashboard_search_paginates_matches(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 30, prefix="Zeta")     # 30 Treffer (enthalten "zeta")
     _seed_scored(pid, 5, prefix="Other")     # 5 Nicht-Treffer
-    resp1 = client.get(f"/dashboard/{pid}?tab=aktiv&q=zeta")
+    resp1 = client.get(f"/jobs?tab=aktiv&q=zeta")
     assert resp1.text.count("data-fingerprint=") == 25   # Seite 1
-    resp2 = client.get(f"/dashboard/{pid}?tab=aktiv&q=zeta&page=2")
+    resp2 = client.get(f"/jobs?tab=aktiv&q=zeta&page=2")
     assert resp2.text.count("data-fingerprint=") == 5    # Rest, Nicht-Treffer ausgeschlossen
 
 
 def test_dashboard_search_resets_to_page_one(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 30, prefix="Zeta")
-    client.get(f"/dashboard/{pid}?tab=aktiv&page=2")      # Seite 2 merken (ohne Suche)
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=zeta")   # neue Suche → Seite 1
+    client.get(f"/jobs?tab=aktiv&page=2")      # Seite 2 merken (ohne Suche)
+    resp = client.get(f"/jobs?tab=aktiv&q=zeta")   # neue Suche → Seite 1
     assert resp.text.count("data-fingerprint=") == 25
-    resp_clear = client.get(f"/dashboard/{pid}?tab=aktiv")    # Suche geleert → gemerkte Seite 2
+    resp_clear = client.get(f"/jobs?tab=aktiv")    # Suche geleert → gemerkte Seite 2
     assert resp_clear.text.count("data-fingerprint=") == 5
 
 
 def test_dashboard_has_search_form(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    resp = client.get(f"/jobs?tab=aktiv")
     assert "data-dash-search" in resp.text
     assert 'name="q"' in resp.text
     assert 'name="tab" value="aktiv"' in resp.text   # hidden tab erhaelt aktiven Sub-Tab
@@ -843,14 +849,14 @@ def test_dashboard_shows_result_count_when_searching(client):
     fp = storage.upsert_job(Job(title="Unity Developer", company="ACME",
                                 location="Hamburg", first_seen="2026-07-11"))
     storage.upsert_job_score(pid, fp, 80, "", "Pass", {})
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=unity")
+    resp = client.get(f"/jobs?tab=aktiv&q=unity")
     assert "1 Treffer" in resp.text
 
 
 def test_dashboard_no_result_count_without_search(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 2)
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    resp = client.get(f"/jobs?tab=aktiv")
     # Zaehler-Span ist immer im DOM (fuer den AJAX-Swap), aber ohne Suche leer.
     assert "data-search-count></span>" in resp.text
 
@@ -858,14 +864,14 @@ def test_dashboard_no_result_count_without_search(client):
 def test_dashboard_shows_empty_search_message(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 3)
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=nichtvorhandenxyz")
+    resp = client.get(f"/jobs?tab=aktiv&q=nichtvorhandenxyz")
     assert "Keine Treffer" in resp.text
 
 
 def test_dashboard_pagination_links_carry_q(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     _seed_scored(pid, 30, prefix="Zeta")   # 2 Seiten Treffer
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv&q=zeta")
+    resp = client.get(f"/jobs?tab=aktiv&q=zeta")
     assert "q=zeta" in resp.text            # Nav-Link behaelt Suche
 
 
@@ -894,7 +900,7 @@ def test_dashboard_js_filters_via_ajax_without_reload():
 
 def test_dashboard_results_wrapper_present(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
-    resp = client.get(f"/dashboard/{pid}?tab=aktiv")
+    resp = client.get(f"/jobs?tab=aktiv")
     assert "data-dash-results" in resp.text
 
 

@@ -58,8 +58,7 @@ def test_metrics_page_forbidden_for_member(client):
     assert resp.status_code == 403
 
 
-def test_dashboard_owner_sees_metriken_tab_link(client):
+def test_owner_sees_metriken_link_in_sidebar(client):
     c, _ = client
-    pid = _owner_profile_id(c)
-    resp = c.get(f"/dashboard/{pid}")
-    assert f'href="/dashboard/{pid}/metriken"' in resp.text
+    resp = c.get("/jobs")
+    assert 'href="/metriken"' in resp.text

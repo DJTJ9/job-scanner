@@ -36,7 +36,7 @@ def test_wizard_full_flow_creates_profile(client):
     client.post("/wizard/no_gos", data={"no_gos": "Zeitarbeit"})
     resp = client.post("/wizard/gewichte", data={"weight_role_fit": "5"}, follow_redirects=False)
     assert resp.status_code == 303
-    assert resp.headers["location"].startswith("/dashboard/")
+    assert resp.headers["location"] == "/"
 
     profile = storage.get_profile_by_name("Testprofil")
     assert profile is not None

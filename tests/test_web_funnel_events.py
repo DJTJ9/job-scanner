@@ -34,7 +34,8 @@ def test_wizard_completion_logs_profil_erstellt_on_create_only(client):
     client.post("/wizard/basis", data={"name": "P1"})
     resp = client.post("/wizard/gewichte", data={}, follow_redirects=False)
     assert resp.status_code == 303
-    pid = int(resp.headers["location"].rsplit("/", 1)[1])
+    assert resp.headers["location"] == "/"
+    pid = storage.get_profile_by_name("P1")["id"]
     assert storage.get_metrics_summary()["funnel_counts"]["profil_erstellt"] == 1
 
     client.get(f"/wizard/edit/{pid}")

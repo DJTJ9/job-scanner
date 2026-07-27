@@ -30,7 +30,7 @@ def _make_profile(uid):
 def test_profiles_page_shows_edit_and_delete_buttons(member):
     c, uid = member
     pid = _make_profile(uid)
-    resp = c.get("/")
+    resp = c.get("/profil")
     assert f'href="/wizard/edit/{pid}"' in resp.text
     assert f'action="/profiles/{pid}/delete"' in resp.text
 

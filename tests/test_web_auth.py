@@ -15,10 +15,10 @@ def client(tmp_path, monkeypatch):
     return CSRFTestClient(app)
 
 
-def test_root_redirects_to_login_when_unauthenticated(client):
+def test_root_shows_landing_when_unauthenticated(client):
     resp = client.get("/", follow_redirects=False)
-    assert resp.status_code == 303
-    assert resp.headers["location"] == "/login"
+    assert resp.status_code == 200
+    assert 'href="/login"' in resp.text   # Landing mit Anmelden-CTA statt Redirect
 
 
 def test_login_wrong_password_rejected(client):
@@ -44,5 +44,6 @@ def test_owner_seeded_with_owner_role(client):
 def test_logout_clears_session(client):
     client.post("/login", data={"email": "owner@test.de", "password": "geheim123"})
     client.get("/logout")
-    resp = client.get("/", follow_redirects=False)
+    resp = client.get("/jobs", follow_redirects=False)   # login-pflichtige Seite
     assert resp.status_code == 303
+    assert resp.headers["location"] == "/login"

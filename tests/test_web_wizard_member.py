@@ -56,9 +56,8 @@ def test_member_wizard_stores_catalog_keys_and_scores_immediately(client):
         client, no_gos=["senior_5j", "nur_onsite"],
         weights={"weight_remote": "5", "weight_junior_level": "5"})
     assert resp.status_code == 303
-    loc = resp.headers["location"]
-    assert loc.startswith("/dashboard/")
-    pid = int(loc.rsplit("/", 1)[1])
+    assert resp.headers["location"] == "/"
+    pid = storage.get_profile_by_name("MemberProfil")["id"]
 
     profile = storage.get_profile(pid)
     assert profile["data"]["no_gos"] == ["senior_5j", "nur_onsite"]
@@ -74,7 +73,8 @@ def test_member_wizard_stores_catalog_keys_and_scores_immediately(client):
 
 def test_member_criteria_save_rescore_deterministic(client):
     resp = _run_wizard(client, no_gos=[], weights={"weight_remote": "5"})
-    pid = int(resp.headers["location"].rsplit("/", 1)[1])
+    assert resp.headers["location"] == "/"
+    pid = storage.get_profile_by_name("MemberProfil")["id"]
     # Feintuning: junior_level hochziehen → weiterhin bewertet, ohne LLM
     client.post(f"/dashboard/{pid}/criteria",
                 data={"weight_remote": "5", "weight_junior_level": "5"})
