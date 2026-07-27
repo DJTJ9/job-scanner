@@ -738,6 +738,85 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "learn_reminder": storage.learn_reminder_status(profile_id),
         })
 
+    @app.get("/jobs")
+    def jobs_view(request: Request, tab: str = "aktiv",
+                  page: int | None = None, q: str = ""):
+        profile, resp = _active_profile(request)
+        if resp is not None:
+            return resp
+        if profile is None:
+            return RedirectResponse("/", status_code=303)
+        profile_id = profile["id"]
+        if tab not in _DASHBOARD_TABS:
+            tab = "aktiv"
+        feedback = storage.get_feedback_map(profile_id)
+        favorites = storage.get_favorites_set(profile_id)
+        spar = profile["data"].get("spar_modus") or {}
+        aktiv, no_go, bewertet, ausland = [], [], [], []
+        for entry in storage.list_jobs_with_scores(profile_id,
+                                                    locations=spar.get("locations"),
+                                                    languages=spar.get("languages")):
+            fp = entry["job"].fingerprint
+            if feedback.get(fp) == "down":
+                bewertet.append(entry)
+            elif entry["is_ausland"]:
+                ausland.append(entry)
+            elif entry["category"] == "No-Go":
+                no_go.append(entry)
+            else:
+                aktiv.append(entry)
+        entries_by_tab = {"aktiv": aktiv, "no_go": no_go,
+                          "bewertet": bewertet, "ausland": ausland}
+        tab_entries = entries_by_tab[tab]
+        q_low = q.strip().lower()
+        if q_low:
+            tab_entries = [
+                e for e in tab_entries
+                if q_low in (
+                    (e["job"].title or "") + " " + (e["job"].company or "") + " "
+                    + (e["job"].location or "") + " " + (e["reason"] or "")
+                ).lower()
+            ]
+        result_count = len(tab_entries)
+        dash_pages = request.session.get("dash_pages", {})
+        if page is not None:
+            persist = True
+        elif q_low:
+            page = 1
+            persist = False
+        else:
+            page = dash_pages.get(tab, 1)
+            persist = True
+        total_pages = max(1, (len(tab_entries) + _DASHBOARD_PAGE_SIZE - 1)
+                          // _DASHBOARD_PAGE_SIZE)
+        page = max(1, min(page, total_pages))
+        if persist:
+            dash_pages[tab] = page
+            request.session["dash_pages"] = dash_pages
+        start = (page - 1) * _DASHBOARD_PAGE_SIZE
+        entries = tab_entries[start:start + _DASHBOARD_PAGE_SIZE]
+        notify_count = len(storage.list_unnotified_top_matches(profile_id))
+        if notify_count:
+            storage.mark_notified(
+                profile_id,
+                [r["fingerprint"]
+                 for r in storage.list_unnotified_top_matches(profile_id)])
+        return templates.TemplateResponse(request, "jobs.html", {
+            "profile": profile,
+            "notify_count": notify_count,
+            "criteria": storage.list_criteria(profile_id),
+            "entries": entries,
+            "feedback": feedback,
+            "favorites": favorites,
+            "tab": tab,
+            "page": page,
+            "total_pages": total_pages,
+            "q": q,
+            "result_count": result_count,
+            "counts": {"aktiv": len(aktiv), "no_go": len(no_go),
+                       "bewertet": len(bewertet), "ausland": len(ausland)},
+        })
+
     @app.get("/dashboard/{profile_id}/metriken")
     def metrics_view(request: Request, profile_id: int):
         if (redirect := require_verified_user(request)) is not None:
@@ -831,7 +910,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             vote = None
         if "application/json" in request.headers.get("accept", ""):
             return JSONResponse({"vote": vote, "fingerprint": fingerprint})
-        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+        return RedirectResponse("/jobs", status_code=303)
 
     @app.post("/dashboard/{profile_id}/favorite/{fingerprint}")
     async def favorite_route(request: Request, profile_id: int, fingerprint: str):
@@ -847,7 +926,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         storage.log_event("favorit_toggled", user_id=request.session.get("user_id"))
         if "application/json" in request.headers.get("accept", ""):
             return JSONResponse({"favorite": is_fav, "fingerprint": fingerprint})
-        return RedirectResponse(f"/dashboard/{profile_id}", status_code=303)
+        return RedirectResponse("/jobs", status_code=303)
 
     _FEEDBACK_CONFIRMATION = "Bob hat's notiert. Danke!"
 

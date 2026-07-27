@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "_job_card.html" import job_card %}
+{% block title %}Job-Angebote — Bob der Job-Bot{% endblock %}
+{% block content %}
+<h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> Job-Angebote</h1>
+{% if notify_count and notify_count > 0 %}
+<div class="notify-banner">⭐ {{ notify_count }} neue Top-Treffer seit gestern</div>
+{% endif %}
+<div class="panel">
+  <form class="dash-search" method="get" action="/jobs">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <input type="text" name="q" value="{{ q }}" placeholder="🔍 Suchen…"
+           data-dash-search autocomplete="off">
+    <span class="mono search-count" data-search-count>{% if q %}({{ result_count }} Treffer){% endif %}</span>
+  </form>
+  <nav class="tabs">
+    <a class="tab {{ 'active' if tab == 'aktiv' else '' }}" href="/jobs?tab=aktiv">Aktiv <span class="mono">({{ counts.aktiv }})</span></a>
+    <a class="tab {{ 'active' if tab in ('no_go', 'bewertet') else '' }}" href="/jobs?tab=no_go">Aussortiert <span class="mono">({{ counts.no_go }})</span></a>
+    <a class="tab {{ 'active' if tab == 'ausland' else '' }}" href="/jobs?tab=ausland">Ausland <span class="mono">({{ counts.ausland }})</span></a>
+  </nav>
+  {% if tab in ('no_go', 'bewertet') %}
+    <nav class="subtabs">
+      <a class="subtab {{ 'active' if tab == 'no_go' else '' }}" href="/jobs?tab=no_go">No-Go</a>
+      <a class="subtab {{ 'active' if tab == 'bewertet' else '' }}" href="/jobs?tab=bewertet">Bereits bewertet <span class="mono">({{ counts.bewertet }})</span></a>
+    </nav>
+  {% endif %}
+  <div data-dash-results>
+  {% if not entries %}
+    {% if q %}<p class="job-meta">Keine Treffer für „{{ q }}".</p>
+    {% else %}<p class="job-meta">Keine Jobs in diesem Tab.</p>{% endif %}
+  {% endif %}
+  {% for e in entries %}
+    {{ job_card(e, profile, feedback, favorites, criteria) }}
+  {% endfor %}
+  {% if total_pages > 1 %}
+  <nav class="pagination">
+    {% if page > 1 %}<a class="page-link" href="/jobs?tab={{ tab }}&page={{ page - 1 }}&q={{ q | urlencode }}">‹ Zurück</a>
+    {% else %}<span class="page-link disabled">‹ Zurück</span>{% endif %}
+    {% set ns = namespace(prev=0) %}
+    {% for p in range(1, total_pages + 1) %}
+      {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+        {% if ns.prev and p > ns.prev + 1 %}<span class="page-ellipsis">…</span>{% endif %}
+        <a class="page-link {{ 'active' if p == page else '' }}" href="/jobs?tab={{ tab }}&page={{ p }}&q={{ q | urlencode }}">{{ p }}</a>
+        {% set ns.prev = p %}
+      {% endif %}
+    {% endfor %}
+    {% if page < total_pages %}<a class="page-link" href="/jobs?tab={{ tab }}&page={{ page + 1 }}&q={{ q | urlencode }}">Weiter ›</a>
+    {% else %}<span class="page-link disabled">Weiter ›</span>{% endif %}
+  </nav>
+  {% endif %}
+  </div>
+</div>
+<script src="/static/dashboard.js?v={{ asset_version }}" defer></script>
+{% endblock %}
