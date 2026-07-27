@@ -584,3 +584,31 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
   .scan-left { display: none; }
   .scan-content { padding: 1rem 0.75rem 3rem; max-width: 100%; }
 }
+
+/* ---- Home: Sonar-Band + Kacheln ---- */
+.sonar-band {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  background: var(--wasser); border-radius: 8px;
+  padding: 0.9rem 1.25rem; margin-bottom: 1.5rem;
+}
+.sonar-band .btn { margin-top: 0; }
+.sonar-ring {
+  width: 14px; height: 14px; border-radius: 50%; flex: 0 0 auto;
+  border: 3px solid var(--beute);
+}
+.sonar-alt .sonar-ring { border-color: var(--signal); }
+.home-kacheln {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1rem; margin-bottom: 1.5rem;
+}
+.home-kachel {
+  display: flex; flex-direction: column; gap: 0.25rem;
+  background: var(--wasser); border-radius: 8px; padding: 1.25rem 1rem;
+  color: var(--gischt); text-decoration: none;
+}
+.home-kachel:hover { background: var(--tiefe); }
+.home-zahl { font-size: 1.75rem; font-weight: 600; }
+.home-cta { color: var(--signal); font-size: 0.9rem; }
+@media (max-width: 900px) {
+  .home-kacheln { grid-template-columns: 1fr; }
+}

@@ -523,21 +523,32 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return RedirectResponse("/login", status_code=303)
 
     @app.get("/")
-    def profiles_view(request: Request):
-        if (redirect := require_verified_user(request)) is not None:
-            return redirect
-        profiles = storage.list_profiles(active_only=True,
-                                          user_id=request.session.get("user_id"))
-        primary = None
-        new_matches = 0
-        if profiles:
-            primary = next((p for p in profiles if p["is_default"]), profiles[0])
-            new_matches = len(storage.list_unnotified_top_matches(primary["id"]))
-        return templates.TemplateResponse(request, "profiles.html", {
-            "profiles": profiles,
-            "profile_exists": len(profiles) > 0,
-            "primary_profile": primary,
-            "new_matches": new_matches})
+    def home_view(request: Request):
+        if request.session.get("user_id") is None:
+            return templates.TemplateResponse(request, "profiles.html", {})
+        profile, resp = _active_profile(request)
+        if resp is not None:
+            return resp
+        summary = storage.get_home_summary(profile["id"]) if profile else None
+        steps = {
+            "profil": profile is not None,
+            "scan": bool(summary and summary["last_scan_ts"]),
+            "votes": bool(summary and summary["vote_count"] >= 5),
+        }
+        ctx = {
+            "profile": profile,
+            "summary": summary,
+            "steps": steps,
+            "steps_done": all(steps.values()),
+        }
+        if profile is not None:
+            pid = profile["id"]
+            ctx.update({
+                "feedback": storage.get_feedback_map(pid),
+                "favorites": storage.get_favorites_set(pid),
+                "criteria": storage.list_criteria(pid),
+            })
+        return templates.TemplateResponse(request, "home.html", ctx)
 
     @app.post("/profiles/{profile_id}/delete")
     def delete_profile_route(request: Request, profile_id: int, csrf_token: str = Form("")):
@@ -1377,7 +1388,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             if role != "owner":
                 storage.score_profile_deterministic(pid)
             request.session.pop("wizard", None)
-            return RedirectResponse(f"/dashboard/{pid}", status_code=303)
+            request.session["active_profile_id"] = pid
+            return RedirectResponse("/", status_code=303)
         request.session["wizard"] = wizard
         next_step = STEP_ORDER[STEP_ORDER.index(step) + 1]
         return RedirectResponse(f"/wizard/{next_step}", status_code=303)

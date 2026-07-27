@@ -1,46 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Startseite — Bob der Job-Bot{% endblock %}
+{% block title %}Bob der Job-Bot{% endblock %}
 {% block content %}
 <div class="startseite-hero-bg" aria-hidden="true"></div>
-{% if not profile_exists %}
 <div class="hero-landscape">
   <div class="cc-erstbesuch">
-    <p>Neu hier?</p>
-    <a class="btn btn-primary" href="/onboarding">→ Los geht's</a>
+    <h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> BOB DER JOB-BOT</h1>
+    <p>Bob durchsucht laufend Jobportale und bewertet jede Stelle gegen dein Profil —
+      du musst nicht mehr selbst suchen.</p>
+    <a class="btn btn-primary" href="/login">Anmelden</a>
+    <a class="btn btn-secondary" href="/hilfe#anleitung">Neu hier? Zur Anleitung</a>
   </div>
 </div>
-{% endif %}
-{% if profile_exists %}
-<div class="cc-grid">
-  <a class="cc-card" href="/einstellungen?tab=token">
-    <span class="cc-icon">🔍</span>
-    <span class="cc-label">Scan starten</span>
-  </a>
-  <a class="cc-card" href="/dashboard/{{ primary_profile.id }}#kontakte">
-    <span class="cc-icon">📊</span>
-    <span class="cc-label">Ergebnisse{% if new_matches %} ({{ new_matches }}){% endif %}</span>
-  </a>
-  <button type="button" class="cc-card" data-feedback-toggle>
-    <span class="cc-icon">💬</span>
-    <span class="cc-label">Feedback geben</span>
-  </button></div>
-<div class="panel profiles-panel" data-profile-exists="{{ profile_exists|lower }}">
-  <div class="onboarding-header">
-    <h2>Profile</h2>
-  </div>
-  {% for p in profiles %}
-    <p class="profile-row">
-      <a class="profile-name" href="/dashboard/{{ p.id }}">{{ p.name }}</a>{% if p.is_default %} <span class="job-meta">(Standard)</span>{% endif %}
-      <a class="link profile-edit" href="/wizard/edit/{{ p.id }}">Bearbeiten</a>
-      <form method="post" action="/profiles/{{ p.id }}/delete" style="display:inline"
-            onsubmit="return confirm('Profil „{{ p.name }}“ wirklich löschen?');">
-        {% include "_csrf_field.html" %}
-        <button type="submit" class="link">Löschen</button>
-      </form>
-    </p>
-  {% endfor %}
-  <a class="btn btn-primary anleitung-cta" href="/anleitung">📖 Zur Anleitung</a>
-  <a class="btn btn-secondary" href="/wizard/new">+ Neues Profil</a>
-</div>
-{% endif %}
 {% endblock %}
