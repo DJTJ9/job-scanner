@@ -146,3 +146,11 @@ def test_profil_switcher_nur_bei_mehreren_profilen(client):
     storage.create_profile("Zweit", {"skills": []}, user_id=uid)
     resp = client.get("/jobs")
     assert "data-profile-switcher" in resp.text
+
+
+@pytest.mark.parametrize("pfad", ["/jobs", "/favoriten", "/feintuning", "/lernen", "/scan"])
+def test_kurzhilfe_auf_jeder_seite(client, pfad):
+    resp = client.get(pfad)
+    assert resp.status_code == 200
+    assert "Kurz erklärt" in resp.text
+    assert "Mehr im Hilfe-Center" in resp.text

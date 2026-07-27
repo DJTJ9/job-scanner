@@ -627,3 +627,8 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
   background: var(--tiefe); color: var(--gischt);
   border: 1px solid var(--wasser); border-radius: 4px;
 }
+
+/* ---- Kurzhilfe ---- */
+.kurzhilfe { margin: -0.5rem 0 1rem; font-size: 0.9rem; }
+.kurzhilfe summary { cursor: pointer; color: var(--signal); opacity: 0.85; }
+.kurzhilfe p { margin: 0.4rem 0 0; opacity: 0.9; }

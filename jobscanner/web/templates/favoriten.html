@@ -3,6 +3,7 @@
 {% block title %}Favoriten — Bob der Job-Bot{% endblock %}
 {% block content %}
 <h1><img class="bob-title" src="/static/img/bob/bob-pose-herz.png" alt=""> Favoriten</h1>
+{% set kurzhilfe_text = "Mit ★ markierte Jobs, sortiert nach Passung. Favoriten zählen als starke Positiv-Beispiele für Bobs künftiges Scoring." %}{% set kurzhilfe_anker = "funktionen" %}{% include "_kurzhilfe.html" %}
 <div class="panel">
   <h2>⭐ Deine Favoriten <span class="mono">({{ fav_entries|length }})</span></h2>
   {% if not fav_entries %}
