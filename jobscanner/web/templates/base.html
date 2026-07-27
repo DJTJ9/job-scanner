@@ -18,6 +18,18 @@
       <span class="brand"><img class="bob-avatar" style="height:28px" src="/static/img/bob/bob-pose-winken.png" alt="Bob"> BOB DER JOB-BOT</span>
     </span>
     {% if request.session.get("user_id") %}
+      {% set _profiles = nav_profiles(request) %}
+      {% if _profiles|length > 1 %}
+      <form method="post" action="/profil/aktiv" class="profil-switcher">
+        {% include "_csrf_field.html" %}
+        <select name="profile_id" data-profile-switcher aria-label="Aktives Profil">
+          {% for p in _profiles %}
+          <option value="{{ p.id }}" {{ 'selected' if p.id == request.session.get('active_profile_id') }}>{{ p.name }}</option>
+          {% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn btn-secondary">OK</button></noscript>
+      </form>
+      {% endif %}
       <a class="link" href="/einstellungen">{{ request.session.get("email") }}</a>
       <a class="link" href="/logout">Abmelden</a>
     {% else %}
@@ -27,18 +39,31 @@
   {% if request.session.get("user_id") %}
   <nav class="drawer panel-hidden" id="drawer">
     <button type="button" class="drawer-close" data-drawer-close aria-label="Menü schließen">✕</button>
-    <a class="drawer-item" href="/">⌂ <span class="drawer-item-label">Startseite</span></a>
-    <a class="drawer-item" href="/onboarding">🎓 <span class="drawer-item-label">Onboarding</span></a>
-    <a class="drawer-item" href="/wizard/new">＋ <span class="drawer-item-label">Neues Profil</span></a>
-    <a class="drawer-item" href="/hilfe">❓ <span class="drawer-item-label">Hilfe</span></a>
-    <a class="drawer-item" href="/portale">🔍 <span class="drawer-item-label">Portale prüfen</span></a>
+    {% set _pfad = request.url.path %}
+    {% macro nav_item(href, icon, label) -%}
+    <a class="drawer-item {{ 'drawer-item-active' if _pfad == href }}" href="{{ href }}">{{ icon }} <span class="drawer-item-label">{{ label }}</span></a>
+    {%- endmacro %}
+    {{ nav_item("/", "⌂", "Übersicht") }}
+    <span class="drawer-group"><span class="drawer-item-label">Jobs</span></span>
+    {{ nav_item("/jobs", "📋", "Job-Angebote") }}
+    {{ nav_item("/favoriten", "★", "Favoriten") }}
+    {{ nav_item("/scan", "🔍", "Scan starten") }}
+    <span class="drawer-group"><span class="drawer-item-label">Suche tunen</span></span>
+    {{ nav_item("/feintuning", "🎛", "Feintuning") }}
+    {{ nav_item("/lernen", "🧠", "Lernen") }}
+    {{ nav_item("/portale", "🌐", "Portale prüfen") }}
+    {{ nav_item("/profil", "👤", "Mein Profil") }}
+    <span class="drawer-group"><span class="drawer-item-label">System</span></span>
+    {{ nav_item("/einstellungen", "⚙", "Einstellungen") }}
+    {{ nav_item("/account/email", "🔑", "Konto & Daten") }}
+    {{ nav_item("/hilfe", "❓", "Hilfe") }}
     {% if request.session.get("role") == "owner" %}
-    <a class="drawer-item" href="/admin/feedback">✉ <span class="drawer-item-label">Feedback</span></a>
-    <a class="drawer-item" href="/admin/registrations">📋 <span class="drawer-item-label">Registrierungen</span></a>
-    <a class="drawer-item" href="/admin/members">👥 <span class="drawer-item-label">Mitglieder</span></a>
+    <span class="drawer-group"><span class="drawer-item-label">Admin</span></span>
+    {{ nav_item("/metriken", "📈", "Metriken") }}
+    {{ nav_item("/admin/feedback", "✉", "Feedback") }}
+    {{ nav_item("/admin/registrations", "📋", "Registrierungen") }}
+    {{ nav_item("/admin/members", "👥", "Mitglieder") }}
     {% endif %}
-    <a class="drawer-item" href="/account/email">👤 <span class="drawer-item-label">Konto &amp; Daten</span></a>
-    <a class="drawer-item" href="/einstellungen">⚙ <span class="drawer-item-label">Einstellungen</span></a>
     <button type="button" class="drawer-collapse" data-drawer-collapse aria-label="Sidebar einklappen">«</button>
   </nav>
   {% endif %}
@@ -53,7 +78,7 @@
     <span class="footer-sep">·</span>
     <a class="link" href="/datenschutz">Datenschutz</a>
     <span class="footer-sep">·</span>
-    <a class="link" href="/anleitung">Anleitung</a>
+    <a class="link" href="/hilfe">Hilfe</a>
     <span class="footer-sep">·</span>
     <a class="link" href="https://github.com/DJTJ9/job-scanner">Code auf GitHub</a>
   </footer>

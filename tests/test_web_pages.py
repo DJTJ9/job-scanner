@@ -117,3 +117,32 @@ def test_metriken_member_403(client, tmp_path):
     client.post("/login", data={"email": "m@test.de", "password": "geheim123"})
     resp = client.get("/metriken")
     assert resp.status_code == 403
+
+
+def test_sidebar_gruppen_und_aktiv_highlight(client):
+    resp = client.get("/jobs")
+    for href in ["/", "/jobs", "/favoriten", "/scan", "/feintuning", "/lernen",
+                 "/portale", "/profil", "/einstellungen", "/account/email", "/hilfe",
+                 "/metriken", "/admin/feedback"]:
+        assert f'href="{href}"' in resp.text
+    assert "drawer-group" in resp.text
+    assert "drawer-item-active" in resp.text     # /jobs ist hervorgehoben
+    assert 'href="/onboarding"' not in resp.text # Onboarding-Eintrag entfällt
+
+
+def test_admin_gruppe_nur_owner(client):
+    client.get("/logout")
+    storage.create_user("m2@test.de", "geheim123")
+    storage.mark_email_verified(storage.get_user_by_email("m2@test.de")["id"])
+    client.post("/login", data={"email": "m2@test.de", "password": "geheim123"})
+    resp = client.get("/hilfe")
+    assert 'href="/metriken"' not in resp.text
+
+
+def test_profil_switcher_nur_bei_mehreren_profilen(client):
+    resp = client.get("/jobs")
+    assert "data-profile-switcher" not in resp.text
+    uid = storage.get_user_by_email("owner@test.de")["id"]
+    storage.create_profile("Zweit", {"skills": []}, user_id=uid)
+    resp = client.get("/jobs")
+    assert "data-profile-switcher" in resp.text

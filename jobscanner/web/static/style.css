@@ -612,3 +612,18 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
 @media (max-width: 900px) {
   .home-kacheln { grid-template-columns: 1fr; }
 }
+
+/* ---- Sidebar-Gruppen + Aktiv-Highlight + Switcher ---- */
+.drawer-group {
+  display: block; margin: 0.75rem 0 0.15rem; padding: 0 0.5rem;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.7rem;
+  letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5;
+}
+.drawer.drawer-collapsed .drawer-group { border-top: 1px solid var(--tiefe); margin: 0.6rem 0.25rem; }
+.drawer-item-active { background: var(--tiefe); color: var(--signal); }
+.profil-switcher { display: inline-block; margin-right: 1rem; }
+.profil-switcher select {
+  width: auto; margin-top: 0; padding: 0.3rem 0.5rem;
+  background: var(--tiefe); color: var(--gischt);
+  border: 1px solid var(--wasser); border-radius: 4px;
+}
