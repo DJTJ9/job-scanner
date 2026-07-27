@@ -121,6 +121,11 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return None, JSONResponse({"error": "not found"}, status_code=404)
         return profile, None
 
+    def _may_manage_portal(request: Request, portal: dict) -> bool:
+        """True wenn der eingeloggte User Ersteller des Portals ODER Site-Admin ist."""
+        return (portal["submitted_by"] == request.session.get("user_id")
+                or request.session.get("role") == "owner")
+
     @app.get("/login")
     def login_form(request: Request):
         return templates.TemplateResponse(request, "login.html", {"error": None})
@@ -521,8 +526,11 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def portale_view(request: Request):
         if (redirect := require_user(request)) is not None:
             return redirect
+        portale = storage.list_custom_portals()
+        for p in portale:
+            p["can_manage"] = _may_manage_portal(request, p)
         return templates.TemplateResponse(request, "portale.html", {
-            "portale": storage.list_custom_portals(), "result": None})
+            "portale": portale, "result": None})
 
     @app.post("/portale/pruefen")
     def portale_pruefen(request: Request, url: str = Form(...), typ: str = Form(...),
@@ -548,7 +556,40 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return redirect
         if not csrf.verify(request, csrf_token):
             return JSONResponse({"error": "csrf"}, status_code=403)
+        portal = storage.get_custom_portal(portal_id)
+        if portal is None:
+            return RedirectResponse("/portale", status_code=303)
+        if not _may_manage_portal(request, portal):
+            return JSONResponse({"error": "forbidden"}, status_code=403)
         storage.activate_custom_portal(portal_id)
+        return RedirectResponse("/portale", status_code=303)
+
+    @app.post("/portale/deaktivieren/{portal_id}")
+    def portale_deaktivieren(request: Request, portal_id: int, csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+        portal = storage.get_custom_portal(portal_id)
+        if portal is None:
+            return RedirectResponse("/portale", status_code=303)
+        if not _may_manage_portal(request, portal):
+            return JSONResponse({"error": "forbidden"}, status_code=403)
+        storage.deactivate_custom_portal(portal_id)
+        return RedirectResponse("/portale", status_code=303)
+
+    @app.post("/portale/loeschen/{portal_id}")
+    def portale_loeschen(request: Request, portal_id: int, csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+        portal = storage.get_custom_portal(portal_id)
+        if portal is None:
+            return RedirectResponse("/portale", status_code=303)
+        if not _may_manage_portal(request, portal):
+            return JSONResponse({"error": "forbidden"}, status_code=403)
+        storage.soft_delete_custom_portal(portal_id)
         return RedirectResponse("/portale", status_code=303)
 
     _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet", "ausland")

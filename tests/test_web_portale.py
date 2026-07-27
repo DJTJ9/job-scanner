@@ -75,3 +75,86 @@ def test_portale_list_shows_all_users_entries(app):
     storage.create_custom_portal("https://a.de", "career_page", uid)
     resp = c.get("/portale")
     assert "a.de" in resp.text
+
+
+def _member(app, email="m@test.de", pw="memberpw"):
+    """Member anlegen + eingeloggten CSRFTestClient zurückgeben."""
+    storage.create_user(email, pw, role="member")
+    c = CSRFTestClient(app)
+    _login(c, email, pw)
+    return c
+
+
+def _owned_active_portal(owner_email):
+    uid = storage.get_user_by_email(owner_email)["id"]
+    pid = storage.create_custom_portal("https://foo.de", "career_page", uid)
+    storage.save_check_result(pid, {"compatible": True})
+    storage.activate_custom_portal(pid)
+    return pid
+
+
+def test_aktivieren_foreign_portal_forbidden(app):
+    owner_c = CSRFTestClient(app); _login(owner_c)  # owner-Session nur zum Anlegen
+    pid = _owned_active_portal("owner@test.de")
+    storage.deactivate_custom_portal(pid)  # zurück auf inactive, damit aktivieren sinnvoll
+    stranger = _member(app)
+    resp = stranger.post(f"/portale/aktivieren/{pid}", follow_redirects=False)
+    assert resp.status_code == 403
+    assert storage.get_custom_portal(pid)["status"] == "inactive"
+
+
+def test_aktivieren_missing_portal_redirects(app):
+    c = CSRFTestClient(app); _login(c)
+    resp = c.post("/portale/aktivieren/9999", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/portale"
+
+
+def test_deaktivieren_by_owner_of_portal(app):
+    stranger_uid = storage.create_user("owns@test.de", "pw", role="member")
+    c = CSRFTestClient(app); _login(c, "owns@test.de", "pw")
+    pid = storage.create_custom_portal("https://mine.de", "career_page", stranger_uid)
+    storage.save_check_result(pid, {"compatible": True})
+    storage.activate_custom_portal(pid)
+    resp = c.post(f"/portale/deaktivieren/{pid}", follow_redirects=False)
+    assert resp.status_code == 303
+    assert storage.get_custom_portal(pid)["status"] == "inactive"
+
+
+def test_deaktivieren_foreign_forbidden(app):
+    owner_c = CSRFTestClient(app); _login(owner_c)
+    pid = _owned_active_portal("owner@test.de")
+    stranger = _member(app)
+    resp = stranger.post(f"/portale/deaktivieren/{pid}", follow_redirects=False)
+    assert resp.status_code == 403
+    assert storage.get_custom_portal(pid)["status"] == "active"
+
+
+def test_admin_owner_may_deaktivieren_any(app):
+    stranger_uid = storage.create_user("s@test.de", "pw", role="member")
+    pid = storage.create_custom_portal("https://s.de", "career_page", stranger_uid)
+    storage.save_check_result(pid, {"compatible": True})
+    admin = CSRFTestClient(app); _login(admin)  # owner
+    storage.activate_custom_portal(pid)
+    resp = admin.post(f"/portale/deaktivieren/{pid}", follow_redirects=False)
+    assert resp.status_code == 303
+    assert storage.get_custom_portal(pid)["status"] == "inactive"
+
+
+def test_loeschen_by_owner_of_portal(app):
+    uid = storage.create_user("d@test.de", "pw", role="member")
+    c = CSRFTestClient(app); _login(c, "d@test.de", "pw")
+    pid = storage.create_custom_portal("https://del.de", "career_page", uid)
+    resp = c.post(f"/portale/loeschen/{pid}", follow_redirects=False)
+    assert resp.status_code == 303
+    assert storage.get_custom_portal(pid)["status"] == "deleted"
+    assert all(p["id"] != pid for p in storage.list_custom_portals())
+
+
+def test_loeschen_foreign_forbidden(app):
+    owner_c = CSRFTestClient(app); _login(owner_c)
+    pid = _owned_active_portal("owner@test.de")
+    stranger = _member(app)
+    resp = stranger.post(f"/portale/loeschen/{pid}", follow_redirects=False)
+    assert resp.status_code == 403
+    assert storage.get_custom_portal(pid)["status"] == "active"
