@@ -158,3 +158,29 @@ def test_loeschen_foreign_forbidden(app):
     resp = stranger.post(f"/portale/loeschen/{pid}", follow_redirects=False)
     assert resp.status_code == 403
     assert storage.get_custom_portal(pid)["status"] == "active"
+
+
+def test_portale_list_shows_manage_buttons_for_owner(app):
+    c = CSRFTestClient(app); _login(c)
+    pid = _owned_active_portal("owner@test.de")
+    resp = c.get("/portale")
+    assert f"/portale/deaktivieren/{pid}" in resp.text
+    assert f"/portale/loeschen/{pid}" in resp.text
+
+
+def test_portale_list_hides_buttons_for_non_owner(app):
+    owner_c = CSRFTestClient(app); _login(owner_c)
+    pid = _owned_active_portal("owner@test.de")
+    stranger = _member(app)
+    resp = stranger.get("/portale")
+    assert f"/portale/deaktivieren/{pid}" not in resp.text
+    assert f"/portale/loeschen/{pid}" not in resp.text
+
+
+def test_portale_list_shows_reaktivieren_for_inactive(app):
+    c = CSRFTestClient(app); _login(c)
+    pid = _owned_active_portal("owner@test.de")
+    storage.deactivate_custom_portal(pid)
+    resp = c.get("/portale")
+    assert f"/portale/aktivieren/{pid}" in resp.text
+    assert "Reaktivieren" in resp.text

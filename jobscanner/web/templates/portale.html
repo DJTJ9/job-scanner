@@ -39,9 +39,31 @@
 
 <h2>Portale</h2>
 <table class="portale-table">
-  <tr><th>URL</th><th>Typ</th><th>Status</th></tr>
+  <tr><th>URL</th><th>Typ</th><th>Status</th><th>Aktion</th></tr>
   {% for p in portale %}
-  <tr><td>{{ p.url }}</td><td>{{ p.typ }}</td><td>{{ p.status }}</td></tr>
+  <tr>
+    <td>{{ p.url }}</td><td>{{ p.typ }}</td><td>{{ p.status }}</td>
+    <td>
+      {% if p.can_manage %}
+        {% if p.status == "active" %}
+        <form method="post" action="/portale/deaktivieren/{{ p.id }}" style="display:inline">
+          {% include "_csrf_field.html" %}
+          <button type="submit" class="btn-secondary">Deaktivieren</button>
+        </form>
+        {% elif p.status == "inactive" %}
+        <form method="post" action="/portale/aktivieren/{{ p.id }}" style="display:inline">
+          {% include "_csrf_field.html" %}
+          <button type="submit" class="btn-primary">Reaktivieren</button>
+        </form>
+        {% endif %}
+        <form method="post" action="/portale/loeschen/{{ p.id }}" style="display:inline"
+              onsubmit="return confirm('Portal für alle löschen?')">
+          {% include "_csrf_field.html" %}
+          <button type="submit" class="btn-secondary">Löschen</button>
+        </form>
+      {% endif %}
+    </td>
+  </tr>
   {% endfor %}
 </table>
 {% endblock %}
