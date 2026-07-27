@@ -664,92 +664,19 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     _WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
     @app.get("/dashboard/{profile_id}")
-    def dashboard(request: Request, profile_id: int, tab: str = "aktiv",
-                  page: int | None = None, q: str = ""):
-        if (redirect := require_verified_user(request)) is not None:
-            return redirect
-        profile, resp = _require_owned(request, profile_id)
-        if resp is not None:
-            return resp
-        if tab not in _DASHBOARD_TABS:
-            tab = "aktiv"
-        feedback = storage.get_feedback_map(profile_id)
-        favorites = storage.get_favorites_set(profile_id)
-        # Nur explizit gesetzte Spar-Filter anwenden; ein nie konfiguriertes Profil
-        # (Owner/Default) hat keinen spar_modus-Key → None = kein Filter (alle Jobs).
-        spar = profile["data"].get("spar_modus") or {}
-        fav_entries = storage.list_favorites_with_scores(
-            profile_id, locations=spar.get("locations"), languages=spar.get("languages"))
-        aktiv, no_go, bewertet, ausland = [], [], [], []
-        for entry in storage.list_jobs_with_scores(profile_id,
-                                                    locations=spar.get("locations"),
-                                                    languages=spar.get("languages")):
-            fp = entry["job"].fingerprint
-            if feedback.get(fp) == "down":
-                bewertet.append(entry)
-            elif entry["is_ausland"]:
-                ausland.append(entry)
-            elif entry["category"] == "No-Go":
-                no_go.append(entry)
-            else:
-                aktiv.append(entry)
-        entries_by_tab = {"aktiv": aktiv, "no_go": no_go, "bewertet": bewertet, "ausland": ausland}
-        tab_entries = entries_by_tab[tab]
-        q_low = q.strip().lower()
-        if q_low:
-            tab_entries = [
-                e for e in tab_entries
-                if q_low in (
-                    (e["job"].title or "") + " " + (e["job"].company or "") + " "
-                    + (e["job"].location or "") + " " + (e["reason"] or "")
-                ).lower()
-            ]
-        result_count = len(tab_entries)
-        dash_pages = request.session.get("dash_pages", {})
-        if page is not None:
-            persist = True
-        elif q_low:
-            page = 1          # neue Suche startet vorne, Tab-Memory unberuehrt
-            persist = False
-        else:
-            page = dash_pages.get(tab, 1)
-            persist = True
-        total_pages = max(1, (len(tab_entries) + _DASHBOARD_PAGE_SIZE - 1)
-                          // _DASHBOARD_PAGE_SIZE)
-        page = max(1, min(page, total_pages))
-        if persist:
-            dash_pages[tab] = page
-            request.session["dash_pages"] = dash_pages
-        start = (page - 1) * _DASHBOARD_PAGE_SIZE
-        entries = tab_entries[start:start + _DASHBOARD_PAGE_SIZE]
-        analysis = storage.get_latest_analysis(profile_id)
-        notify_count = len(storage.list_unnotified_top_matches(profile_id))
-        if notify_count:
-            storage.mark_notified(
-                profile_id,
-                [r["fingerprint"]
-                 for r in storage.list_unnotified_top_matches(profile_id)])
-        return templates.TemplateResponse(request, "dashboard.html", {
-            "profile": profile,
-            "notify_count": notify_count,
-            "criteria": storage.list_criteria(profile_id),
-            "entries": entries,
-            "feedback": feedback,
-            "favorites": favorites,
-            "fav_entries": fav_entries,
-            "tab": tab,
-            "page": page,
-            "total_pages": total_pages,
-            "q": q,
-            "result_count": result_count,
-            "counts": {"aktiv": len(aktiv), "no_go": len(no_go), "bewertet": len(bewertet),
-                       "ausland": len(ausland)},
-            "analysis": analysis,
-            "proposed_insights": storage.list_insights(profile_id, status="proposed"),
-            "active_insights": storage.list_insights(profile_id, status="confirmed"),
-            "vote_count": len(feedback),
-            "learn_reminder": storage.learn_reminder_status(profile_id),
-        })
+    def dashboard_redirect(request: Request, profile_id: int, tab: str = ""):
+        """301 auf die neuen flachen Seiten — Bookmarks und Tour-Anker bleiben gültig.
+        Eigenes Profil in der URL wird als aktives Profil übernommen (best effort)."""
+        profile = storage.get_profile(profile_id)
+        if (profile is not None
+                and profile.get("user_id") == request.session.get("user_id")):
+            request.session["active_profile_id"] = profile_id
+        target = (f"/jobs?tab={tab}" if tab in _DASHBOARD_TABS else "/jobs")
+        return RedirectResponse(target, status_code=301)
+
+    @app.get("/dashboard/{profile_id}/metriken")
+    def metrics_redirect(request: Request, profile_id: int):
+        return RedirectResponse("/metriken", status_code=301)
 
     @app.get("/jobs")
     def jobs_view(request: Request, tab: str = "aktiv",
