@@ -88,3 +88,32 @@ def test_lernen_rendert_mit_analysis_base(client):
     resp = client.get("/lernen")
     assert resp.status_code == 200
     assert f'data-analysis-base="/dashboard/{_pid()}"' in resp.text
+
+
+def test_scan_seite_zeigt_befehle_und_letzten_scan(client):
+    resp = client.get("/scan")
+    assert resp.status_code == 200
+    assert "/bob:bob-scan" in resp.text
+    assert "noch nie" in resp.text          # kein scan_pushed-Event in frischer DB
+
+
+def test_profil_seite_listet_profile(client):
+    resp = client.get("/profil")
+    assert resp.status_code == 200
+    assert "Tjark" in resp.text
+    assert "/wizard/new" in resp.text
+
+
+def test_metriken_owner_only(client):
+    resp = client.get("/metriken")
+    assert resp.status_code == 200
+    assert "Aktive Member" in resp.text
+
+
+def test_metriken_member_403(client, tmp_path):
+    client.get("/logout")
+    storage.create_user("m@test.de", "geheim123")
+    storage.mark_email_verified(storage.get_user_by_email("m@test.de")["id"])
+    client.post("/login", data={"email": "m@test.de", "password": "geheim123"})
+    resp = client.get("/metriken")
+    assert resp.status_code == 403

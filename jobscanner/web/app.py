@@ -547,7 +547,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if not csrf.verify(request, csrf_token):
             return JSONResponse({"error": "csrf"}, status_code=403)
         storage.delete_profile(profile_id)
-        return RedirectResponse("/", status_code=303)
+        if request.session.get("active_profile_id") == profile_id:
+            request.session.pop("active_profile_id", None)
+        return RedirectResponse("/profil", status_code=303)
 
     @app.post("/profiles/api-token")
     def create_api_token_route(request: Request, csrf_token: str = Form("")):
@@ -865,14 +867,32 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "learn_reminder": storage.learn_reminder_status(pid),
         })
 
-    @app.get("/dashboard/{profile_id}/metriken")
-    def metrics_view(request: Request, profile_id: int):
+    @app.get("/scan")
+    def scan_view(request: Request):
+        profile, resp = _active_profile(request)
+        if resp is not None:
+            return resp
+        summary = (storage.get_home_summary(profile["id"]) if profile
+                   else {"last_scan_ts": None, "jobs_total": 0})
+        return templates.TemplateResponse(request, "scan.html", {
+            "last_scan_ts": summary["last_scan_ts"],
+            "jobs_total": summary["jobs_total"],
+        })
+
+    @app.get("/profil")
+    def profil_view(request: Request):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
+        return templates.TemplateResponse(request, "profil.html", {
+            "profiles": storage.list_profiles(active_only=True,
+                                              user_id=request.session.get("user_id")),
+        })
+
+    @app.get("/metriken")
+    def metrics_view(request: Request):
         if (redirect := require_verified_user(request)) is not None:
             return redirect
         if (resp := require_owner(request)) is not None:
-            return resp
-        profile, resp = _require_owned(request, profile_id)
-        if resp is not None:
             return resp
         metrics = storage.get_metrics_summary()
         funnel_counts = metrics["funnel_counts"]
@@ -900,7 +920,6 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             for d in daily
         ]
         return templates.TemplateResponse(request, "metrics.html", {
-            "profile": profile,
             "metrics": metrics,
             "feedback_rate": feedback_rate,
             "funnel_steps": funnel_steps,
