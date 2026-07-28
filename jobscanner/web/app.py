@@ -547,7 +547,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def verify_email_view(request: Request, token: str = ""):
         user = storage.verify_token_owner(token)
         if user is None:
-            return JSONResponse({"error": "Ungültiger oder abgelaufener Link"}, status_code=404)
+            return _error_page(
+                request, 404, "Verifizierungs-Link ungültig oder abgelaufen",
+                "Fordere in den Kontoeinstellungen eine neue Verify-Mail an.")
         storage.mark_email_verified(user["id"])
         if request.session.get("user_id") == user["id"]:
             request.session["email_verified"] = True

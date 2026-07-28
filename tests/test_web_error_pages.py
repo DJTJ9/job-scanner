@@ -51,3 +51,12 @@ def test_500_page_renders_html_no_stacktrace(app, monkeypatch):
     assert "text/html" in resp.headers["content-type"]
     assert "schiefgelaufen" in resp.text
     assert "kaboom-secret" not in resp.text
+
+
+def test_verify_invalid_token_renders_html(app):
+    from fastapi.testclient import TestClient
+    client = TestClient(app)
+    resp = client.get("/verify-email?token=ungueltig", follow_redirects=False)
+    assert resp.status_code == 404
+    assert "text/html" in resp.headers["content-type"]
+    assert "Verifizierungs-Link" in resp.text
