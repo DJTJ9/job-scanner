@@ -148,3 +148,25 @@ document.querySelectorAll("[data-strength-input]").forEach(function (input) {
     bar.style.width = (level / 3 * 100) + "%";
   });
 });
+
+// Speichern-Bestätigung für die stillen Einstellungs-Forms: fetch-POST statt
+// nativem Redirect, Button 2s auf "✓ Gespeichert". Ohne JS bleibt der native POST.
+document.querySelectorAll("[data-confirm-save]").forEach(function (form) {
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    var btn = event.submitter || form.querySelector('button[type="submit"]');
+    if (!btn || btn.disabled) return;
+    var original = btn.textContent;
+    fetch(form.action, { method: "POST", body: new FormData(form) })
+      .then(function (res) {
+        if (!res.ok) { form.submit(); return; }
+        btn.textContent = "✓ Gespeichert";
+        btn.disabled = true;
+        setTimeout(function () {
+          btn.textContent = original;
+          btn.disabled = false;
+        }, 2000);
+      })
+      .catch(function () { form.submit(); });
+  });
+});
