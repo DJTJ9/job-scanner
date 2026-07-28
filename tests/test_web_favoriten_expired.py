@@ -48,3 +48,33 @@ def test_favorites_active_before_expired():
     titles = [e["job"].title for e in entries]
     assert titles == ["AktivHigh", "AktivLow", "ExpiredHigh"]
     assert entries[-1]["job"].status == "expired"
+
+
+def test_favoriten_page_badges_expired(tmp_path, monkeypatch):
+    from _csrf_client import CSRFTestClient
+
+    from jobscanner.web.app import create_app
+
+    monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "geheim123")
+    monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
+    monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
+    app = create_app(db_path=tmp_path / "jobs.db")
+    client = CSRFTestClient(app)
+    client.post("/login", data={"email": "owner@test.de", "password": "geheim123"})
+
+    owner = storage.get_user_by_email("owner@test.de")
+    prof = storage.list_profiles(user_id=owner["id"])[0]
+    pid = prof["id"]
+
+    fp = storage.upsert_job(Job(title="Abgelaufener Job", company="Ex GmbH",
+                                location="Hamburg", first_seen="2026-07-11",
+                                status="expired",
+                                sources=[{"url": "https://example.com/job/1"}]))
+    storage.upsert_job_score(pid, fp, 70, "grund", "match", {})
+    storage.toggle_favorite(pid, fp)
+
+    resp = client.get("/favoriten")
+    assert resp.status_code == 200
+    assert "job-badge-expired" in resp.text
+    assert "abgelaufen" in resp.text
+    assert "link-dead" in resp.text
