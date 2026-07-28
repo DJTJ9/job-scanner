@@ -60,3 +60,48 @@ def test_verify_invalid_token_renders_html(app):
     assert resp.status_code == 404
     assert "text/html" in resp.headers["content-type"]
     assert "Verifizierungs-Link" in resp.text
+
+
+def test_csrf_fail_fullpage_form_renders_html(app):
+    resp = TestClient(app).post(
+        "/login",
+        data={"email": "owner@test.de", "password": "x"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 403
+    assert "text/html" in resp.headers["content-type"]
+    assert "Sicherheits-Token" in resp.text
+
+
+def test_csrf_fail_ajax_endpoint_stays_json(app):
+    resp = TestClient(app).post(
+        "/api/feedback",
+        data={"raw_job_id": "1", "verdict": "up"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 403
+    assert "text/html" not in resp.headers.get("content-type", "")
+
+
+def test_csrf_fail_authed_fullpage_stays_html(app):
+    login = CSRFTestClient(app)
+    resp = login.post(
+        "/login",
+        data={"email": "owner@test.de", "password": "geheim123"},
+        follow_redirects=False,
+    )
+    assert resp.status_code in (200, 303)
+    raw = TestClient(app)
+    raw.cookies.update(login.cookies)
+    resp = raw.post(
+        "/account/passwort",
+        data={
+            "current_password": "geheim123",
+            "new_password": "neuespw123",
+            "new_password_repeat": "neuespw123",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 403
+    assert "text/html" in resp.headers["content-type"]
+    assert "Sicherheits-Token" in resp.text

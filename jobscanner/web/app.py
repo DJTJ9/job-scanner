@@ -121,6 +121,11 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             {"code": code, "title": title, "message": message, "home_only": home_only},
             status_code=code)
 
+    def _csrf_error_page(request: Request):
+        return _error_page(
+            request, 403, "Sicherheits-Token abgelaufen",
+            "Lade die Seite neu und versuche es erneut.")
+
     def require_user(request: Request) -> RedirectResponse | None:
         if request.session.get("user_id") is None:
             return RedirectResponse("/login", status_code=303)
@@ -206,7 +211,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def login_submit(request: Request, email: str = Form(...), password: str = Form(...),
                      csrf_token: str = Form("")):
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         ip = client_ip(request)
         if not app.state.rate_limiter.hit(f"login:{ip}"):
             return templates.TemplateResponse(
@@ -286,7 +291,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (redirect := require_user(request)) is not None:
             return redirect
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         email = request.session.get("email")
 
         def _err(msg):
@@ -322,7 +327,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (redirect := require_user(request)) is not None:
             return redirect
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         token = storage.request_email_change(request.session["user_id"], new_email)
         if token is None:
             return templates.TemplateResponse(request, "account_email.html",
@@ -362,7 +367,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (redirect := require_user(request)) is not None:
             return redirect
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         email = request.session.get("email")
         if storage.verify_password(email, current_password) is None:
             return templates.TemplateResponse(request, "account_email.html",
@@ -431,7 +436,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                         password: str = Form(...), invite_code: str = Form(...),
                         consent: str = Form(None), csrf_token: str = Form("")):
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         ip = client_ip(request)
         if not app.state.rate_limiter.hit(f"register:{ip}"):
             return templates.TemplateResponse(
@@ -469,7 +474,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def forgot_password_submit(request: Request, email: str = Form(...),
                                csrf_token: str = Form("")):
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         token = storage.create_reset_token(email)
         if token:
             try:
@@ -495,7 +500,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                               new_password_repeat: str = Form(...),
                               csrf_token: str = Form("")):
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
 
         def _err(msg):
             return templates.TemplateResponse(
@@ -526,7 +531,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (redirect := require_user(request)) is not None:
             return redirect
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         if request.session.get("email_verified"):
             return RedirectResponse("/", status_code=303)
         user = storage.get_user(request.session["user_id"])
@@ -589,7 +594,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if resp is not None:
             return resp
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         storage.delete_profile(profile_id)
         if request.session.get("active_profile_id") == profile_id:
             request.session.pop("active_profile_id", None)
@@ -600,7 +605,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (redirect := require_user(request)) is not None:
             return redirect
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         token = storage.create_api_token(request.session["user_id"])
         return templates.TemplateResponse(request, "settings.html", {
             "error": None, "success": None, "api_token": token,
@@ -614,7 +619,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if resp is not None:
             return resp
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         request.session["active_profile_id"] = profile["id"]
         ref_path = urlparse(request.headers.get("referer") or "").path or "/"
         return RedirectResponse(ref_path, status_code=303)
@@ -636,7 +641,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (redirect := require_user(request)) is not None:
             return redirect
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         pid = storage.create_custom_portal(
             url, typ, request.session["user_id"],
             search_url_template=search_url_template or None,
@@ -652,7 +657,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (redirect := require_user(request)) is not None:
             return redirect
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         portal = storage.get_custom_portal(portal_id)
         if portal is None:
             return RedirectResponse("/portale", status_code=303)
@@ -666,7 +671,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (redirect := require_user(request)) is not None:
             return redirect
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         portal = storage.get_custom_portal(portal_id)
         if portal is None:
             return RedirectResponse("/portale", status_code=303)
@@ -680,7 +685,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (redirect := require_user(request)) is not None:
             return redirect
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         portal = storage.get_custom_portal(portal_id)
         if portal is None:
             return RedirectResponse("/portale", status_code=303)
