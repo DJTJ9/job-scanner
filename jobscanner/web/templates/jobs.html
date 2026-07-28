@@ -13,11 +13,29 @@
     <input type="text" name="q" value="{{ q }}" placeholder="🔍 Suchen…"
            data-dash-search autocomplete="off">
     <span class="mono search-count" data-search-count>{% if q %}({{ result_count }} Treffer){% endif %}</span>
+    {% if tab == 'aktiv' %}
+    <div class="dash-filters">
+      <select name="sort" aria-label="Sortierung" onchange="this.form.requestSubmit()">
+        <option value="score" {{ 'selected' if sort == 'score' }}>Score (höchste zuerst)</option>
+        <option value="neu" {{ 'selected' if sort == 'neu' }}>Neueste zuerst</option>
+        <option value="gescored" {{ 'selected' if sort == 'gescored' }}>Zuletzt bewertet</option>
+        <option value="kombi" {{ 'selected' if sort == 'kombi' }}>Frisch &amp; stark</option>
+      </select>
+      <select name="min_score" aria-label="Mindest-Score" onchange="this.form.requestSubmit()">
+        <option value="0" {{ 'selected' if min_score == 0 }}>Alle Scores</option>
+        <option value="50" {{ 'selected' if min_score == 50 }}>≥ 50</option>
+        <option value="70" {{ 'selected' if min_score == 70 }}>≥ 70</option>
+        <option value="85" {{ 'selected' if min_score == 85 }}>≥ 85</option>
+      </select>
+    </div>
+    {% endif %}
   </form>
+  {% set qs = '&sort=' ~ sort ~ '&min_score=' ~ min_score ~ '&q=' ~ (q | urlencode) %}
   <nav class="tabs">
-    <a class="tab {{ 'active' if tab == 'aktiv' else '' }}" href="/jobs?tab=aktiv">Aktiv <span class="mono">({{ counts.aktiv }})</span></a>
-    <a class="tab {{ 'active' if tab in ('no_go', 'bewertet') else '' }}" href="/jobs?tab=no_go">Aussortiert <span class="mono">({{ counts.no_go }})</span></a>
-    <a class="tab {{ 'active' if tab == 'ausland' else '' }}" href="/jobs?tab=ausland">Ausland <span class="mono">({{ counts.ausland }})</span></a>
+    <a class="tab {{ 'active' if tab == 'aktiv' else '' }}" href="/jobs?tab=aktiv{{ qs }}">Aktiv <span class="mono">({{ counts.aktiv }})</span></a>
+    <a class="tab {{ 'active' if tab in ('no_go', 'bewertet') else '' }}" href="/jobs?tab=no_go{{ qs }}">Aussortiert <span class="mono">({{ counts.no_go }})</span></a>
+    <a class="tab {{ 'active' if tab == 'ausland' else '' }}" href="/jobs?tab=ausland{{ qs }}">Ausland <span class="mono">({{ counts.ausland }})</span></a>
+    <a class="tab {{ 'active' if tab == 'wartet' else '' }}" href="/jobs?tab=wartet{{ qs }}">Wartet auf Score <span class="mono">({{ wartet_count }})</span></a>
   </nav>
   {% if tab in ('no_go', 'bewertet') %}
     <nav class="subtabs">
@@ -35,17 +53,17 @@
   {% endfor %}
   {% if total_pages > 1 %}
   <nav class="pagination">
-    {% if page > 1 %}<a class="page-link" href="/jobs?tab={{ tab }}&page={{ page - 1 }}&q={{ q | urlencode }}">‹ Zurück</a>
+    {% if page > 1 %}<a class="page-link" href="/jobs?tab={{ tab }}&page={{ page - 1 }}&sort={{ sort }}&min_score={{ min_score }}&q={{ q | urlencode }}">‹ Zurück</a>
     {% else %}<span class="page-link disabled">‹ Zurück</span>{% endif %}
     {% set ns = namespace(prev=0) %}
     {% for p in range(1, total_pages + 1) %}
       {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
         {% if ns.prev and p > ns.prev + 1 %}<span class="page-ellipsis">…</span>{% endif %}
-        <a class="page-link {{ 'active' if p == page else '' }}" href="/jobs?tab={{ tab }}&page={{ p }}&q={{ q | urlencode }}">{{ p }}</a>
+        <a class="page-link {{ 'active' if p == page else '' }}" href="/jobs?tab={{ tab }}&page={{ p }}&sort={{ sort }}&min_score={{ min_score }}&q={{ q | urlencode }}">{{ p }}</a>
         {% set ns.prev = p %}
       {% endif %}
     {% endfor %}
-    {% if page < total_pages %}<a class="page-link" href="/jobs?tab={{ tab }}&page={{ page + 1 }}&q={{ q | urlencode }}">Weiter ›</a>
+    {% if page < total_pages %}<a class="page-link" href="/jobs?tab={{ tab }}&page={{ page + 1 }}&sort={{ sort }}&min_score={{ min_score }}&q={{ q | urlencode }}">Weiter ›</a>
     {% else %}<span class="page-link disabled">Weiter ›</span>{% endif %}
   </nav>
   {% endif %}
