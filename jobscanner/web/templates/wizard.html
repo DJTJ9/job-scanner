@@ -7,14 +7,23 @@
   {% for s in step_order %}
     {% set idx = loop.index0 %}
     {% set current_idx = step_order.index(step) %}
-    <span class="path-step {{ 'active' if s == step else ('done' if idx < current_idx else '') }}">
-      <span class="path-num">{{ idx + 1 }}</span>
-      {{ step_labels.get(s, s) }}
-    </span>
+    {% set cls = 'active' if s == step else ('done' if idx < current_idx else '') %}
+    {% if s in jumpable and s != step %}
+      <button type="submit" form="wizardForm" formnovalidate name="goto" value="{{ s }}"
+              class="path-step path-step-jump {{ cls }}">
+        <span class="path-num">{{ idx + 1 }}</span>
+        {{ step_labels.get(s, s) }}
+      </button>
+    {% else %}
+      <span class="path-step {{ cls }}">
+        <span class="path-num">{{ idx + 1 }}</span>
+        {{ step_labels.get(s, s) }}
+      </span>
+    {% endif %}
   {% endfor %}
 </div>
 
-<form method="post" action="/wizard/{{ step }}" class="panel">
+<form method="post" action="/wizard/{{ step }}" class="panel" id="wizardForm">
   {% include "_csrf_field.html" %}
   {% if step == "basis" %}
     <label for="name">Profilname</label>

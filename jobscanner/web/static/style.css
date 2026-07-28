@@ -203,6 +203,18 @@ input[type="text"], input[type="url"], input[type="password"], input[type="numbe
 }
 .path-progress .path-step.active .path-num { background: var(--signal); color: var(--tiefe); border-color: var(--signal); }
 .path-progress .path-step.done .path-num { background: var(--beute); color: var(--tiefe); border-color: var(--beute); }
+.path-progress button.path-step {
+  background: none; border: none; padding: 0; margin: 0;
+  color: inherit; font: inherit; cursor: pointer;
+}
+.path-progress button.path-step:hover,
+.path-progress button.path-step:focus-visible {
+  opacity: 1; color: var(--signal); outline: none;
+}
+.path-progress button.path-step:hover .path-num,
+.path-progress button.path-step:focus-visible .path-num {
+  border-color: var(--signal); box-shadow: 0 0 6px var(--signal);
+}
 .wizard-actions { display: flex; gap: 1rem; margin-top: 1.5rem; }
 .wizard-cancel { margin-top: 0.5rem; }
 .panel input[type="text"] + .chip { margin-top: 0.75rem; }

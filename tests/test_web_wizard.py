@@ -267,3 +267,17 @@ def test_wizard_jump_from_gewichte_does_not_submit(client):
     assert resp.status_code == 303
     assert resp.headers["location"] == "/wizard/basis"  # Sprung statt Create/Update
     assert storage.get_profile(pid)["name"] == before   # kein vorzeitiges Update
+
+
+def test_progressbar_edit_renders_goto_buttons(client):
+    pid = _make_owner_profile(client)
+    client.get(f"/wizard/edit/{pid}")
+    page = client.get("/wizard/basis")
+    assert 'name="goto" value="no_gos"' in page.text      # Edit: entfernter Step springbar
+    assert 'name="goto" value="basis"' not in page.text   # aktueller Step ist kein Sprung-Button
+
+
+def test_progressbar_new_setup_unvisited_is_not_jumpable(client):
+    client.get("/wizard/new")
+    page = client.get("/wizard/basis")
+    assert 'name="goto" value="no_gos"' not in page.text   # unbesuchter Step nicht springbar
