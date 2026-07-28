@@ -1209,7 +1209,8 @@ def list_jobs_with_scores(profile_id: int, locations: list[str] | None = None,
         """SELECT jobs.*, job_scores.score AS profile_score,
                   job_scores.reason AS profile_reason,
                   job_scores.category AS profile_category,
-                  job_scores.breakdown_json AS profile_breakdown_json
+                  job_scores.breakdown_json AS profile_breakdown_json,
+                  job_scores.scored_at AS profile_scored_at
            FROM jobs
            LEFT JOIN job_scores
              ON job_scores.profile_id = ? AND job_scores.fingerprint = jobs.fingerprint
@@ -1224,6 +1225,7 @@ def list_jobs_with_scores(profile_id: int, locations: list[str] | None = None,
             "reason": row["profile_reason"],
             "category": row["profile_category"],
             "breakdown": json.loads(row["profile_breakdown_json"] or "{}"),
+            "scored_at": row["profile_scored_at"],
             "is_ausland": bool(row["is_ausland"]),
         }
         for row in rows
