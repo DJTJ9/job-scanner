@@ -95,3 +95,67 @@ def test_set_notify_pref_persists_new_shape_to_all_profiles():
     assert count == 2
     for p in storage.list_profiles(user_id=uid):
         assert storage.get_notify_pref(p["data"]) == pref
+
+
+def _user_with_profile(email="m@test.de"):
+    uid = storage.create_user(email, "pw", role="member")
+    pid = storage.create_profile(email, {}, user_id=uid)
+    return uid, pid
+
+
+def test_sync_inbox_inserts_pass_matches_idempotent():
+    uid, pid = _user_with_profile()
+    fp = _pass_match(pid, "Senior Unity", 92)
+    assert storage.sync_inbox_notifications(pid) == 1
+    assert storage.sync_inbox_notifications(pid) == 0  # INSERT OR IGNORE
+    assert storage.count_unread(uid) == 1
+
+
+def test_sync_inbox_skips_nogo():
+    uid, pid = _user_with_profile()
+    fp = storage.upsert_job(_job(fp_title="No-Go"))
+    storage.upsert_job_score(pid, fp, 10, "nö", "No-Go", {})
+    storage.sync_inbox_notifications(pid)
+    assert storage.count_unread(uid) == 0
+
+
+def test_list_inbox_returns_rows_with_read_state_and_url():
+    uid, pid = _user_with_profile()
+    _pass_match(pid, "Senior Unity", 92)
+    storage.sync_inbox_notifications(pid)
+    rows = storage.list_inbox(uid)
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["title"] == "Senior Unity" and r["company"] == "ACME"
+    assert r["score"] == 92 and r["read_at"] is None
+    assert "url" in r and "created_at" in r
+
+
+def test_mark_inbox_read_clears_unread():
+    uid, pid = _user_with_profile()
+    _pass_match(pid, "Senior Unity", 92)
+    storage.sync_inbox_notifications(pid)
+    assert storage.mark_inbox_read(uid) == 1
+    assert storage.count_unread(uid) == 0
+    assert storage.list_inbox(uid)[0]["read_at"] is not None
+
+
+def test_inbox_scoped_per_user():
+    uid_a, pid_a = _user_with_profile("a@test.de")
+    uid_b, pid_b = _user_with_profile("b@test.de")
+    fp = storage.upsert_job(_job(fp_title="Shared"))
+    storage.upsert_job_score(pid_a, fp, 92, "gut", "Pass", {})
+    storage.upsert_job_score(pid_b, fp, 92, "gut", "Pass", {})
+    storage.sync_inbox_notifications(pid_a)
+    assert storage.count_unread(uid_a) == 1
+    assert storage.count_unread(uid_b) == 0
+
+
+def test_list_immediate_matches_threshold_and_unnotified():
+    uid, pid = _user_with_profile()
+    fp_hi = _pass_match(pid, "Strong", 92)
+    _pass_match(pid, "Weak", 80)
+    rows = storage.list_immediate_matches(pid, 90)
+    assert [r["fingerprint"] for r in rows] == [fp_hi]
+    storage.mark_notified(pid, [fp_hi])
+    assert storage.list_immediate_matches(pid, 90) == []

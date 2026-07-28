@@ -132,6 +132,14 @@ CREATE TABLE IF NOT EXISTS member_feedback (
     text TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS notifications (
+    profile_id INTEGER NOT NULL,
+    fingerprint TEXT NOT NULL,
+    score INTEGER,
+    created_at TEXT,
+    read_at TEXT,
+    PRIMARY KEY (profile_id, fingerprint)
+);
 """
 
 _SCHEMA_CUSTOM_PORTALS = """
@@ -255,6 +263,7 @@ def init_db(path: str | Path) -> None:
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)")
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_category ON jobs(category)")
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_match_key ON jobs(match_key)")
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(profile_id, read_at)")
     if match_key_added:
         _retro_merge_by_match_key(_conn)
     _conn.commit()
@@ -1034,6 +1043,101 @@ def mark_notified(profile_id: int, fingerprints: list[str]) -> None:
         "WHERE profile_id = ? AND fingerprint = ?",
         [(profile_id, fp) for fp in fingerprints])
     conn.commit()
+
+
+@_retry_on_locked
+def sync_inbox_notifications(profile_id: int) -> int:
+    """Legt für jede aktuelle Pass-Match (non-expired) des Profils eine Inbox-Zeile an.
+    INSERT OR IGNORE (PK profile_id, fingerprint) → idempotent. Gibt Anzahl NEUER Zeilen."""
+    conn = _require_conn()
+    rows = conn.execute(
+        """SELECT job_scores.fingerprint AS fp, job_scores.score AS score
+           FROM job_scores JOIN jobs ON jobs.fingerprint = job_scores.fingerprint
+           WHERE job_scores.profile_id = ?
+             AND job_scores.category = 'Pass'
+             AND jobs.status != 'expired'""",
+        (profile_id,)).fetchall()
+    inserted = 0
+    for r in rows:
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO notifications (profile_id, fingerprint, score, created_at) "
+            "VALUES (?, ?, ?, datetime('now'))",
+            (profile_id, r["fp"], r["score"]))
+        inserted += cur.rowcount
+    conn.commit()
+    return inserted
+
+
+def list_inbox(user_id: int) -> list[dict]:
+    """Inbox-Zeilen über ALLE Profile des Users, neueste zuerst. url = erste Source des Jobs."""
+    conn = _require_conn()
+    profile_ids = [p["id"] for p in list_profiles(user_id=user_id)]
+    if not profile_ids:
+        return []
+    placeholders = ",".join("?" * len(profile_ids))
+    rows = conn.execute(
+        f"""SELECT notifications.fingerprint AS fingerprint, notifications.score AS score,
+                   notifications.created_at AS created_at, notifications.read_at AS read_at,
+                   jobs.title AS title, jobs.company AS company, jobs.sources_json AS sources_json
+            FROM notifications JOIN jobs ON jobs.fingerprint = notifications.fingerprint
+            WHERE notifications.profile_id IN ({placeholders})
+            ORDER BY notifications.created_at DESC, notifications.rowid DESC""",
+        profile_ids).fetchall()
+    out = []
+    for r in rows:
+        sources = json.loads(r["sources_json"] or "[]")
+        url = sources[0].get("url") if sources else None
+        d = {k: r[k] for k in ("fingerprint", "score", "created_at", "read_at", "title", "company")}
+        d["url"] = url if (url or "").startswith(("http://", "https://")) else None
+        out.append(d)
+    return out
+
+
+@_retry_on_locked
+def mark_inbox_read(user_id: int) -> int:
+    """Setzt read_at = now für alle ungelesenen Inbox-Zeilen des Users. Gibt Anzahl."""
+    conn = _require_conn()
+    profile_ids = [p["id"] for p in list_profiles(user_id=user_id)]
+    if not profile_ids:
+        return 0
+    placeholders = ",".join("?" * len(profile_ids))
+    cur = conn.execute(
+        f"UPDATE notifications SET read_at = datetime('now') "
+        f"WHERE profile_id IN ({placeholders}) AND read_at IS NULL",
+        profile_ids)
+    conn.commit()
+    return cur.rowcount
+
+
+def count_unread(user_id: int) -> int:
+    """Ungelesen-Count über alle Profile des Users (für Sidebar-Badge)."""
+    conn = _require_conn()
+    profile_ids = [p["id"] for p in list_profiles(user_id=user_id)]
+    if not profile_ids:
+        return 0
+    placeholders = ",".join("?" * len(profile_ids))
+    row = conn.execute(
+        f"SELECT COUNT(*) AS n FROM notifications "
+        f"WHERE profile_id IN ({placeholders}) AND read_at IS NULL",
+        profile_ids).fetchone()
+    return row["n"]
+
+
+def list_immediate_matches(profile_id: int, threshold: int) -> list[dict]:
+    """Pass-Matches (non-expired) mit score >= threshold, notified_at IS NULL."""
+    conn = _require_conn()
+    rows = conn.execute(
+        """SELECT job_scores.fingerprint AS fingerprint, jobs.title AS title,
+                  jobs.company AS company, job_scores.score AS score
+           FROM job_scores JOIN jobs ON jobs.fingerprint = job_scores.fingerprint
+           WHERE job_scores.profile_id = ?
+             AND job_scores.category = 'Pass'
+             AND job_scores.notified_at IS NULL
+             AND jobs.status != 'expired'
+             AND job_scores.score >= ?
+           ORDER BY job_scores.score DESC""",
+        (profile_id, threshold))
+    return [dict(r) for r in rows]
 
 
 def _row_to_analysis(row: sqlite3.Row) -> dict:
