@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} — {{ title }}{% endblock %}
+{% block content %}
+<div class="error-page">
+  <img class="error-bob" src="/static/img/bob/bob-emotion-fehler.png" alt="Bob">
+  <div class="error-code">{{ code }}</div>
+  <h1 class="error-title">{{ title }}</h1>
+  <p class="error-msg">{{ message }}</p>
+  <div class="error-actions">
+    {% if not home_only %}<a class="btn" href="javascript:history.back()">← Zurück</a>{% endif %}
+    <a class="btn btn-primary" href="/">Zur Startseite</a>
+  </div>
+</div>
+{% endblock %}

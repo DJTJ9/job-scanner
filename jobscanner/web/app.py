@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 from jobscanner import config, nocodb_board, precheck, scoring, storage
@@ -105,6 +106,20 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     templates = Jinja2Templates(directory=_DIR / "templates")
     templates.env.globals["asset_version"] = _read_asset_version(_DIR)
     templates.env.globals["csrf_token"] = csrf.ensure_token
+
+    def _wants_json(request: Request) -> bool:
+        path = request.url.path
+        if path.startswith("/api") or path.startswith("/mcp"):
+            return True
+        accept = request.headers.get("accept", "")
+        return "application/json" in accept and "text/html" not in accept
+
+    def _error_page(request: Request, code: int, title: str, message: str,
+                    home_only: bool = False):
+        return templates.TemplateResponse(
+            request, "error.html",
+            {"code": code, "title": title, "message": message, "home_only": home_only},
+            status_code=code)
 
     def require_user(request: Request) -> RedirectResponse | None:
         if request.session.get("user_id") is None:
@@ -1384,5 +1399,23 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return RedirectResponse(f"/wizard/{goto}", status_code=303)
         next_step = STEP_ORDER[STEP_ORDER.index(step) + 1]
         return RedirectResponse(f"/wizard/{next_step}", status_code=303)
+
+    async def _not_found_handler(request: Request, exc: StarletteHTTPException):
+        if exc.status_code != 404:
+            return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+        if _wants_json(request):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        return _error_page(request, 404, "Seite nicht gefunden",
+                           "Die Seite gibt es nicht (mehr).")
+
+    async def _server_error_handler(request: Request, exc: Exception):
+        if _wants_json(request):
+            return JSONResponse({"detail": "Internal Server Error"}, status_code=500)
+        return _error_page(request, 500, "Etwas ist schiefgelaufen",
+                           "Ein interner Fehler ist aufgetreten. Bitte später erneut.",
+                           home_only=True)
+
+    app.add_exception_handler(StarletteHTTPException, _not_found_handler)
+    app.add_exception_handler(Exception, _server_error_handler)
 
     return app
