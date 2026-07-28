@@ -1192,12 +1192,16 @@ def migrate_yaml_profile() -> int:
 
 
 def list_jobs_with_scores(profile_id: int, locations: list[str] | None = None,
-                          languages: list[str] | None = None) -> list[dict]:
+                          languages: list[str] | None = None,
+                          include_expired: bool = False) -> list[dict]:
     """Jobs mit Score/Begründung/Breakdown des gegebenen Profils, höchster Score zuerst
     (ungescorte Jobs ans Ende). Optionale Pool-Filter: Sprache (exakt IN), Standort
-    (Substring-OR, LIKE %x%); leere/None-Liste = kein Filter."""
+    (Substring-OR, LIKE %x%); leere/None-Liste = kein Filter. include_expired=True nimmt
+    zusätzlich Jobs mit status='expired' auf (Default: ausgeblendet)."""
     conn = _require_conn()
-    where = ["jobs.extraction_status = 'extracted'", "jobs.status != 'expired'"]
+    where = ["jobs.extraction_status = 'extracted'"]
+    if not include_expired:
+        where.append("jobs.status != 'expired'")
     params: list = [profile_id]
     if languages:
         where.append("jobs.language IN (%s)" % ",".join("?" * len(languages)))
@@ -1277,10 +1281,15 @@ def get_favorites_set(profile_id: int) -> set[str]:
 def list_favorites_with_scores(profile_id: int, locations: list[str] | None = None,
                                languages: list[str] | None = None) -> list[dict]:
     """Favorisierte Jobs mit Score, Score DESC. Reuse der list_jobs_with_scores-JOIN
-    (identische Entry-Struktur fürs Card-Rendering), gefiltert auf favorisierte fingerprints."""
+    (identische Entry-Struktur fürs Card-Rendering), gefiltert auf favorisierte fingerprints.
+    Expired-Favoriten werden mitgenommen (include_expired=True) und ans Ende sortiert:
+    erst aktive (Score DESC), dann expired (Score DESC)."""
     favs = get_favorites_set(profile_id)
-    return [e for e in list_jobs_with_scores(profile_id, locations, languages)
-            if e["job"].fingerprint in favs]
+    entries = [e for e in list_jobs_with_scores(profile_id, locations, languages, include_expired=True)
+               if e["job"].fingerprint in favs]
+    active = [e for e in entries if e["job"].status != "expired"]
+    expired = [e for e in entries if e["job"].status == "expired"]
+    return active + expired
 
 
 def list_favorites_with_titles(profile_id: int) -> list[dict]:
