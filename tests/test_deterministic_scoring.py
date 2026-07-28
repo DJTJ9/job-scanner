@@ -173,7 +173,7 @@ def test_new_no_go_vetos_present_and_fire():
 
 
 import pytest
-from jobscanner import storage
+from jobscanner import storage, claude_llm
 
 
 @pytest.fixture
@@ -221,3 +221,20 @@ def test_score_profile_recompute_on_weight_change_without_prior_breakdown(db):
     storage.score_profile_deterministic(pid)
     second = storage.get_job_score(pid, fp)["score"]       # +junior=10 → (6*5+10*5)/100*100=80
     assert first == 60 and second == 80
+
+
+def test_member_scoring_runs_without_llm_call(db, monkeypatch):
+    def _boom(*a, **k):
+        raise AssertionError("claude_json darf im Member-Scoring nicht aufgerufen werden")
+    monkeypatch.setattr(claude_llm, "claude_json", _boom)
+
+    pid = storage.create_profile("Member", {"skills": ["Unity"], "no_gos": []},
+                                 is_default=False)
+    storage.save_criteria(pid, [{"key": "role_fit", "label": "Rolle",
+                                 "weight": 5, "sort": 0}])
+    storage.upsert_job(Job(title="Junior Unity Developer", company="ACME",
+                           location="Hamburg", remote_flag="remote",
+                           requirements=["Unity", "C#"], tech_stack=["Unity"]))
+
+    count = storage.score_profile_deterministic(pid)
+    assert count >= 1
