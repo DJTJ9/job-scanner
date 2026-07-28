@@ -105,6 +105,55 @@ def send_match_digest(email: str, profile_id: int, rows: list[dict], base_url: s
     msg["To"] = email
     msg.set_content(body, cte="7bit")
 
+    rows_html = "".join(
+        f'<tr><td style="padding:6px 12px">{r["title"]} @ {r["company"]}</td>'
+        f'<td style="padding:6px 12px;text-align:right;font-weight:600">{r["score"]}</td></tr>'
+        for r in rows)
+    html = (
+        '<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto">'
+        '<div style="background:#0B2A3A;color:#fff;padding:16px 20px;border-radius:8px 8px 0 0">'
+        '<strong>Bob der Job-Bot &middot; Deine Treffer</strong><br>'
+        f'<span style="font-size:14px">{len(rows)} neue Treffer</span></div>'
+        f'<table style="width:100%;border-collapse:collapse;background:#fff">{rows_html}</table>'
+        f'<div style="padding:16px 20px"><a href="{base_url}/benachrichtigungen" '
+        'style="background:#1E88A8;color:#fff;padding:10px 16px;border-radius:6px;'
+        'text-decoration:none">Alle im Portal ansehen &rarr;</a></div></div>')
+    msg.add_alternative(html, subtype="html", cte="7bit")
+
+    with smtplib.SMTP(host, port) as server:
+        server.starttls()
+        server.login(user, password)
+        server.sendmail(from_addr, [email], msg.as_string())
+
+
+def send_immediate_match(email: str, profile_id: int, row: dict, base_url: str) -> None:
+    host = os.environ.get("SMTP_HOST", "")
+    if not host:
+        raise RuntimeError("SMTP nicht konfiguriert (SMTP_HOST fehlt)")
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    user = os.environ.get("SMTP_USER", "")
+    password = os.environ.get("SMTP_PASS", "")
+    from_addr = os.environ.get("SMTP_FROM", user)
+
+    msg = EmailMessage()
+    msg["Subject"] = f"Bob: Starker Treffer - {row['title']} (Score {row['score']})"
+    msg["From"] = from_addr
+    msg["To"] = email
+    msg.set_content(
+        f"Starker Treffer fuer dich:\n\n"
+        f"- {row['title']} @ {row['company']}  (Score {row['score']})\n\n"
+        f"Im Portal ansehen: {base_url}/benachrichtigungen\n", cte="7bit")
+    msg.add_alternative(
+        '<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto">'
+        '<div style="background:#0B2A3A;color:#fff;padding:16px 20px;border-radius:8px">'
+        '<strong>Bob der Job-Bot &middot; Starker Treffer</strong></div>'
+        f'<div style="padding:16px 20px;font-size:16px"><strong>{row["title"]}</strong> '
+        f'@ {row["company"]} <span style="font-weight:600">&middot; Score {row["score"]}</span></div>'
+        f'<div style="padding:0 20px 20px"><a href="{base_url}/benachrichtigungen" '
+        'style="background:#1E88A8;color:#fff;padding:10px 16px;border-radius:6px;'
+        'text-decoration:none">Im Portal ansehen &rarr;</a></div></div>',
+        subtype="html", cte="7bit")
+
     with smtplib.SMTP(host, port) as server:
         server.starttls()
         server.login(user, password)

@@ -95,3 +95,32 @@ def test_send_email_change_verification_builds_confirm_link(monkeypatch):
     sent_msg = mock_smtp.sendmail.call_args[0][2]
     assert to_addr == ["n@x.de"]
     assert "https://job-scanner.thinkshark.de/account/email/confirm?token=tok456" in sent_msg
+
+
+def _captured_message(fn, *args):
+    """Ruft einen Mailer-Send auf, fängt die an sendmail übergebene Rohnachricht."""
+    with patch.dict("os.environ", {"SMTP_HOST": "h", "SMTP_USER": "u", "SMTP_PASS": "p",
+                                   "SMTP_FROM": "from@test.de"}), \
+         patch("smtplib.SMTP") as smtp:
+        server = smtp.return_value.__enter__.return_value = MagicMock()
+        fn(*args)
+        raw = server.sendmail.call_args[0][2]
+    return raw
+
+
+def test_digest_is_multipart_with_html_and_plaintext():
+    rows = [{"title": "Senior Unity", "company": "StudioX", "score": 92}]
+    raw = _captured_message(mailer.send_match_digest, "m@test.de", 7, rows,
+                            "https://job-scanner.thinkshark.de")
+    assert "text/plain" in raw and "text/html" in raw
+    assert "multipart/alternative" in raw
+    assert "Senior Unity" in raw and "StudioX" in raw
+    assert "1 neue" in raw  # Reporting-Header: Trefferzahl
+
+
+def test_immediate_mail_contains_single_match_and_score():
+    row = {"title": "Senior Unity", "company": "StudioX", "score": 92}
+    raw = _captured_message(mailer.send_immediate_match, "m@test.de", 7, row,
+                            "https://job-scanner.thinkshark.de")
+    assert "text/html" in raw
+    assert "Senior Unity" in raw and "92" in raw
