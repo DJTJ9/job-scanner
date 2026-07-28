@@ -188,3 +188,82 @@ def test_wizard_requires_login(tmp_path, monkeypatch):
     resp = anon.get("/wizard/new", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"
+
+
+def _make_owner_profile(client):
+    """Legt über den vollen Wizard-Flow ein Profil an (owner-Fixture) und gibt seine id zurück."""
+    client.get("/wizard/new")
+    client.post("/wizard/basis", data={"name": "SprungProfil", "level": "mid",
+                                       "experience_years": "3"})
+    client.post("/wizard/skills", data={"skills": "Python"})
+    client.post("/wizard/zielrollen", data={"target_roles": "Backend Developer"})
+    client.post("/wizard/suchbegriffe", data={"no_custom_queries": "1"})
+    client.post("/wizard/domaenen", data={"domains": []})
+    client.post("/wizard/ort_umfang", data={"cities": "Berlin", "languages": ["de"]})
+    client.post("/wizard/no_gos", data={"no_gos": ""})
+    client.post("/wizard/gewichte", data={"weight_role_fit": "5"})
+    return storage.get_profile_by_name("SprungProfil")["id"]
+
+
+def test_wizard_edit_jump_to_any_step(client):
+    pid = _make_owner_profile(client)
+    client.get(f"/wizard/edit/{pid}")
+    resp = client.post("/wizard/basis",
+                       data={"name": "SprungProfil", "level": "mid", "experience_years": "3",
+                             "goto": "no_gos"},
+                       follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/wizard/no_gos"
+
+
+def test_wizard_new_setup_blocks_unvisited_jump(client):
+    client.get("/wizard/new")  # folgt Redirect → GET /wizard/basis (visited=[basis])
+    resp = client.post("/wizard/basis",
+                       data={"name": "X", "level": "junior", "experience_years": "0",
+                             "goto": "no_gos"},
+                       follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/wizard/skills"  # Fallback: sequenzieller Next
+
+
+def test_wizard_new_setup_allows_visited_backjump(client):
+    client.get("/wizard/new")
+    client.post("/wizard/basis", data={"name": "X", "level": "junior", "experience_years": "0"})
+    client.post("/wizard/skills", data={"skills": "Python"})  # visited akkumuliert über Redirect-GETs
+    resp = client.post("/wizard/zielrollen",
+                       data={"target_roles": "Dev", "goto": "basis"},
+                       follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/wizard/basis"
+
+
+def test_wizard_goto_saves_current_step(client):
+    pid = _make_owner_profile(client)
+    client.get(f"/wizard/edit/{pid}")
+    client.post("/wizard/basis",
+                data={"name": "Geaendert", "level": "senior", "experience_years": "9",
+                      "goto": "no_gos"})
+    form = client.get("/wizard/basis")
+    assert 'value="Geaendert"' in form.text  # basis-Daten im Sprung gespeichert
+
+
+def test_wizard_invalid_goto_falls_back_to_next(client):
+    client.get("/wizard/new")
+    resp = client.post("/wizard/basis",
+                       data={"name": "X", "level": "junior", "experience_years": "0",
+                             "goto": "kein_step"},
+                       follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/wizard/skills"
+
+
+def test_wizard_jump_from_gewichte_does_not_submit(client):
+    pid = _make_owner_profile(client)
+    before = storage.get_profile(pid)["name"]
+    client.get(f"/wizard/edit/{pid}")
+    resp = client.post("/wizard/gewichte",
+                       data={"weight_role_fit": "0", "goto": "basis"},
+                       follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/wizard/basis"  # Sprung statt Create/Update
+    assert storage.get_profile(pid)["name"] == before   # kein vorzeitiges Update

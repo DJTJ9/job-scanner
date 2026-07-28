@@ -1218,7 +1218,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def wizard_start(request: Request):
         if (redirect := require_verified_user(request)) is not None:
             return redirect
-        request.session["wizard"] = {"data": {}, "suggestions": {}}
+        request.session["wizard"] = {"data": {}, "suggestions": {}, "visited": []}
         storage.log_event("onboarding_start", user_id=request.session.get("user_id"))
         return RedirectResponse(f"/wizard/{STEP_ORDER[0]}", status_code=303)
 
@@ -1237,6 +1237,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "data": data,
             "suggestions": {"criteria_weights": weights},
             "edit_id": profile_id,
+            "visited": list(STEP_ORDER),
         }
         return RedirectResponse(f"/wizard/{STEP_ORDER[0]}", status_code=303)
 
@@ -1247,6 +1248,11 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if step not in STEP_ORDER:
             return RedirectResponse("/wizard/new", status_code=303)
         wizard = _wizard_state(request)
+        visited = wizard.setdefault("visited", [])
+        if step not in visited:
+            visited.append(step)
+        request.session["wizard"] = wizard
+        jumpable = list(STEP_ORDER) if wizard.get("edit_id") is not None else list(visited)
         return templates.TemplateResponse(request, "wizard.html", {
             "step": step, "step_order": STEP_ORDER,
             "data": wizard["data"], "suggestions": wizard.get("suggestions", {}),
@@ -1262,6 +1268,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "employment_options": scoring.EMPLOYMENT_OPTIONS,
             "language_options": scoring.LANGUAGE_OPTIONS,
             "prev_step": STEP_ORDER[STEP_ORDER.index(step) - 1] if STEP_ORDER.index(step) > 0 else None,
+            "jumpable": jumpable,
         })
 
     @app.post("/wizard/llm-refine")
@@ -1297,6 +1304,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return JSONResponse({"error": "csrf"}, status_code=403)
         wizard = _wizard_state(request)
         data = wizard["data"]
+        goto = form.get("goto")
+        jumpable = (set(STEP_ORDER) if wizard.get("edit_id") is not None
+                    else set(wizard.get("visited", [])))
+        jumping = bool(goto) and goto in STEP_ORDER and goto in jumpable and goto != step
         if step == "basis":
             data["name"] = form.get("name", "").strip()
             data["level"] = form.get("level", "").strip()
@@ -1336,7 +1347,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             else:
                 valid = {n["key"] for n in scoring.NO_GOS_CATALOG}
                 data["no_gos"] = [k for k in form.getlist("no_gos") if k in valid]
-        elif step == "gewichte":
+        elif step == "gewichte" and not jumping:
             role = request.session.get("role")
             if role == "owner":
                 catalog = [dict(c) for c in storage.DEFAULT_CRITERIA]
@@ -1369,6 +1380,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             request.session["active_profile_id"] = pid
             return RedirectResponse("/", status_code=303)
         request.session["wizard"] = wizard
+        if jumping:
+            return RedirectResponse(f"/wizard/{goto}", status_code=303)
         next_step = STEP_ORDER[STEP_ORDER.index(step) + 1]
         return RedirectResponse(f"/wizard/{next_step}", status_code=303)
 
