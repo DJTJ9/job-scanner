@@ -8,7 +8,7 @@ import subprocess
 import threading
 import time
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -672,7 +672,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         storage.soft_delete_custom_portal(portal_id)
         return RedirectResponse("/portale", status_code=303)
 
-    _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet", "ausland")
+    _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet", "ausland", "wartet")
     _DASHBOARD_PAGE_SIZE = 25
     _FUNNEL_STEPS = (("onboarding_start", "Onboarding-Start"),
                      ("profil_erstellt", "Profil erstellt"),
@@ -696,7 +696,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/jobs")
     def jobs_view(request: Request, tab: str = "aktiv",
-                  page: int | None = None, q: str = ""):
+                  page: int | None = None, q: str = "",
+                  sort: str = "score", min_score: int = 0):
         profile, resp = _active_profile(request)
         if resp is not None:
             return resp
@@ -708,12 +709,14 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         feedback = storage.get_feedback_map(profile_id)
         favorites = storage.get_favorites_set(profile_id)
         spar = profile["data"].get("spar_modus") or {}
-        aktiv, no_go, bewertet, ausland = [], [], [], []
+        aktiv, no_go, bewertet, ausland, wartet = [], [], [], [], []
         for entry in storage.list_jobs_with_scores(profile_id,
                                                     locations=spar.get("locations"),
                                                     languages=spar.get("languages")):
             fp = entry["job"].fingerprint
-            if feedback.get(fp) == "down":
+            if entry["score"] is None:
+                wartet.append(entry)
+            elif feedback.get(fp) == "down":
                 bewertet.append(entry)
             elif entry["is_ausland"]:
                 ausland.append(entry)
@@ -722,8 +725,26 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             else:
                 aktiv.append(entry)
         entries_by_tab = {"aktiv": aktiv, "no_go": no_go,
-                          "bewertet": bewertet, "ausland": ausland}
+                          "bewertet": bewertet, "ausland": ausland,
+                          "wartet": wartet}
         tab_entries = entries_by_tab[tab]
+        if tab == "aktiv":
+            if min_score > 0:
+                tab_entries = [e for e in tab_entries
+                               if (e["score"] or 0) >= min_score]
+            if sort == "neu":
+                # Stabiler Sort erhält den SQL-Tiebreak (first_seen DESC, id DESC)
+                tab_entries = sorted(tab_entries,
+                                     key=lambda e: e["job"].first_seen, reverse=True)
+            elif sort == "gescored":
+                tab_entries = sorted(tab_entries,
+                                     key=lambda e: e["scored_at"] or "", reverse=True)
+            elif sort == "kombi":
+                cutoff = (date.today() - timedelta(days=7)).isoformat()
+                fresh = [e for e in tab_entries if e["job"].first_seen >= cutoff]
+                old = [e for e in tab_entries if e["job"].first_seen < cutoff]
+                tab_entries = fresh + old
+            # sort == "score": Master-Order (Score DESC) unverändert
         q_low = q.strip().lower()
         if q_low:
             tab_entries = [
@@ -768,6 +789,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "page": page,
             "total_pages": total_pages,
             "q": q,
+            "sort": sort,
+            "min_score": min_score,
+            "wartet_count": len(wartet),
             "result_count": result_count,
             "counts": {"aktiv": len(aktiv), "no_go": len(no_go),
                        "bewertet": len(bewertet), "ausland": len(ausland)},
