@@ -35,8 +35,10 @@
   detail_url_pattern: 'adzuna\.(de|com)/(land/ad|details)/'
   search_type: adzuna
   detail_fetch: api              # Description kommt aus API-Response, 0 Scrapes
+  optional: true                 # Opt-in via JOBSCANNER_ENABLE_ADZUNA=1 — nicht im Default-Scan
 - name: jooble
   site: jooble.org
   detail_url_pattern: 'jooble\.org/desc/'
   search_type: jooble
   detail_fetch: api
+  optional: true                 # Opt-in via JOBSCANNER_ENABLE_JOOBLE=1 — nicht im Default-Scan

@@ -79,6 +79,12 @@ def firecrawl_budget() -> int:
     return int(os.environ.get("JOBSCANNER_FC_BUDGET", "100"))
 
 
+def optional_source_enabled(name: str) -> bool:
+    """True nur, wenn JOBSCANNER_ENABLE_<NAME>=1 gesetzt ist — Opt-in für
+    optionale Job-Quellen (Adzuna/Jooble), die der Default-Scan überspringt."""
+    return os.environ.get(f"JOBSCANNER_ENABLE_{name.upper()}", "") == "1"
+
+
 def default_scan_size() -> str:
     return os.environ.get("JOBSCANNER_SCAN_SIZE", "mittel")
 

@@ -319,6 +319,38 @@ def test_career_page_yields_one_row_per_detail_url(env):
     assert detail_a in urls and detail_b in urls
 
 
+_OPTIONAL_PORTALS = PORTALS + [
+    {"name": "adzuna", "site": "adzuna.de", "detail_url_pattern": "x",
+     "search_type": "html", "search_url_template": "x", "optional": True}]
+
+
+def test_optional_source_enabled_reads_env(monkeypatch):
+    from jobscanner import config
+    monkeypatch.delenv("JOBSCANNER_ENABLE_ADZUNA", raising=False)
+    assert config.optional_source_enabled("adzuna") is False
+    monkeypatch.setenv("JOBSCANNER_ENABLE_ADZUNA", "1")
+    assert config.optional_source_enabled("adzuna") is True
+    monkeypatch.setenv("JOBSCANNER_ENABLE_ADZUNA", "0")
+    assert config.optional_source_enabled("adzuna") is False
+
+
+def test_optional_source_skipped_by_default(env, monkeypatch):
+    monkeypatch.setattr(pipeline.config, "load_portals", lambda: _OPTIONAL_PORTALS)
+    monkeypatch.delenv("JOBSCANNER_ENABLE_ADZUNA", raising=False)
+    with patch("jobscanner.search.discover_urls", return_value=[]):
+        report = _run(env, {})
+    assert "adzuna" not in report["portals"]
+    assert "indeed" in report["portals"]
+
+
+def test_optional_source_enabled_by_flag(env, monkeypatch):
+    monkeypatch.setattr(pipeline.config, "load_portals", lambda: _OPTIONAL_PORTALS)
+    monkeypatch.setenv("JOBSCANNER_ENABLE_ADZUNA", "1")
+    with patch("jobscanner.search.discover_urls", return_value=[]):
+        report = _run(env, {})
+    assert "adzuna" in report["portals"]
+
+
 def test_career_page_skips_known_detail_url(env):
     cp = {"id": 7, "typ": "career_page", "url": "https://studio.de/karriere",
           "detail_url_pattern": None, "search_url_template": None}
