@@ -184,6 +184,11 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return storage.list_profiles(active_only=True, user_id=uid)
     templates.env.globals["nav_profiles"] = _nav_profiles
 
+    def _unread_count(request: Request) -> int:
+        uid = request.session.get("user_id")
+        return storage.count_unread(uid) if uid is not None else 0
+    templates.env.globals["unread_count"] = _unread_count
+
     def _relzeit(ts) -> str:
         if not ts:
             return "noch nie"
@@ -384,6 +389,15 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "error": None, "success": None, "api_token": None,
             "active_tab": tab if tab in ("profil", "token", "notify") else "profil",
             **_settings_extra(request.session["user_id"])})
+
+    @app.get("/benachrichtigungen")
+    def notifications_view(request: Request):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        uid = request.session["user_id"]
+        rows = storage.list_inbox(uid)          # aktueller Lesezustand (● vor Markierung)
+        storage.mark_inbox_read(uid)            # danach alles gelesen → Badge auf 0
+        return templates.TemplateResponse(request, "benachrichtigungen.html", {"rows": rows})
 
     @app.post("/einstellungen/spar-modus")
     def spar_modus_submit(request: Request, modus: str = Form("unbegrenzt"),

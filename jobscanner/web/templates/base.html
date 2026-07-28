@@ -47,6 +47,7 @@
     <span class="drawer-group"><span class="drawer-item-label">Jobs</span></span>
     {{ nav_item("/jobs", "📋", "Job-Angebote") }}
     {{ nav_item("/favoriten", "★", "Favoriten") }}
+    <a class="drawer-item {{ 'drawer-item-active' if _pfad == '/benachrichtigungen' }}" href="/benachrichtigungen">🔔 <span class="drawer-item-label">Benachrichtigungen</span>{% set _u = unread_count(request) %}{% if _u %} <span class="nav-badge">{{ _u }}</span>{% endif %}</a>
     {{ nav_item("/scan", "🔍", "Scan starten") }}
     <span class="drawer-group"><span class="drawer-item-label">Suche tunen</span></span>
     {{ nav_item("/feintuning", "🎛", "Feintuning") }}

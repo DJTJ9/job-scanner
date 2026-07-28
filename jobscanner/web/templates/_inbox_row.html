@@ -1,0 +1,14 @@
+{% from "_ping.html" import ping %}
+{% macro inbox_row(r) %}
+  <div class="inbox-row{{ ' inbox-unread' if not r.read_at }}">
+    {{ ping(r.score, 'Pass') }}
+    <div style="flex:1">
+      {% if not r.read_at %}<span class="inbox-dot">●</span> {% endif %}
+      <strong>{{ r.title }}</strong> · {{ r.company }}
+      <div class="inbox-meta">{{ r.created_at[:10] | relzeit_datum }}
+        {% if r.url %}· <a class="link" href="{{ r.url }}" target="_blank" rel="noopener">Ansehen →</a>
+        {% else %}· <a class="link" href="/jobs">Ansehen →</a>{% endif %}
+      </div>
+    </div>
+  </div>
+{% endmacro %}

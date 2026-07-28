@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_inbox_row.html" import inbox_row %}
+{% block content %}
+<div class="panel">
+  <h1>Benachrichtigungen</h1>
+  {% if not rows %}
+    <p class="muted">Noch keine Benachrichtigungen. Sobald ein starker Treffer für dich
+       auftaucht, erscheint er hier.</p>
+  {% else %}
+    <div class="inbox-list">
+      {% for r in rows %}{{ inbox_row(r) }}{% endfor %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

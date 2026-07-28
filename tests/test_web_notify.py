@@ -88,3 +88,38 @@ def test_notify_post_persists_opt_in(member):
     assert resp.status_code == 303
     prof = storage.list_profiles(user_id=uid)[0]
     assert storage.get_notify_pref(prof["data"]) == {"email": True}
+
+
+def test_inbox_lists_unread_match_with_marker(member):
+    c, uid = member
+    pid = storage.create_profile("P", {}, user_id=uid)
+    _pass_job(pid, "Senior Unity", 92)
+    storage.sync_inbox_notifications(pid)
+    body = c.get("/benachrichtigungen").text
+    assert "Senior Unity" in body
+    assert "●" in body  # ungelesen-Marker
+
+
+def test_inbox_visit_marks_all_read(member):
+    c, uid = member
+    pid = storage.create_profile("P", {}, user_id=uid)
+    _pass_job(pid, "Senior Unity", 92)
+    storage.sync_inbox_notifications(pid)
+    c.get("/benachrichtigungen")
+    assert storage.count_unread(uid) == 0
+
+
+def test_sidebar_badge_shows_unread_count(member):
+    c, uid = member
+    pid = storage.create_profile("P", {}, user_id=uid)
+    _pass_job(pid, "Senior Unity", 92)
+    storage.sync_inbox_notifications(pid)
+    body = c.get("/jobs").text  # irgendeine Seite mit Sidebar
+    assert "nav-badge" in body
+
+
+def test_inbox_requires_login(member):
+    c, uid = member
+    c.get("/logout")
+    resp = c.get("/benachrichtigungen", follow_redirects=False)
+    assert resp.status_code in (302, 303)
