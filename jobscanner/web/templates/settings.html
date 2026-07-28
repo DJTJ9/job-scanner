@@ -109,7 +109,7 @@
     <div class="tiefenlinie"></div>
     <h2>Spar-Modus</h2>
     <p class="hinweis">Schützt dein Claude-Abo vor Überraschungsverbrauch — die Bob-Befehle respektieren diese Limits.</p>
-    <form method="post" action="/einstellungen/spar-modus">
+    <form method="post" action="/einstellungen/spar-modus" data-confirm-save>
       {% include "_csrf_field.html" %}
       <label><input type="radio" name="modus" value="unbegrenzt"
              {% if spar_modus.max_jobs is none %}checked{% endif %}>
@@ -139,7 +139,7 @@
     <h2>Portal-Auswahl</h2>
     <p class="hinweis">Welche Anti-Bot-Portale dein bob-scan über deine Heim-IP scannt. Aggregatoren
        (Adzuna/Jooble) und Arbeitsagentur laufen unabhängig davon als Server-Baseline.</p>
-    <form method="post" action="/einstellungen/scan-portale">
+    <form method="post" action="/einstellungen/scan-portale" data-confirm-save>
       {% include "_csrf_field.html" %}
       <label><input type="checkbox" name="portal_stepstone"{% if 'stepstone' in scan_portals %} checked{% endif %}> StepStone</label>
       <label><input type="checkbox" name="portal_indeed"{% if 'indeed' in scan_portals %} checked{% endif %}> Indeed</label>
@@ -153,7 +153,7 @@
   <section class="tab-panel{% if active_tab == 'notify' %} tab-panel-active{% endif %}"
            data-tab-panel="notify">
     <h2>Benachrichtigung</h2>
-    <form method="post" action="/einstellungen/notify">
+    <form method="post" action="/einstellungen/notify" data-confirm-save>
       {% include "_csrf_field.html" %}
       <label><input type="checkbox" name="email_on"
              {% if notify_pref.email %}checked{% endif %}>

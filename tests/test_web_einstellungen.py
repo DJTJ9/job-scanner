@@ -230,3 +230,15 @@ def test_scan_portals_submit_persists_custom_selection(tmp_path, monkeypatch):
     assert resp.status_code == 303
     profile = storage.list_profiles(user_id=uid)[0]
     assert storage.get_scan_portals(profile["data"]) == ["indeed", f"custom:{pid}"]
+
+
+def test_stille_forms_tragen_confirm_save(member):
+    body = member.get("/einstellungen").text
+    assert 'action="/einstellungen/spar-modus" data-confirm-save' in body
+    assert 'action="/einstellungen/scan-portale" data-confirm-save' in body
+    assert 'action="/einstellungen/notify" data-confirm-save' in body
+
+
+def test_passwort_form_hat_kein_confirm_save(member):
+    body = member.get("/einstellungen").text
+    assert 'action="/account/passwort" data-confirm-save' not in body
