@@ -155,9 +155,21 @@
     <h2>Benachrichtigung</h2>
     <form method="post" action="/einstellungen/notify" data-confirm-save>
       {% include "_csrf_field.html" %}
-      <label><input type="checkbox" name="email_on"
-             {% if notify_pref.email %}checked{% endif %}>
-             Neue Top-Treffer per Email</label>
+      <fieldset class="notify-fieldset">
+        <legend>Email-Digest</legend>
+        <label><input type="radio" name="email_mode" value="daily"
+               {% if notify_pref.email_mode == 'daily' %}checked{% endif %}> Täglich</label>
+        <label><input type="radio" name="email_mode" value="weekly"
+               {% if notify_pref.email_mode == 'weekly' %}checked{% endif %}> Wöchentlich (Mo)</label>
+        <label><input type="radio" name="email_mode" value="off"
+               {% if notify_pref.email_mode == 'off' %}checked{% endif %}> Aus</label>
+      </fieldset>
+      <label><input type="checkbox" name="immediate"
+             {% if notify_pref.immediate %}checked{% endif %}>
+             Sofort-Mail bei starkem Treffer (Score ≥ 90)</label>
+      <label><input type="checkbox" name="inbox"
+             {% if notify_pref.inbox %}checked{% endif %}>
+             In-App-Benachrichtigungen (Inbox)</label>
       <button type="submit" class="btn btn-secondary">Speichern</button>
     </form>
   </section>

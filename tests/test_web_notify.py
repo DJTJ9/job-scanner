@@ -61,33 +61,33 @@ def test_settings_shows_benachrichtigung_tab(member):
     assert 'action="/einstellungen/notify"' in body
 
 
-def test_settings_notify_checkbox_reflects_pref(member):
+def test_settings_notify_tab_shows_email_mode_radios(member):
     c, uid = member
     storage.create_profile("P", {}, user_id=uid)
-    storage.set_notify_pref(uid, False)
     body = c.get("/einstellungen").text
-    # ausgeschaltet: kein checked auf der Notify-Checkbox
-    assert 'name="email_on"' in body
+    assert 'name="email_mode"' in body
+    assert 'value="daily"' in body and 'value="weekly"' in body and 'value="off"' in body
+    assert 'name="immediate"' in body and 'name="inbox"' in body
 
 
-def test_notify_post_persists_opt_out(member):
+def test_notify_post_persists_new_shape(member):
     c, uid = member
     storage.create_profile("P", {}, user_id=uid)
-    resp = c.post("/einstellungen/notify", data={}, follow_redirects=False)
-    assert resp.status_code == 303
-    prof = storage.list_profiles(user_id=uid)[0]
-    assert storage.get_notify_pref(prof["data"]) == {"email": False}
-
-
-def test_notify_post_persists_opt_in(member):
-    c, uid = member
-    storage.create_profile("P", {}, user_id=uid)
-    storage.set_notify_pref(uid, False)
-    resp = c.post("/einstellungen/notify", data={"email_on": "on"},
+    resp = c.post("/einstellungen/notify",
+                  data={"email_mode": "weekly", "inbox": "on"},  # immediate ungesetzt
                   follow_redirects=False)
     assert resp.status_code == 303
     prof = storage.list_profiles(user_id=uid)[0]
-    assert storage.get_notify_pref(prof["data"]) == {"email": True}
+    assert storage.get_notify_pref(prof["data"]) == {
+        "email_mode": "weekly", "immediate": False, "inbox": True}
+
+
+def test_notify_post_defaults_invalid_email_mode_to_daily(member):
+    c, uid = member
+    storage.create_profile("P", {}, user_id=uid)
+    c.post("/einstellungen/notify", data={"email_mode": "bogus"}, follow_redirects=False)
+    prof = storage.list_profiles(user_id=uid)[0]
+    assert storage.get_notify_pref(prof["data"])["email_mode"] == "daily"
 
 
 def test_inbox_lists_unread_match_with_marker(member):

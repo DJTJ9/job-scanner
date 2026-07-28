@@ -432,13 +432,17 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return RedirectResponse("/einstellungen?tab=token", status_code=303)
 
     @app.post("/einstellungen/notify")
-    def notify_submit(request: Request, email_on: str = Form(None),
+    def notify_submit(request: Request, email_mode: str = Form("daily"),
+                      immediate: str = Form(None), inbox: str = Form(None),
                       csrf_token: str = Form("")):
         if (redirect := require_user(request)) is not None:
             return redirect
         if not csrf.verify(request, csrf_token):
             return JSONResponse({"error": "csrf"}, status_code=403)
-        storage.set_notify_pref(request.session["user_id"], email_on is not None)
+        pref = {"email_mode": email_mode if email_mode in ("daily", "weekly", "off") else "daily",
+                "immediate": immediate is not None,
+                "inbox": inbox is not None}
+        storage.set_notify_pref(request.session["user_id"], pref)
         return RedirectResponse("/einstellungen?tab=notify", status_code=303)
 
     @app.get("/register")
