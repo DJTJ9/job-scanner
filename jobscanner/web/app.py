@@ -650,24 +650,31 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         for p in portale:
             p["can_manage"] = _may_manage_portal(request, p)
         return templates.TemplateResponse(request, "portale.html", {
-            "portale": portale, "result": None})
+            "portale": portale, "is_owner": request.session.get("role") == "owner",
+            "result": None})
 
     @app.post("/portale/pruefen")
     def portale_pruefen(request: Request, url: str = Form(...), typ: str = Form(...),
                         search_url_template: str = Form(""), detail_url_pattern: str = Form(""),
-                        csrf_token: str = Form("")):
+                        is_global: bool = Form(False), csrf_token: str = Form("")):
         if (redirect := require_user(request)) is not None:
             return redirect
         if not csrf.verify(request, csrf_token):
             return _csrf_error_page(request)
+        allow_global = is_global and request.session.get("role") == "owner"
         pid = storage.create_custom_portal(
             url, typ, request.session["user_id"],
             search_url_template=search_url_template or None,
-            detail_url_pattern=detail_url_pattern or None)
+            detail_url_pattern=detail_url_pattern or None,
+            is_global=allow_global)
         result = precheck.precheck_portal(url)
         storage.save_check_result(pid, result)
+        portale = storage.list_custom_portals()
+        for p in portale:
+            p["can_manage"] = _may_manage_portal(request, p)
         return templates.TemplateResponse(request, "portale.html", {
-            "portale": storage.list_custom_portals(),
+            "portale": portale,
+            "is_owner": request.session.get("role") == "owner",
             "result": storage.get_custom_portal(pid)})
 
     @app.post("/portale/aktivieren/{portal_id}")

@@ -184,3 +184,35 @@ def test_portale_list_shows_reaktivieren_for_inactive(app):
     resp = c.get("/portale")
     assert f"/portale/aktivieren/{pid}" in resp.text
     assert "Reaktivieren" in resp.text
+
+
+def test_owner_creates_global_portal(app):
+    c = CSRFTestClient(app); _login(c)  # owner
+    with patch("jobscanner.web.app.precheck.precheck_portal",
+              return_value={"compatible": True}):
+        c.post("/portale/pruefen",
+               data={"url": "https://studio.de/jobs", "typ": "career_page",
+                     "is_global": "on"})
+    assert any(p["is_global"] for p in storage.list_custom_portals())
+
+
+def test_member_cannot_create_global_portal(app):
+    member = _member(app)
+    with patch("jobscanner.web.app.precheck.precheck_portal",
+              return_value={"compatible": True}):
+        member.post("/portale/pruefen",
+                    data={"url": "https://studio.de/jobs", "typ": "career_page",
+                          "is_global": "on"})
+    assert not any(p["is_global"] for p in storage.list_custom_portals())
+
+
+def test_global_group_labeled_on_portale_page(app):
+    owner_uid = storage.get_user_by_email("owner@test.de")["id"]
+    storage.create_custom_portal("https://empfohlen.de", "career_page",
+                                 owner_uid, is_global=True)
+    member = _member(app)
+    resp = member.get("/portale")
+    assert "Empfohlene Firmen" in resp.text
+    assert "empfohlen.de" in resp.text
+    # Nicht-Owner sieht keinen Lösch-Button auf dem globalen Eintrag:
+    assert "/portale/loeschen/" not in resp.text

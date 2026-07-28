@@ -11,6 +11,9 @@
   <label>Such-URL-Vorlage (nur bei Portal) <span class="hinweis">z.B. https://bar.de/jobs?q={query}</span>
     <input type="text" name="search_url_template"></label>
   <label>Detail-URL-Muster (Regex, nur bei Portal)<input type="text" name="detail_url_pattern"></label>
+  {% if is_owner %}
+  <label><input type="checkbox" name="is_global"> Als empfohlene Firma für alle Member (global)</label>
+  {% endif %}
   <button type="submit" class="btn-primary">Lot auswerfen</button>
 </form>
 
@@ -37,32 +40,29 @@
   {% endif %}
 {% endif %}
 
+{% set globale = portale | selectattr("is_global") | list %}
+{% set eigene = portale | rejectattr("is_global") | list %}
+
+{% if globale %}
+<h2>Empfohlene Firmen</h2>
+<table class="portale-table">
+  <tr><th>URL</th><th>Typ</th><th>Status</th><th>Aktion</th></tr>
+  {% for p in globale %}
+  <tr>
+    <td>{{ p.url }}</td><td>{{ p.typ }}</td><td>{{ p.status }}</td>
+    <td>{% if p.can_manage %}{% include "_portale_aktionen.html" %}{% else %}<span class="hinweis">empfohlen</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
 <h2>Portale</h2>
 <table class="portale-table">
   <tr><th>URL</th><th>Typ</th><th>Status</th><th>Aktion</th></tr>
-  {% for p in portale %}
+  {% for p in eigene %}
   <tr>
     <td>{{ p.url }}</td><td>{{ p.typ }}</td><td>{{ p.status }}</td>
-    <td>
-      {% if p.can_manage %}
-        {% if p.status == "active" %}
-        <form method="post" action="/portale/deaktivieren/{{ p.id }}" style="display:inline">
-          {% include "_csrf_field.html" %}
-          <button type="submit" class="btn-secondary">Deaktivieren</button>
-        </form>
-        {% elif p.status == "inactive" %}
-        <form method="post" action="/portale/aktivieren/{{ p.id }}" style="display:inline">
-          {% include "_csrf_field.html" %}
-          <button type="submit" class="btn-primary">Reaktivieren</button>
-        </form>
-        {% endif %}
-        <form method="post" action="/portale/loeschen/{{ p.id }}" style="display:inline"
-              onsubmit="return confirm('Portal für alle löschen?')">
-          {% include "_csrf_field.html" %}
-          <button type="submit" class="btn-secondary">Löschen</button>
-        </form>
-      {% endif %}
-    </td>
+    <td>{% if p.can_manage %}{% include "_portale_aktionen.html" %}{% endif %}</td>
   </tr>
   {% endfor %}
 </table>
