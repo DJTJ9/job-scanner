@@ -1,6 +1,6 @@
 """Einmaliges Cleanup: Indeed-Dup-Merge über kanonisierte jk=-URLs.
 
-Die LLM-Scoring-Backfill-Funktion wurde mit dem Groq-Bottleneck-Umbau entfernt
+Die LLM-Scoring-Backfill-Funktion wurde beim Ingestion-Umbau entfernt
 (2026-07-12) — Scoring läuft jetzt ausschließlich über den Agent-Batch-Lauf
 (llm_batch.py). Ein Backfill-Äquivalent für den neuen Ablauf ist ein Folge-Ticket.
 

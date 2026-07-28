@@ -1,7 +1,7 @@
 """Matching & Scoring: Regel-Filter (No-Gos) + gewichtete Kriterien-Formel.
 Die eigentliche LLM-Bewertung passiert jetzt im Claude-Agent-Batch-Lauf
 (llm_batch.py) — dieses Modul liefert nur noch die deterministischen,
-Groq-freien Bausteine (Veto-Regex, Gewichtungsformel, Kategorie-Schwellen)."""
+LLM-freien Bausteine (Veto-Regex, Gewichtungsformel, Kategorie-Schwellen)."""
 from __future__ import annotations
 
 import re

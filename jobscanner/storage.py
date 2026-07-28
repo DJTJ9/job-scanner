@@ -548,7 +548,7 @@ def _raw_fingerprint(url: str) -> str:
 def insert_raw_job(url: str, portal: str, raw_text: str, today: str,
                    role: str = "", is_neighbor: bool = False,
                    via: str | None = None) -> str:
-    """Speichert einen unextrahierten Job aus der Discover-Phase (kein Groq mehr im Pfad).
+    """Speichert einen unextrahierten Job aus der Discover-Phase (keine LLM-Extraktion im Pfad).
     via markiert die Einlieferquelle (z.B. 'member:<user_id>' beim MCP-push_jobs)."""
     conn = _require_conn()
     fp = _raw_fingerprint(url)

@@ -1,7 +1,7 @@
 # jobscanner/claude_llm.py
 """Synchroner `claude -p`-Helper: System+Prompt → geparste JSON-Antwort (dict|list).
 
-Ersetzt den Groq-Client an den zwei verbliebenen LLM-Call-Sites. Ruft das
+Bedient die zwei verbliebenen LLM-Call-Sites. Ruft das
 claude-Binary per Absolutpfad (nvm-bin liegt nicht auf dem discover.service-PATH),
 mit Haiku für Tempo/Kosten und ohne Tools (reine Text-Generierung). Wirft bei
 Timeout (subprocess.TimeoutExpired) oder Parse-Fehler (ValueError) — die Aufrufer

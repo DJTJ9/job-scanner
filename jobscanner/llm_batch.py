@@ -1,5 +1,5 @@
 """CLI für den geplanten Claude-Agent-Batch-Lauf: liest pending Jobs, schreibt
-Extraktion + Scoring zurück. Ersetzt Groq im Ingestion-Pfad — der 'LLM-Call' ist jetzt
+Extraktion + Scoring zurück. Der 'LLM-Call' im Ingestion-Pfad ist jetzt
 der Agent selbst (claude -p headless), der dieses CLI aus seinem eigenen Prompt heraus
 aufruft (siehe deploy/scoring_agent_prompt.txt)."""
 from __future__ import annotations

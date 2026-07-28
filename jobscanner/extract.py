@@ -1,5 +1,5 @@
 """Playwright-Render + Rohtext-Normalisierung — Extraktion selbst passiert jetzt im
-Claude-Agent-Batch-Lauf (llm_batch.py), kein Groq-Call mehr in diesem Modul."""
+Claude-Agent-Batch-Lauf (llm_batch.py), keine LLM-Extraktion mehr in diesem Modul."""
 from __future__ import annotations
 
 from bs4 import BeautifulSoup
