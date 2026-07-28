@@ -5,7 +5,8 @@ import requests
 
 from jobscanner.search import (PortalSearchProvider, ArbeitsagenturSearchProvider,
                                discover_urls, provider_for, classify_location,
-                               build_search_url)
+                               build_search_url, is_german_location,
+                               AdzunaSearchProvider, JoobleSearchProvider)
 from jobscanner import browser
 
 HTML = """
@@ -282,3 +283,54 @@ class TestClassifyLocation:
 
     def test_foreign_country_is_ausland(self):
         assert classify_location("London, United Kingdom") is True
+
+
+def test_is_german_location_accepts_de():
+    assert is_german_location("Berlin") is True
+    assert is_german_location("50667 Köln") is True
+    assert is_german_location("Deutschland") is True
+    assert is_german_location("Munich, Germany") is True
+
+
+def test_is_german_location_rejects_foreign_and_remote():
+    assert is_german_location("Remote") is False
+    assert is_german_location("") is False
+    assert is_german_location("London, UK") is False
+    assert is_german_location("New York") is False
+
+
+def _adzuna_result(loc):
+    return {"redirect_url": f"https://adzuna.de/land/ad/{loc}", "title": "Dev",
+            "company": {"display_name": "ACME"},
+            "location": {"display_name": loc}, "description": "..."}
+
+
+def test_adzuna_drops_non_german_results():
+    provider = AdzunaSearchProvider()
+    resp = MagicMock()
+    resp.json.return_value = {"results": [_adzuna_result("Berlin"),
+                                          _adzuna_result("Remote"),
+                                          _adzuna_result("London, UK")]}
+    resp.raise_for_status.return_value = None
+    with patch("jobscanner.search.os.environ.get", side_effect=lambda k, d="": "x"), \
+         patch("jobscanner.search.requests.get", return_value=resp):
+        urls = provider.search("unity")
+    assert urls == ["https://adzuna.de/land/ad/Berlin"]
+
+
+def _jooble_job(loc):
+    return {"link": f"https://jooble.org/desc/{loc}", "title": "Dev",
+            "company": "ACME", "location": loc, "snippet": "..."}
+
+
+def test_jooble_drops_non_german_results():
+    provider = JoobleSearchProvider()
+    resp = MagicMock()
+    resp.json.return_value = {"jobs": [_jooble_job("Hamburg"),
+                                       _jooble_job("Remote"),
+                                       _jooble_job("Paris, France")]}
+    resp.raise_for_status.return_value = None
+    with patch("jobscanner.search.os.environ.get", side_effect=lambda k, d="": "x"), \
+         patch("jobscanner.search.requests.post", return_value=resp):
+        urls = provider.search("unity")
+    assert urls == ["https://jooble.org/desc/Hamburg"]
