@@ -12,7 +12,7 @@
       <form class="feedback-form" method="post" action="/dashboard/{{ profile.id }}/favorite/{{ e.job.fingerprint }}" data-fav-form>
         <button type="submit" class="fav-btn {{ 'fav-active' if e.job.fingerprint in favorites }}" data-fav-btn aria-label="Favorit">{{ '★' if e.job.fingerprint in favorites else '☆' }}</button>
       </form>
-      <div class="job-meta">{{ e.job.location }} · {{ e.job.remote_flag }} · {{ e.job.first_seen }}</div>
+      <div class="job-meta">{{ e.job.location }} · {{ e.job.remote_flag }} · {{ e.job.first_seen | relzeit_datum }}</div>
       <p class="feedback-badge {{ 'feedback-badge-up' if vote == 'up' else 'feedback-badge-down' if vote == 'down' else 'feedback-badge-hidden' }}" data-feedback-badge>
         {% if vote == 'up' %}✓ bewertet 👍{% elif vote == 'down' %}✓ bewertet 👎{% endif %}
       </p>
