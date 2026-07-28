@@ -935,7 +935,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return resp
         form = await request.form()
         if not csrf.verify(request, form.get("csrf_token")):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         existing = storage.list_criteria(profile_id)
         updated = [
             {"key": c["key"], "label": c["label"], "sort": c["sort"],
@@ -1046,7 +1046,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (resp := require_owner(request)) is not None:
             return resp
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         storage.mark_email_verified(user_id)
         return RedirectResponse("/admin/members", status_code=303)
 
@@ -1055,7 +1055,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (resp := require_owner(request)) is not None:
             return resp
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         user = storage.get_user(user_id)
         if user is not None:
             token = storage.ensure_verify_token(user_id)
@@ -1071,7 +1071,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if (resp := require_owner(request)) is not None:
             return resp
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         user = storage.get_user(user_id)
         if user is not None:
             token = storage.create_reset_token(user["email"])
@@ -1101,7 +1101,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if resp is not None:
             return resp
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         analysis_id = storage.create_analysis(profile_id)
         _launch_feedback_agent("analyze", analysis_id)
         return RedirectResponse("/lernen", status_code=303)
@@ -1146,7 +1146,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if resp is not None:
             return resp
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         analysis = storage.get_latest_analysis(profile_id)
         if analysis is not None:
             storage.set_analysis_status(analysis["id"], "synthesizing")
@@ -1164,7 +1164,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if resp is not None:
             return resp
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         storage.confirm_insight(insight_id)
         return RedirectResponse("/lernen", status_code=303)
 
@@ -1179,7 +1179,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if resp is not None:
             return resp
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         storage.reject_insight(insight_id)
         return RedirectResponse("/lernen", status_code=303)
 
@@ -1193,7 +1193,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if resp is not None:
             return resp
         if not csrf.verify(request, csrf_token):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         # Gewichts-Insights sind schon in criteria → deterministischer Rescore, sofort.
         changed = storage.rescore_profile(profile_id)
         # Freitext-Präferenzen → bestehende Jobs für LLM-Rescore enqueuen + Scoring-Agent starten.
@@ -1323,7 +1323,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return RedirectResponse("/wizard/new", status_code=303)
         form = await request.form()
         if not csrf.verify(request, form.get("csrf_token")):
-            return JSONResponse({"error": "csrf"}, status_code=403)
+            return _csrf_error_page(request)
         wizard = _wizard_state(request)
         data = wizard["data"]
         goto = form.get("goto")

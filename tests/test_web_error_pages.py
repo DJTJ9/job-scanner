@@ -83,6 +83,52 @@ def test_csrf_fail_ajax_endpoint_stays_json(app):
     assert "text/html" not in resp.headers.get("content-type", "")
 
 
+def _owner_cookies(app):
+    login = CSRFTestClient(app)
+    resp = login.post(
+        "/login",
+        data={"email": "owner@test.de", "password": "geheim123"},
+        follow_redirects=False,
+    )
+    assert resp.status_code in (200, 303)
+    raw = TestClient(app)
+    raw.cookies.update(login.cookies)
+    return raw
+
+
+def test_csrf_fail_criteria_form_renders_html(app):
+    raw = _owner_cookies(app)
+    pid = storage.get_profile_by_name("Tjark")["id"]
+    resp = raw.post(f"/dashboard/{pid}/criteria", data={}, follow_redirects=False)
+    assert resp.status_code == 403
+    assert "text/html" in resp.headers["content-type"]
+    assert "Sicherheits-Token" in resp.text
+
+
+def test_csrf_fail_admin_member_form_renders_html(app):
+    raw = _owner_cookies(app)
+    resp = raw.post("/admin/members/1/verify", data={}, follow_redirects=False)
+    assert resp.status_code == 403
+    assert "text/html" in resp.headers["content-type"]
+    assert "Sicherheits-Token" in resp.text
+
+
+def test_csrf_fail_wizard_step_renders_html(app):
+    raw = _owner_cookies(app)
+    resp = raw.post("/wizard/basis", data={"name": "X"}, follow_redirects=False)
+    assert resp.status_code == 403
+    assert "text/html" in resp.headers["content-type"]
+    assert "Sicherheits-Token" in resp.text
+
+
+def test_csrf_fail_settings_save_stays_json(app):
+    # data-confirm-save-fetch-Form: bleibt per Spec-Ausnahme JSON
+    raw = _owner_cookies(app)
+    resp = raw.post("/einstellungen/notify", data={}, follow_redirects=False)
+    assert resp.status_code == 403
+    assert "text/html" not in resp.headers.get("content-type", "")
+
+
 def test_csrf_fail_authed_fullpage_stays_html(app):
     login = CSRFTestClient(app)
     resp = login.post(
