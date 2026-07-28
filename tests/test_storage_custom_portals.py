@@ -165,3 +165,15 @@ def test_migration_second_start_is_noop(tmp_path):
         assert storage.list_custom_portals() == []
     finally:
         storage.close()
+
+
+def test_is_global_defaults_false(db):
+    pid = storage.create_custom_portal("https://foo.de/karriere", "career_page", db)
+    assert storage.get_custom_portal(pid)["is_global"] is False
+
+
+def test_create_with_is_global_true_roundtrips(db):
+    pid = storage.create_custom_portal(
+        "https://studio.de/jobs", "career_page", db, is_global=True)
+    assert storage.get_custom_portal(pid)["is_global"] is True
+    assert any(p["is_global"] for p in storage.list_custom_portals())

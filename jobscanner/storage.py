@@ -231,6 +231,9 @@ def init_db(path: str | Path) -> None:
             DROP TABLE custom_portals;
             ALTER TABLE custom_portals_new RENAME TO custom_portals;
         """)
+    cp_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(custom_portals)")}
+    if "is_global" not in cp_cols:
+        _conn.execute("ALTER TABLE custom_portals ADD COLUMN is_global INTEGER DEFAULT 0")
     _conn.executescript(_SCHEMA_MEMBER_RESCORE)
     prof_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(profiles)")}
     if "user_id" not in prof_cols:
@@ -1868,6 +1871,7 @@ def _row_to_custom_portal(row: sqlite3.Row) -> dict:
         "submitted_by": row["submitted_by"],
         "status": row["status"],
         "firecrawl_needed": bool(row["firecrawl_needed"]),
+        "is_global": bool(row["is_global"]),
         "check_ergebnis": json.loads(row["check_ergebnis_json"]) if row["check_ergebnis_json"] else None,
         "created_at": row["created_at"],
         "activated_at": row["activated_at"],
@@ -1877,13 +1881,16 @@ def _row_to_custom_portal(row: sqlite3.Row) -> dict:
 @_retry_on_locked
 def create_custom_portal(url: str, typ: str, submitted_by: int,
                          search_url_template: str | None = None,
-                         detail_url_pattern: str | None = None) -> int:
+                         detail_url_pattern: str | None = None,
+                         is_global: bool = False) -> int:
     conn = _require_conn()
     cur = conn.execute(
         """INSERT INTO custom_portals
-           (url, typ, search_url_template, detail_url_pattern, submitted_by, created_at)
-           VALUES (?, ?, ?, ?, ?, datetime('now'))""",
-        (url, typ, search_url_template, detail_url_pattern, submitted_by))
+           (url, typ, search_url_template, detail_url_pattern, submitted_by,
+            created_at, is_global)
+           VALUES (?, ?, ?, ?, ?, datetime('now'), ?)""",
+        (url, typ, search_url_template, detail_url_pattern, submitted_by,
+         int(is_global)))
     conn.commit()
     return cur.lastrowid
 
