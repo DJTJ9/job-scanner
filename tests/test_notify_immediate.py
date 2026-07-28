@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from jobscanner import notify_immediate, storage
+from jobscanner import notify, notify_immediate, storage
 from jobscanner.models import Job
 
 
@@ -55,3 +55,26 @@ def test_immediate_threshold_from_env(monkeypatch):
     with patch("jobscanner.notify_immediate.mailer.send_immediate_match") as send:
         notify_immediate.run_immediate_notifications()
     assert send.call_count == 0
+
+
+def test_no_double_mail_immediate_then_digest():
+    """Fertig-Kriterium: eine Score>=90-Match erzeugt über Sofort- UND Digest-Pfad
+    zusammen genau EINE Mail (geteilter notified_at-Guard)."""
+    uid, pid, fp = _member("m@test.de", "Strong", 92)  # immediate=True, email_mode=daily
+    with patch("jobscanner.notify_immediate.mailer.send_immediate_match") as imm:
+        notify_immediate.run_immediate_notifications()
+    assert imm.call_count == 1
+    with patch("jobscanner.notify.mailer.send_match_digest") as dig:
+        notify.run_notifications()
+    assert dig.call_count == 0  # bereits per notified_at gemarkt → Digest überspringt
+
+
+def test_digest_only_when_immediate_off_for_strong_match():
+    """immediate=False → Sofort-Pfad mailt nicht, Digest übernimmt die Match (1 Mail)."""
+    uid, pid, fp = _member("m@test.de", "Strong", 92, immediate=False)
+    with patch("jobscanner.notify_immediate.mailer.send_immediate_match") as imm:
+        notify_immediate.run_immediate_notifications()
+    assert imm.call_count == 0
+    with patch("jobscanner.notify.mailer.send_match_digest") as dig:
+        notify.run_notifications()
+    assert dig.call_count == 1
