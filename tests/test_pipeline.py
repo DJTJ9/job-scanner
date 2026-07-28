@@ -170,11 +170,12 @@ def test_active_career_page_custom_portal_is_fetched(env):
     pid = storage.create_custom_portal("https://foo.test/karriere", "career_page", uid)
     storage.activate_custom_portal(pid)
     storage.close()
-    # _run() patcht extract.fetch_raw_text intern (side_effect via scrape_map) und
-    # überschreibt damit jedes äußere fetch-Patch — daher die Career-Page-URL über
-    # die scrape_map liefern statt separat zu patchen (Harness-Konvention).
-    with patch("jobscanner.search.discover_urls", return_value=[]):
-        report = _run(env, {"https://foo.test/karriere": "Karriereseite Rohtext"})
+    # Neu: Career-Page → Link-Following → Detail-Rohtext (statt Career-Page-URL selbst).
+    detail = "https://foo.test/jobs/unity-dev"
+    with patch("jobscanner.search.discover_urls", return_value=[]), \
+         patch("jobscanner.pipeline.career_pages.discover_job_urls",
+               return_value=[detail]):
+        report = _run(env, {detail: "Karriereseite Rohtext"})
     storage.init_db(env)
     pending = storage.list_pending_extraction()
     assert any(p["raw_text"] == "Karriereseite Rohtext" for p in pending)
@@ -292,3 +293,42 @@ class TestIndeedThrottle:
                                   today="2026-07-10")
         assert report["new"] == 1
         storage.close()
+
+
+def test_career_page_yields_one_row_per_detail_url(env):
+    cp = {"id": 7, "typ": "career_page", "url": "https://studio.de/karriere",
+          "detail_url_pattern": None, "search_url_template": None}
+    detail_a = "https://studio.de/jobs/unity-dev"
+    detail_b = "https://studio.de/jobs/tech-artist"
+    with patch("jobscanner.pipeline.storage.list_custom_portals", return_value=[cp]), \
+         patch("jobscanner.pipeline.career_pages.discover_job_urls",
+               return_value=[detail_a, detail_b]), \
+         patch("jobscanner.search.discover_urls", return_value=[]), \
+         patch("jobscanner.pipeline.extract.fetch_raw_text",
+               side_effect=lambda u, **kw: f"Rohtext {u}"):
+        report = pipeline.run(provider=FakeProvider(), db_path=env, today="2026-07-10")
+    assert report["new"] == 2
+    storage.init_db(env)
+    # Zwei getrennte Raw-Zeilen mit je eigenem Fingerprint (Detail-URL):
+    import sqlite3
+    conn = sqlite3.connect(env)
+    urls = {r[0] for r in conn.execute(
+        "SELECT json_extract(value,'$.url') FROM jobs, "
+        "json_each(jobs.sources_json)")}
+    conn.close()
+    assert detail_a in urls and detail_b in urls
+
+
+def test_career_page_skips_known_detail_url(env):
+    cp = {"id": 7, "typ": "career_page", "url": "https://studio.de/karriere",
+          "detail_url_pattern": None, "search_url_template": None}
+    detail = "https://studio.de/jobs/unity-dev"
+    # detail bereits als bekannt (z.B. von StepStone) → kein zweiter Insert.
+    with patch("jobscanner.pipeline.storage.list_custom_portals", return_value=[cp]), \
+         patch("jobscanner.pipeline.career_pages.discover_job_urls", return_value=[detail]), \
+         patch("jobscanner.pipeline.dedup.known_source_urls", return_value={detail: "fp0"}), \
+         patch("jobscanner.search.discover_urls", return_value=[]), \
+         patch("jobscanner.pipeline.extract.fetch_raw_text",
+               side_effect=lambda u, **kw: f"Rohtext {u}"):
+        report = pipeline.run(provider=FakeProvider(), db_path=env, today="2026-07-10")
+    assert report["new"] == 0

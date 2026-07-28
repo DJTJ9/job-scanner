@@ -15,7 +15,8 @@ import json
 import subprocess
 from pathlib import Path
 
-from jobscanner import browser, config, dedup, extract, market, neighbors, search, storage
+from jobscanner import (browser, career_pages, config, dedup, extract, market,
+                        neighbors, search, storage)
 from jobscanner.scan_config import SCAN_PRESETS
 from jobscanner.search import SearchProvider
 
@@ -143,16 +144,17 @@ def run(provider: SearchProvider | None = None, limit_per_query: int | None = No
     for cp in custom_active:
         if cp["typ"] != "career_page":
             continue
-        url = dedup.canonicalize_url(cp["url"], f"custom:{cp['id']}")
-        if url in known:
-            continue
-        raw_text = extract.fetch_raw_text(url)
-        if not raw_text:
-            report["errors"] += 1
-            continue
-        fp = storage.insert_raw_job(url, f"custom:{cp['id']}", raw_text, today)
-        known[url] = fp
-        report["new"] += 1
+        for detail_url in career_pages.discover_job_urls(cp["url"]):
+            url = dedup.canonicalize_url(detail_url, f"custom:{cp['id']}")
+            if url in known:
+                continue
+            raw_text = extract.fetch_raw_text(url)
+            if not raw_text:
+                report["errors"] += 1
+                continue
+            fp = storage.insert_raw_job(url, f"custom:{cp['id']}", raw_text, today)
+            known[url] = fp
+            report["new"] += 1
     fc_after = browser.credits_remaining()
     real = (fc_before - fc_after
             if fc_before is not None and fc_after is not None else None)
