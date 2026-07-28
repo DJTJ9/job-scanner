@@ -59,19 +59,39 @@ def test_mark_notified_empty_list_is_noop():
     assert len(storage.list_unnotified_top_matches(pid)) == 1
 
 
-def test_get_notify_pref_default_email_true():
-    assert storage.get_notify_pref({}) == {"email": True}
+def test_get_notify_pref_default_new_shape():
+    assert storage.get_notify_pref({}) == {
+        "email_mode": "daily", "immediate": True, "inbox": True}
 
 
-def test_get_notify_pref_reads_stored_value():
-    assert storage.get_notify_pref({"notifications": {"email": False}}) == {"email": False}
+def test_get_notify_pref_reads_new_shape():
+    stored = {"notifications": {"email_mode": "weekly", "immediate": False, "inbox": True}}
+    assert storage.get_notify_pref(stored) == {
+        "email_mode": "weekly", "immediate": False, "inbox": True}
 
 
-def test_set_notify_pref_persists_to_all_user_profiles():
+def test_get_notify_pref_lazy_migrates_legacy_true():
+    assert storage.get_notify_pref({"notifications": {"email": True}}) == {
+        "email_mode": "daily", "immediate": True, "inbox": True}
+
+
+def test_get_notify_pref_lazy_migrates_legacy_false():
+    pref = storage.get_notify_pref({"notifications": {"email": False}})
+    assert pref["email_mode"] == "off"
+    assert "email" not in pref
+
+
+def test_get_notify_pref_fills_missing_keys():
+    pref = storage.get_notify_pref({"notifications": {"email_mode": "weekly"}})
+    assert pref == {"email_mode": "weekly", "immediate": True, "inbox": True}
+
+
+def test_set_notify_pref_persists_new_shape_to_all_profiles():
     uid = storage.create_user("m@test.de", "pw", role="member")
     storage.create_profile("A", {}, user_id=uid)
     storage.create_profile("B", {}, user_id=uid)
-    count = storage.set_notify_pref(uid, False)
+    pref = {"email_mode": "weekly", "immediate": False, "inbox": True}
+    count = storage.set_notify_pref(uid, pref)
     assert count == 2
     for p in storage.list_profiles(user_id=uid):
-        assert storage.get_notify_pref(p["data"]) == {"email": False}
+        assert storage.get_notify_pref(p["data"]) == pref

@@ -1398,23 +1398,27 @@ def set_spar_modus(user_id: int, max_jobs: int | None, neighbor_roles: bool,
     return count
 
 
-NOTIFY_PREF_DEFAULT = {"email": True}
+NOTIFY_PREF_DEFAULT = {"email_mode": "daily", "immediate": True, "inbox": True}
 
 
 def get_notify_pref(profile_data: dict) -> dict:
-    """Email-Benachrichtigung an/aus; default True (Slot data_json.notifications)."""
-    return {**NOTIFY_PREF_DEFAULT, **(profile_data.get("notifications") or {})}
+    """Notify-Präferenz (Slot data_json.notifications). Lazy-Migration vom Legacy-
+    Shape {"email": bool} aufs neue email_mode/immediate/inbox-Shape."""
+    raw = dict(profile_data.get("notifications") or {})
+    if "email" in raw and "email_mode" not in raw:  # Legacy → neu
+        raw = {"email_mode": "daily" if raw.get("email") else "off"}
+    return {**NOTIFY_PREF_DEFAULT, **raw}
 
 
 @_retry_on_locked
-def set_notify_pref(user_id: int, email_on: bool) -> int:
-    """Schreibt data_json.notifications in ALLE Profile des Users (Einstellung pro User,
+def set_notify_pref(user_id: int, pref: dict) -> int:
+    """Schreibt das volle Pref-Shape in ALLE Profile des Users (Einstellung pro User,
     Persistenz pro Profil). Gibt die Anzahl aktualisierter Profile zurück."""
     conn = _require_conn()
     count = 0
     for p in list_profiles(user_id=user_id):
         data = p["data"]
-        data["notifications"] = {"email": bool(email_on)}
+        data["notifications"] = dict(pref)
         conn.execute("UPDATE profiles SET data_json = ? WHERE id = ?",
                      (json.dumps(data, ensure_ascii=False), p["id"]))
         count += 1
