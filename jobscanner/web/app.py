@@ -52,6 +52,23 @@ def client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def relzeit_datum(value: str | None) -> str:
+    """Relatives Tages-Alter aus ISO-Datum YYYY-MM-DD: 'vor 3 Tagen (25.07.)'."""
+    if not value:
+        return ""
+    d = date.fromisoformat(value)
+    today = date.today()
+    if d > today:  # Zukunft (sollte in Produktion nicht vorkommen) auf heute klemmen
+        d = today
+    delta = (today - d).days
+    stamp = f"{d:%d.%m.}"
+    if delta == 0:
+        return f"heute ({stamp})"
+    if delta == 1:
+        return f"gestern ({stamp})"
+    return f"vor {delta} Tagen ({stamp})"
+
+
 def create_app(db_path: str | Path | None = None) -> FastAPI:
     settings = config.load_web_settings()
     storage.init_db(db_path or _DEFAULT_DB)
@@ -159,6 +176,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return f"vor {delta // 3600} Std."
         return f"vor {delta // 86400} Tg."
     templates.env.filters["relzeit"] = _relzeit
+    templates.env.filters["relzeit_datum"] = relzeit_datum
 
     def _may_manage_portal(request: Request, portal: dict) -> bool:
         """True wenn der eingeloggte User Ersteller des Portals ODER Site-Admin ist."""
