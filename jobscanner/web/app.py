@@ -281,11 +281,11 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return {"has_claude_kit": bool(user.get("api_token_hash")), "spar_modus": spar,
                 "notify_pref": notify_pref,
                 "has_firecrawl_key": bool(storage.get_firecrawl_key_enc(user_id)),
-                "scan_portals": (storage.get_scan_portals(own[0]["data"]) if own
+                "scan_portals": (storage.get_scan_portals(own[0]["data"], user_id) if own
                                  else list(storage.SCAN_PORTALS_DEFAULT)),
                 "custom_scan_portals": [
                     {"id": cp["id"], "domain": urlparse(cp["url"]).netloc or cp["url"]}
-                    for cp in storage.list_scannable_custom_portals()]}
+                    for cp in storage.list_scannable_custom_portals(owner_id=user_id)]}
 
     @app.post("/account/passwort")
     def account_password_submit(

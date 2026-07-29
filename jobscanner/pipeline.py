@@ -51,13 +51,16 @@ def run(provider: SearchProvider | None = None, limit_per_query: int | None = No
     portals = [p for p in portals if not p.get("residential")]
     portals = [p for p in portals
                if not p.get("optional") or config.optional_source_enabled(p["name"])]
+    discover_owner = default_profile["user_id"]
     custom_active = storage.list_custom_portals(status="active")
     portals = portals + [
         {"name": f"custom:{cp['id']}", "site": cp["url"],
          "detail_url_pattern": cp["detail_url_pattern"],
          "search_type": "html",
          "search_url_template": cp["search_url_template"]}
-        for cp in custom_active if cp["typ"] == "portal"
+        for cp in custom_active
+        if cp["typ"] == "portal"
+        and (cp["is_global"] or cp["submitted_by"] == discover_owner)
     ]
     core_queries = config.load_queries()
     profile = default_profile["data"]  # Neighbors laufen weiter nur fürs Default-Profil

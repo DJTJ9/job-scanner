@@ -216,3 +216,18 @@ def test_global_group_labeled_on_portale_page(app):
     assert "empfohlen.de" in resp.text
     # Nicht-Owner sieht keinen Lösch-Button auf dem globalen Eintrag:
     assert "/portale/loeschen/" not in resp.text
+
+
+def test_scannable_portals_scoped_by_owner(app):
+    from jobscanner import storage
+    x = storage.create_user("x@test.de", "pw")
+    y = storage.create_user("y@test.de", "pw")
+    pid = storage.create_custom_portal(
+        "https://evil.example", "portal", x,
+        search_url_template="https://evil.example/s?q={query}",
+        detail_url_pattern="https://evil.example/job/", is_global=False)
+    storage.activate_custom_portal(pid)
+    # Non-global Portal von X darf NICHT im Scan-Feed von Y erscheinen ...
+    assert all(cp["id"] != pid for cp in storage.list_scannable_custom_portals(owner_id=y))
+    # ... aber im eigenen Feed von X schon.
+    assert any(cp["id"] == pid for cp in storage.list_scannable_custom_portals(owner_id=x))

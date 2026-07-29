@@ -184,10 +184,12 @@ def test_active_career_page_custom_portal_is_fetched(env):
 def test_active_portal_custom_portal_joins_search_loop(env):
     storage.init_db(env)
     uid = storage.create_user("m@test.de", "pw", role="member")
+    # is_global: Server-Discover scoped seit Finding 1 auf globale + eigene Portale
+    # des default_profile-Owners (hier user_id=None) — Mechanik-Test bleibt global.
     pid = storage.create_custom_portal(
         "https://bar.test/jobs", "portal", uid,
         search_url_template="https://bar.test/jobs?q={query}",
-        detail_url_pattern=r"bar\.test/jobs/\d+")
+        detail_url_pattern=r"bar\.test/jobs/\d+", is_global=True)
     storage.activate_custom_portal(pid)
     storage.close()
     url = "https://bar.test/jobs/123"

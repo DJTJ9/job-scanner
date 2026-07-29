@@ -1542,28 +1542,30 @@ def set_notify_pref(user_id: int, pref: dict) -> int:
 SCAN_PORTALS_DEFAULT = ["stepstone", "indeed"]
 
 
-def list_scannable_custom_portals() -> list[dict]:
+def list_scannable_custom_portals(owner_id: int | None = None) -> list[dict]:
     """Aktive Custom-Portale, die bob-scan bedienen kann: typ='portal' mit
     Such-Template + Detail-Pattern (career_pages haben keine Suchseite —
-    gleicher Filter wie pipeline.run für den Server-Discover)."""
+    gleicher Filter wie pipeline.run für den Server-Discover). owner_id gesetzt →
+    nur globale + selbst-eingereichte Portale (Cross-Tenant-Scoping, Finding 1)."""
     return [cp for cp in list_custom_portals(status="active")
             if cp["typ"] == "portal"
-            and cp["search_url_template"] and cp["detail_url_pattern"]]
+            and cp["search_url_template"] and cp["detail_url_pattern"]
+            and (owner_id is None or cp["is_global"] or cp["submitted_by"] == owner_id)]
 
 
-def _allowed_scan_portals() -> set[str]:
+def _allowed_scan_portals(owner_id: int | None = None) -> set[str]:
     return set(SCAN_PORTALS_DEFAULT) | {
-        f"custom:{cp['id']}" for cp in list_scannable_custom_portals()}
+        f"custom:{cp['id']}" for cp in list_scannable_custom_portals(owner_id=owner_id)}
 
 
-def get_scan_portals(profile_data: dict) -> list[str]:
+def get_scan_portals(profile_data: dict, owner_id: int | None = None) -> list[str]:
     """Portal-Auswahl für den residential Browser-Scan (bob-scan). Default = alle
     eingebauten; leere Liste = bewusstes Opt-out. Erlaubt sind die Default-Portale
     plus custom:<id> aktiver scannbarer Custom-Portale (braucht DB-Connection)."""
     portals = profile_data.get("scan_portals")
     if not isinstance(portals, list):
         return list(SCAN_PORTALS_DEFAULT)
-    allowed = _allowed_scan_portals()
+    allowed = _allowed_scan_portals(owner_id)
     return [p for p in portals if p in allowed]
 
 
@@ -1572,7 +1574,7 @@ def set_scan_portals(user_id: int, portals: list[str]) -> int:
     """Schreibt data_json.scan_portals in ALLE Profile des Users (Einstellung pro
     User, Persistenz pro Profil — Muster set_spar_modus). Gibt Anzahl Profile zurück."""
     conn = _require_conn()
-    clean = [p for p in portals if p in _allowed_scan_portals()]
+    clean = [p for p in portals if p in _allowed_scan_portals(user_id)]
     count = 0
     for p in list_profiles(user_id=user_id):
         data = p["data"]

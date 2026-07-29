@@ -77,14 +77,14 @@ def get_scan_config_data(user: dict) -> dict:
     queries = queries[:caps.max_queries]
 
     location = (spar["locations"] or [None])[0]
-    chosen = storage.get_scan_portals(data0)
+    chosen = storage.get_scan_portals(data0, user["id"])
     portals = [p for p in config.load_portals()
                if p.get("residential") and p["name"] in chosen]
     portals += [{"name": f"custom:{cp['id']}",
                  "engine": "playwright",
                  "search_url_template": cp["search_url_template"],
                  "detail_url_pattern": cp["detail_url_pattern"]}
-                for cp in storage.list_scannable_custom_portals()
+                for cp in storage.list_scannable_custom_portals(owner_id=user["id"])
                 if f"custom:{cp['id']}" in chosen]
     targets = [{"portal": p["name"],
                 "engine": p.get("engine", "playwright"),
