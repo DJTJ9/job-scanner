@@ -201,7 +201,7 @@ class TestFetch:
              patch("jobscanner.browser._firecrawl_scrape", return_value="<html>fc</html>") as fc:
             assert b.fetch("https://example.com/x", failover=True,
                            cost=b.FC_COST_SEARCH) == "<html>fc</html>"
-        fc.assert_called_once_with("https://example.com/x", cost=b.FC_COST_SEARCH)
+        fc.assert_called_once_with("https://example.com/x", cost=b.FC_COST_SEARCH, api_key=None)
 
 
 from unittest.mock import patch, MagicMock
@@ -262,3 +262,46 @@ class TestRenderSsrfGuard:
             guard(route, req)
         route.continue_.assert_called_once()
         route.abort.assert_not_called()
+
+
+from unittest.mock import patch, MagicMock
+
+
+class TestMemberKeyInjection:
+    def test_firecrawl_scrape_injects_member_key_into_env(self):
+        res = MagicMock(returncode=0, stdout="<html>fc</html>")
+        with patch("jobscanner.browser.subprocess.run", return_value=res) as run:
+            from jobscanner.browser import _firecrawl_scrape
+            _firecrawl_scrape("https://foo.de/x", api_key="member-key-9")
+        env = run.call_args.kwargs["env"]
+        assert env["FIRECRAWL_API_KEY"] == "member-key-9"
+
+    def test_firecrawl_scrape_no_key_passes_env_none(self):
+        res = MagicMock(returncode=0, stdout="<html>fc</html>")
+        with patch("jobscanner.browser.subprocess.run", return_value=res) as run:
+            from jobscanner.browser import _firecrawl_scrape
+            _firecrawl_scrape("https://foo.de/x")
+        assert run.call_args.kwargs.get("env") is None
+
+    def test_validate_key_true_on_parseable_credits(self):
+        res = MagicMock(returncode=0, stdout="Credits: 500 / 1000")
+        with patch("jobscanner.browser.subprocess.run", return_value=res):
+            from jobscanner.browser import validate_firecrawl_key
+            assert validate_firecrawl_key("k") is True
+
+    def test_validate_key_false_when_status_unparseable(self):
+        res = MagicMock(returncode=1, stdout="invalid api key")
+        with patch("jobscanner.browser.subprocess.run", return_value=res):
+            from jobscanner.browser import validate_firecrawl_key
+            assert validate_firecrawl_key("bad") is False
+
+    def test_fetch_member_path_uses_member_credits_not_team_cache(self):
+        # Playwright None → Failover; Member-Key vorhanden, Member hat Credits.
+        import jobscanner.browser as b
+        b.reset_credits()
+        status = MagicMock(returncode=0, stdout="Credits: 42 / 1000")
+        scrape = MagicMock(returncode=0, stdout="<html>member</html>")
+        with patch("jobscanner.browser.render", return_value=None), \
+             patch("jobscanner.browser.subprocess.run", side_effect=[status, scrape]):
+            out = b.fetch("https://foo.de/x", failover=True, api_key="member-key")
+        assert out == "<html>member</html>"

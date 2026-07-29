@@ -25,8 +25,8 @@ def clean_api_text(text: str) -> str:
 
 
 def fetch_raw_text(url: str, fetch_method: str = "playwright",
-                   failover: bool = False) -> str | None:
-    html = browser.fetch(url, method=fetch_method, failover=failover)
+                   failover: bool = False, api_key: str | None = None) -> str | None:
+    html = browser.fetch(url, method=fetch_method, failover=failover, api_key=api_key)
     if html is None:
         return None
     return _clean_text(html)

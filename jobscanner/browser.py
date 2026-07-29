@@ -6,6 +6,7 @@ als optionaler 1x-Failover — kein Stealth/Evasion (Policy). Nur `scrape -f htm
 from __future__ import annotations
 
 import ipaddress
+import os
 import re
 import socket
 import subprocess
@@ -33,15 +34,30 @@ def credits_spent() -> int:
     return _credits_spent
 
 
-def credits_remaining() -> int | None:
-    """Echter Credit-Stand via `firecrawl --status` — ungecacht, für Vorher/Nachher-Messung."""
+def _firecrawl_env(api_key: str | None) -> dict | None:
+    if api_key is None:
+        return None
+    env = os.environ.copy()
+    env["FIRECRAWL_API_KEY"] = api_key
+    return env
+
+
+def credits_remaining(api_key: str | None = None) -> int | None:
+    """Echter Credit-Stand via `firecrawl --status` — ungecacht, für Vorher/Nachher-Messung.
+    Mit api_key gegen das Member-Kontingent, sonst gegen den Prozess-Env-Team-Account."""
     try:
         res = subprocess.run(["firecrawl", "--status"],
-                             capture_output=True, text=True, timeout=30)
+                             capture_output=True, text=True, timeout=30,
+                             env=_firecrawl_env(api_key))
     except (subprocess.TimeoutExpired, OSError):
         return None
     m = re.search(r"Credits:\s*([\d,.]+)\s*/", _ANSI_RE.sub("", res.stdout))
     return int(re.sub(r"[,.]", "", m.group(1))) if m else None
+
+
+def validate_firecrawl_key(api_key: str) -> bool:
+    """Key gültig, wenn `firecrawl --status` mit ihm einen Credit-Stand liefert."""
+    return credits_remaining(api_key) is not None
 
 
 def _reject_ssrf(url: str) -> str | None:
@@ -94,14 +110,16 @@ def render(url: str) -> str | None:
         return None
 
 
-def _firecrawl_scrape(url: str, cost: int = FC_COST_SCRAPE) -> str | None:
+def _firecrawl_scrape(url: str, cost: int = FC_COST_SCRAPE,
+                      api_key: str | None = None) -> str | None:
     global _credits_spent
     if _credits_spent + cost > config.firecrawl_budget():
         return None
     _credits_spent += cost
     try:
         res = subprocess.run(["firecrawl", "scrape", url, "-f", "html"],
-                             capture_output=True, text=True, timeout=_FC_TIMEOUT_S)
+                             capture_output=True, text=True, timeout=_FC_TIMEOUT_S,
+                             env=_firecrawl_env(api_key))
     except (subprocess.TimeoutExpired, OSError):
         return None
     if res.returncode != 0:
@@ -118,10 +136,14 @@ def firecrawl_credits_ok() -> bool:
 
 
 def fetch(url: str, method: str = "playwright", failover: bool = False,
-          cost: int = FC_COST_SCRAPE) -> str | None:
+          cost: int = FC_COST_SCRAPE, api_key: str | None = None) -> str | None:
+    def _fc_ok() -> bool:
+        if api_key is not None:
+            return (credits_remaining(api_key) or 0) > 0
+        return firecrawl_credits_ok()
     if method == "firecrawl":
-        return _firecrawl_scrape(url, cost=cost) if firecrawl_credits_ok() else None
+        return _firecrawl_scrape(url, cost=cost, api_key=api_key) if _fc_ok() else None
     html = render(url)
-    if html is None and failover and firecrawl_credits_ok():
-        return _firecrawl_scrape(url, cost=cost)
+    if html is None and failover and _fc_ok():
+        return _firecrawl_scrape(url, cost=cost, api_key=api_key)
     return html
