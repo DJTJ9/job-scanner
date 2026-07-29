@@ -36,6 +36,16 @@
       <button type="submit" class="btn-secondary lotung-veto">Trotzdem mit Firecrawl aufnehmen</button>
     </form>
     <p class="lotung-warnung">⚠ laufende Credit-Kosten</p>
+    {% if result.firecrawl_failover %}
+    <p class="lotung-warnung">🔥 Firecrawl-Fallback aktiv</p>
+    {% elif has_firecrawl_key %}
+    <form method="post" action="/portale/pruefen-firecrawl/{{ result.id }}">
+      {% include "_csrf_field.html" %}
+      <button type="submit" class="btn-secondary">Mit Firecrawl prüfen</button>
+    </form>
+    {% else %}
+    <p class="hinweis">Firecrawl-Key in <a class="link" href="/einstellungen?tab=firecrawl">Einstellungen</a> hinterlegen, um diese Seite per Firecrawl zu prüfen.</p>
+    {% endif %}
   </div>
   {% endif %}
 {% endif %}
@@ -49,7 +59,7 @@
   <tr><th>URL</th><th>Typ</th><th>Status</th><th>Aktion</th></tr>
   {% for p in globale %}
   <tr>
-    <td>{{ p.url }}</td><td>{{ p.typ }}</td><td>{{ p.status }}</td>
+    <td>{{ p.url }}</td><td>{{ p.typ }}</td><td>{{ p.status }}{% if p.firecrawl_failover %} <span class="hinweis">🔥 Firecrawl-Fallback aktiv</span>{% endif %}</td>
     <td>{% if p.can_manage %}{% include "_portale_aktionen.html" %}{% else %}<span class="hinweis">empfohlen</span>{% endif %}</td>
   </tr>
   {% endfor %}
@@ -61,7 +71,7 @@
   <tr><th>URL</th><th>Typ</th><th>Status</th><th>Aktion</th></tr>
   {% for p in eigene %}
   <tr>
-    <td>{{ p.url }}</td><td>{{ p.typ }}</td><td>{{ p.status }}</td>
+    <td>{{ p.url }}</td><td>{{ p.typ }}</td><td>{{ p.status }}{% if p.firecrawl_failover %} <span class="hinweis">🔥 Firecrawl-Fallback aktiv</span>{% endif %}</td>
     <td>{% if p.can_manage %}{% include "_portale_aktionen.html" %}{% endif %}</td>
   </tr>
   {% endfor %}

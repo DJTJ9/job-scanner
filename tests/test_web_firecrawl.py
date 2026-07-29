@@ -29,6 +29,17 @@ def test_firecrawl_tab_renders(member):
     assert 'action="/einstellungen/firecrawl"' in resp.text
 
 
+def test_portale_badge_and_button(member):
+    c, uid = member
+    from jobscanner import crypto
+    storage.set_firecrawl_key(uid, crypto.encrypt("fc-key"))
+    pid = storage.create_custom_portal("https://foo.de", "career_page", uid)
+    good = {"compatible": True}
+    with patch("jobscanner.web.app.precheck.precheck_portal", return_value=good):
+        resp = c.post(f"/portale/pruefen-firecrawl/{pid}")
+    assert "Firecrawl-Fallback aktiv" in resp.text
+
+
 def test_save_valid_key_encrypts_and_stores(member):
     c, uid = member
     with patch("jobscanner.web.app.browser.validate_firecrawl_key", return_value=True):
