@@ -22,15 +22,21 @@ _MIN_STRUCTURE_HITS = 2
 _MIN_TEXT_LEN = 200
 
 
-def precheck_portal(url: str) -> dict:
+def precheck_portal(url: str, use_firecrawl: bool = False,
+                    firecrawl_key: str | None = None) -> dict:
     reason = _reject_ssrf(url)
     if reason is not None:
         return {"rendered": False, "blocked": None, "structured": None,
                 "compatible": False, "reason": reason}
-    html = browser.render(url)
+    if use_firecrawl:
+        html = browser.fetch(url, method="firecrawl", api_key=firecrawl_key)
+        fail_reason = "Firecrawl konnte die Seite nicht laden"
+    else:
+        html = browser.render(url)
+        fail_reason = "Playwright konnte die Seite nicht laden"
     if html is None:
         return {"rendered": False, "blocked": None, "structured": None,
-                "compatible": False, "reason": "Playwright konnte die Seite nicht laden"}
+                "compatible": False, "reason": fail_reason}
     text = _clean_text(html)
     norm = text.lower()
     blocked = any(marker in norm for marker in _BLOCK_MARKERS) or len(text) < _MIN_TEXT_LEN

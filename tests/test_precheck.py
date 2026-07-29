@@ -133,3 +133,32 @@ def test_public_url_still_reaches_render():
         result = precheck.precheck_portal("https://jobs.example.com/stelle")
     render.assert_called_once()
     assert result["rendered"] is True
+
+
+_GOOD_HTML = ("<html><body>" + "Aufgaben Anforderungen wir bieten Bewerbung Vollzeit "
+              * 20 + "</body></html>")
+
+
+class TestPrecheckFirecrawl:
+    def test_firecrawl_path_calls_fetch_with_member_key(self):
+        with patch("jobscanner.precheck.browser.fetch", return_value=_GOOD_HTML) as fetch, \
+             patch("jobscanner.precheck._reject_ssrf", return_value=None):
+            result = precheck.precheck_portal("https://foo.de/job", use_firecrawl=True,
+                                              firecrawl_key="member-key")
+        fetch.assert_called_once()
+        assert fetch.call_args.kwargs["method"] == "firecrawl"
+        assert fetch.call_args.kwargs["api_key"] == "member-key"
+        assert result["compatible"] is True
+
+    def test_firecrawl_path_none_is_incompatible(self):
+        with patch("jobscanner.precheck.browser.fetch", return_value=None), \
+             patch("jobscanner.precheck._reject_ssrf", return_value=None):
+            result = precheck.precheck_portal("https://foo.de/job", use_firecrawl=True,
+                                              firecrawl_key="k")
+        assert result["compatible"] is False
+
+    def test_default_path_still_uses_render(self):
+        with patch("jobscanner.precheck.browser.render", return_value=_GOOD_HTML) as render, \
+             patch("jobscanner.precheck._reject_ssrf", return_value=None):
+            precheck.precheck_portal("https://foo.de/job")
+        render.assert_called_once()
