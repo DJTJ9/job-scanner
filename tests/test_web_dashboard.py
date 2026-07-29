@@ -472,7 +472,7 @@ def test_apply_rescores_and_enqueues_when_preference_confirmed(client):
     fp = storage.upsert_job(Job(title="Unity Dev", company="ACME", location="Hamburg",
                                 first_seen="2026-07-11"))
     storage.update_job(fp, score=50, category="Vielleicht")
-    storage.confirm_insight(storage.add_insight(pid, "preference", "Hamburg stark"))
+    storage.confirm_insight(storage.add_insight(pid, "preference", "Hamburg stark"), pid)
     with patch("jobscanner.web.app.subprocess.Popen") as popen:
         resp = client.post(f"/dashboard/{pid}/apply", follow_redirects=False)
     assert resp.status_code == 303
@@ -484,7 +484,7 @@ def test_apply_rescores_and_enqueues_when_preference_confirmed(client):
 def test_apply_weight_only_does_not_launch_agent(client):
     pid = storage.get_profile_by_name("Tjark")["id"]
     storage.confirm_insight(storage.add_insight(
-        pid, "weight", "", payload={"key": "location", "old_weight": 3, "new_weight": 5}))
+        pid, "weight", "", payload={"key": "location", "old_weight": 3, "new_weight": 5}), pid)
     with patch("jobscanner.web.app.subprocess.Popen") as popen:
         resp = client.post(f"/dashboard/{pid}/apply", follow_redirects=False)
     assert resp.status_code == 303

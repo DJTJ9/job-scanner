@@ -1195,10 +1195,10 @@ def save_analysis_cards(analysis_id: int, cards: dict) -> None:
 
 
 @_retry_on_locked
-def save_analysis_answers(analysis_id: int, answers: dict) -> None:
+def save_analysis_answers(analysis_id: int, answers: dict, profile_id: int) -> None:
     conn = _require_conn()
-    conn.execute("UPDATE feedback_analysis SET answers_json = ? WHERE id = ?",
-                 (json.dumps(answers, ensure_ascii=False), analysis_id))
+    conn.execute("UPDATE feedback_analysis SET answers_json = ? WHERE id = ? AND profile_id = ?",
+                 (json.dumps(answers, ensure_ascii=False), analysis_id, profile_id))
     conn.commit()
 
 
@@ -1255,14 +1255,18 @@ def _append_preference(conn: sqlite3.Connection, profile_id: int, text: str) -> 
 
 
 @_retry_on_locked
-def confirm_insight(insight_id: int) -> None:
+def confirm_insight(insight_id: int, profile_id: int) -> None:
     """Setzt status=confirmed und wirkt je kind: preference → profiles.data_json['preferences'],
-    weight → criteria-Gewicht (per key, chirurgisch). location_boost bleibt no-op (reserviert)."""
+    weight → criteria-Gewicht (per key, chirurgisch). location_boost bleibt no-op (reserviert).
+    Ownership im Query-Layer: Insight muss zu profile_id gehören (Finding 2,
+    Broken-Object-Level-Auth)."""
     conn = _require_conn()
-    row = conn.execute("SELECT * FROM insights WHERE id = ?", (insight_id,)).fetchone()
+    row = conn.execute("SELECT * FROM insights WHERE id = ? AND profile_id = ?",
+                       (insight_id, profile_id)).fetchone()
     if row is None:
         return
-    conn.execute("UPDATE insights SET status = 'confirmed' WHERE id = ?", (insight_id,))
+    conn.execute("UPDATE insights SET status = 'confirmed' WHERE id = ? AND profile_id = ?",
+                 (insight_id, profile_id))
     if row["kind"] == "preference":
         _append_preference(conn, row["profile_id"], row["text"])
     elif row["kind"] == "weight":
@@ -1273,9 +1277,10 @@ def confirm_insight(insight_id: int) -> None:
 
 
 @_retry_on_locked
-def reject_insight(insight_id: int) -> None:
+def reject_insight(insight_id: int, profile_id: int) -> None:
     conn = _require_conn()
-    conn.execute("UPDATE insights SET status = 'rejected' WHERE id = ?", (insight_id,))
+    conn.execute("UPDATE insights SET status = 'rejected' WHERE id = ? AND profile_id = ?",
+                 (insight_id, profile_id))
     conn.commit()
 
 

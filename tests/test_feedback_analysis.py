@@ -50,7 +50,7 @@ def test_save_answers_roundtrip():
     pid = _default_profile()
     aid = storage.create_analysis(pid)
     answers = {"up_muster": [True, False], "widersprüche": ["B war München"]}
-    storage.save_analysis_answers(aid, answers)
+    storage.save_analysis_answers(aid, answers, pid)
     assert storage.get_analysis(aid)["answers"] == answers
 
 
@@ -79,7 +79,7 @@ def test_add_and_list_insights_filters_by_status():
 def test_confirm_preference_appends_to_profile_preferences():
     pid = _default_profile()
     iid = storage.add_insight(pid, "preference", "Hamburg stark, aber Gesamtpassung entscheidet")
-    storage.confirm_insight(iid)
+    storage.confirm_insight(iid, pid)
     assert storage.list_insights(pid, status="confirmed")[0]["id"] == iid
     prefs = storage.get_profile(pid)["data"].get("preferences", [])
     assert prefs == ["Hamburg stark, aber Gesamtpassung entscheidet"]
@@ -89,16 +89,28 @@ def test_confirm_weight_patches_criterion_weight():
     pid = _default_profile()
     iid = storage.add_insight(pid, "weight", "",
                               payload={"key": "location", "old_weight": 3, "new_weight": 5})
-    storage.confirm_insight(iid)
+    storage.confirm_insight(iid, pid)
     weights = {c["key"]: c["weight"] for c in storage.list_criteria(pid)}
     assert weights["location"] == 5
     assert weights["remote"] == 4  # unangetastet
 
 
+def test_confirm_insight_scoped_by_profile():
+    a = storage.create_profile("A", {})
+    b = storage.create_profile("B", {})
+    iid = storage.add_insight(b, "preference", "gehört zu B")
+    # Aufruf mit fremdem profile_id (A) darf NICHT greifen:
+    storage.confirm_insight(iid, a)
+    assert storage.list_insights(b, status="confirmed") == []
+    # Aufruf mit korrektem profile_id greift:
+    storage.confirm_insight(iid, b)
+    assert storage.list_insights(b, status="confirmed")[0]["id"] == iid
+
+
 def test_reject_insight_sets_rejected_and_no_side_effect():
     pid = _default_profile()
     iid = storage.add_insight(pid, "preference", "irrelevant")
-    storage.reject_insight(iid)
+    storage.reject_insight(iid, pid)
     assert storage.list_insights(pid, status="rejected")[0]["id"] == iid
     assert storage.get_profile(pid)["data"].get("preferences", []) == []
 
@@ -133,7 +145,7 @@ def test_feedback_agent_read_dumps_votes_criteria_preferences(tmp_path, capsys):
     from jobscanner import feedback_agent
     pid = _default_profile()
     # Präferenz vorbelegen
-    storage.confirm_insight(storage.add_insight(pid, "preference", "Remote bevorzugt"))
+    storage.confirm_insight(storage.add_insight(pid, "preference", "Remote bevorzugt"), pid)
     fp = storage.upsert_job(Job(title="Unity Dev", company="StudioA", location="Hamburg",
                                 first_seen="2026-07-11", tech_stack=["Unity"]))
     storage.add_feedback(pid, fp, "up")

@@ -1215,7 +1215,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if not csrf.verify(request, request.headers.get("x-csrf-token")):
             return JSONResponse({"error": "csrf"}, status_code=403)
         body = await request.json()
-        storage.save_analysis_answers(body["analysis_id"], body.get("answers", {}))
+        storage.save_analysis_answers(body["analysis_id"], body.get("answers", {}), profile_id)
         return JSONResponse({"ok": True})
 
     @app.post("/dashboard/{profile_id}/finalize")
@@ -1247,7 +1247,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return resp
         if not csrf.verify(request, csrf_token):
             return _csrf_error_page(request)
-        storage.confirm_insight(insight_id)
+        storage.confirm_insight(insight_id, profile_id)
         return RedirectResponse("/lernen", status_code=303)
 
     @app.post("/dashboard/{profile_id}/insights/{insight_id}/reject")
@@ -1262,7 +1262,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return resp
         if not csrf.verify(request, csrf_token):
             return _csrf_error_page(request)
-        storage.reject_insight(insight_id)
+        storage.reject_insight(insight_id, profile_id)
         return RedirectResponse("/lernen", status_code=303)
 
     @app.post("/dashboard/{profile_id}/apply")

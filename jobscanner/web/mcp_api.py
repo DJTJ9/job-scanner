@@ -290,7 +290,7 @@ def apply_member_insights_data(user: dict, profile_id: int, kind: str,
         if not isinstance(new_weight, int) or not (0 <= new_weight <= 5):
             raise ValueError("new_weight muss 0-5 sein")
     insight_id = storage.add_insight(profile_id, kind, text, payload, source="member")
-    storage.confirm_insight(insight_id)
+    storage.confirm_insight(insight_id, profile_id)
     storage.score_profile_deterministic(profile_id)
     max_jobs = storage.get_spar_modus(own[profile_id]["data"])["max_jobs"]
     queued = storage.enqueue_member_rescore(profile_id, max_jobs=max_jobs)
