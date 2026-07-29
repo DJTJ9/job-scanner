@@ -954,6 +954,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "active_insights": storage.list_insights(pid, status="confirmed"),
             "vote_count": len(feedback),
             "learn_reminder": storage.learn_reminder_status(pid),
+            "llm_unlocked": storage.has_confirmed_insight(pid),
         })
 
     @app.get("/scan")

@@ -71,6 +71,11 @@
     {% endfor %}
   {% endif %}
   {% else %}
+  {% if llm_unlocked %}
+  <p><span class="chip">✅ LLM-Feintuning aktiv</span></p>
+  {% else %}
+  <p><span class="chip">🔒 LLM-Feintuning nach dem ersten Lernen freigeschaltet</span></p>
+  {% endif %}
   {% if learn_reminder.due %}
   <p><span class="chip">Neue Analyse verfügbar — {{ learn_reminder.new_votes }} neue Votes seit letzter Analyse</span></p>
   <p class="job-meta">öffnet dein Claude Code, dort läuft das Gespräch</p>
