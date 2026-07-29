@@ -46,3 +46,26 @@ def test_build_csv_unsafe_scheme_leerer_link():
     entry = _mk_entry(sources=[{"portal": "x", "url": "javascript:alert(1)"}])
     row = export.build_csv([entry], set()).decode("utf-8-sig").splitlines()[1]
     assert "javascript" not in row
+
+
+def test_build_pdf_magic_bytes_und_meta():
+    entry = _mk_entry()
+    data = export.build_pdf([entry], {entry["job"].fingerprint},
+                            {"quelle": "Alle Matches", "datum": "29.07.2026", "anzahl": 1})
+    assert data[:5] == b"%PDF-"
+    assert len(data) > 1000  # Fonts eingebettet, echter Inhalt
+
+
+def test_build_pdf_unicode_und_none_score_robust():
+    # TTF-Subset macht Text nicht greppbar — Test sichert: kein Latin-1-Crash
+    entry = _mk_entry(title="Sölöist – C++/Qt (m/w/d) „Games“", score=None)
+    data = export.build_pdf([entry], set(),
+                            {"quelle": "Aktuelle Ansicht (Wartet auf Score)",
+                             "datum": "29.07.2026", "anzahl": 1})
+    assert data[:5] == b"%PDF-"
+
+
+def test_build_pdf_leere_liste():
+    data = export.build_pdf([], set(),
+                            {"quelle": "Nur Favoriten", "datum": "29.07.2026", "anzahl": 0})
+    assert data[:5] == b"%PDF-"
