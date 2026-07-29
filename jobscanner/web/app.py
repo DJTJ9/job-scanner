@@ -101,7 +101,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                               meta={"path": request.url.path})
         return await call_next(request)
 
-    app.add_middleware(SessionMiddleware, secret_key=settings["session_secret"])
+    app.add_middleware(SessionMiddleware, secret_key=settings["session_secret"],
+                       https_only=True, same_site="lax")
     app.mount("/static", StaticFiles(directory=_DIR / "static"), name="static")
     app.mount("/mcp", mcp_api.TokenAuthMiddleware(mcp_asgi))
     templates = Jinja2Templates(directory=_DIR / "templates")
