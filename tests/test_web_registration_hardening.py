@@ -17,8 +17,9 @@ def app(tmp_path, monkeypatch):
     return create_app(db_path=tmp_path / "jobs.db")
 
 
-def _register(client, email="m@test.de", consent="on"):
-    data = {"email": email, "password": "pw123456", "invite_code": "invite123"}
+def _register(client, email="m@test.de", consent="on", username="hardening"):
+    data = {"email": email, "username": username, "password": "pw123456",
+            "invite_code": "invite123"}
     if consent is not None:
         data["consent"] = consent
     return client.post("/register", data=data, follow_redirects=False)
@@ -51,8 +52,8 @@ def test_register_stores_registering_ip(app):
 def test_register_sixth_attempt_from_same_ip_rate_limited(app):
     client = CSRFTestClient(app)
     for i in range(5):
-        _register(client, email=f"m{i}@test.de")
-    resp = _register(client, email="m6@test.de")
+        _register(client, email=f"m{i}@test.de", username=f"hardening{i}")
+    resp = _register(client, email="m6@test.de", username="hardening6")
     assert resp.status_code == 429
     assert storage.get_user_by_email("m6@test.de") is None
 

@@ -48,7 +48,8 @@ def test_metrics_page_shows_funnel_and_ping_verlauf(client):
 def test_metrics_page_forbidden_for_member(client):
     _, app = client
     member_client = CSRFTestClient(app)
-    member_client.post("/register", data={"email": "m@test.de", "password": "pw123456",
+    member_client.post("/register", data={"email": "m@test.de", "username": "metricsuser",
+                                          "password": "pw123456",
                                           "invite_code": "invite123", "consent": "on"})
     uid = storage.get_user_by_email("m@test.de")["id"]
     storage.mark_email_verified(uid)

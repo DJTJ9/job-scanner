@@ -16,7 +16,8 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_INVITE_CODE", "invite123")
     app = create_app(db_path=tmp_path / "jobs.db")
     c = CSRFTestClient(app)
-    c.post("/register", data={"email": "member@test.de", "password": "pw123456",
+    c.post("/register", data={"email": "member@test.de", "username": "funneluser",
+                              "password": "pw123456",
                               "invite_code": "invite123", "consent": "on"})
     storage.mark_email_verified(storage.get_user_by_email("member@test.de")["id"])
     c.post("/login", data={"email": "member@test.de", "password": "pw123456"})

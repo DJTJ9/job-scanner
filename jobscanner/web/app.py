@@ -54,6 +54,15 @@ def client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+import re as _re
+_USERNAME_RE = _re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
+
+
+def _valid_username(name: str) -> bool:
+    name = (name or "").strip()
+    return bool(_USERNAME_RE.match(name)) and "@" not in name
+
+
 def relzeit_datum(value: str | None) -> str:
     """Relatives Tages-Alter aus ISO-Datum YYYY-MM-DD: 'vor 3 Tagen (25.07.)'."""
     if not value:
@@ -481,6 +490,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/register")
     def register_submit(request: Request, email: str = Form(...),
+                        username: str = Form(...),
                         password: str = Form(...), invite_code: str = Form(...),
                         consent: str = Form(None), csrf_token: str = Form("")):
         if not csrf.verify(request, csrf_token):
@@ -502,7 +512,17 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if storage.get_user_by_email(email) is not None:
             return templates.TemplateResponse(
                 request, "register.html", {"error": "Email bereits registriert"}, status_code=409)
-        uid = storage.create_user(email, password, role="member", consent=True, ip=ip)
+        if not _valid_username(username):
+            return templates.TemplateResponse(
+                request, "register.html",
+                {"error": "Benutzername: 3–20 Zeichen, nur Buchstaben/Zahlen/_-, kein @"},
+                status_code=400)
+        if storage.get_user_by_username(username) is not None:
+            return templates.TemplateResponse(
+                request, "register.html",
+                {"error": "Benutzername bereits vergeben"}, status_code=409)
+        uid = storage.create_user(email, password, role="member", consent=True, ip=ip,
+                                  username=username.strip())
         user = storage.get_user(uid)
         try:
             mailer.send_verification_email(email, user["verify_token"], settings["base_url"])
@@ -510,6 +530,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             pass
         request.session["user_id"] = uid
         request.session["email"] = email
+        request.session["username"] = username.strip()
         request.session["role"] = "member"
         request.session["email_verified"] = False
         return RedirectResponse("/", status_code=303)

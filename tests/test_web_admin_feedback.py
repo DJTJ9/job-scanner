@@ -23,7 +23,8 @@ def test_admin_feedback_requires_login(client):
 
 
 def test_admin_feedback_forbidden_for_member(client):
-    client.post("/register", data={"email": "member@test.de", "password": "pw123456",
+    client.post("/register", data={"email": "member@test.de", "username": "adminfbuser",
+                                   "password": "pw123456",
                                    "invite_code": "invite123", "consent": "on"})
     resp = client.get("/admin/feedback")
     assert resp.status_code == 403

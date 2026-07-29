@@ -16,10 +16,10 @@ def app(tmp_path, monkeypatch):
     return create_app(db_path=tmp_path / "jobs.db")
 
 
-def _register(client, email="stud@uni.de", pw="studpw", code="komm2026"):
+def _register(client, email="stud@uni.de", pw="studpw", code="komm2026", username="studuser"):
     return client.post("/register",
-                       data={"email": email, "password": pw, "invite_code": code,
-                             "consent": "on"},
+                       data={"email": email, "username": username, "password": pw,
+                             "invite_code": code, "consent": "on"},
                        follow_redirects=False)
 
 
@@ -64,20 +64,20 @@ def test_register_duplicate_email_rejected(app):
     c = CSRFTestClient(app)
     _register(c)
     resp = CSRFTestClient(app).post(
-        "/register", data={"email": "stud@uni.de", "password": "x", "invite_code": "komm2026",
-                           "consent": "on"})
+        "/register", data={"email": "stud@uni.de", "username": "studuser2", "password": "x",
+                           "invite_code": "komm2026", "consent": "on"})
     assert resp.status_code == 409
 
 
 def test_member_profile_isolated_from_other_member(app):
     a = CSRFTestClient(app)
-    _register(a, email="a@uni.de", pw="pwa")
+    _register(a, email="a@uni.de", pw="pwa", username="usera")
     _verify_and_login(a, "a@uni.de", "pwa")
     _wizard_profile(a, "A-Profil")
     a_pid = storage.get_profile_by_name("A-Profil")["id"]
 
     b = CSRFTestClient(app)
-    _register(b, email="b@uni.de", pw="pwb")
+    _register(b, email="b@uni.de", pw="pwb", username="userb")
     _verify_and_login(b, "b@uni.de", "pwb")
     # B sieht A's Profil nicht in der Profil-Liste …
     assert "A-Profil" not in b.get("/profil").text

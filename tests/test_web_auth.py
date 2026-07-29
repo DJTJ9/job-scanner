@@ -11,6 +11,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "geheim123")
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
+    monkeypatch.setenv("JOBSCANNER_INVITE_CODE", "invite123")
     app = create_app(db_path=tmp_path / "jobs.db")
     return CSRFTestClient(app)
 
@@ -47,3 +48,34 @@ def test_logout_clears_session(client):
     resp = client.get("/jobs", follow_redirects=False)   # login-pflichtige Seite
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"
+
+
+def _reg(client, **over):
+    data = {"email": "neu@test.de", "username": "NeuUser", "password": "pw123456",
+            "invite_code": "invite123", "consent": "on"}
+    data.update(over)
+    return client.post("/register", data=data, follow_redirects=False)
+
+
+def test_register_requires_valid_username(client):
+    # ungültig: zu kurz
+    resp = _reg(client, username="ab")
+    assert resp.status_code == 400
+    # ungültig: enthält @
+    resp = _reg(client, username="na@me")
+    assert resp.status_code == 400
+
+
+def test_register_username_uniqueness_409(client):
+    from jobscanner import storage
+    storage.create_user("first@test.de", "pw", username="Taken")
+    resp = _reg(client, email="second@test.de", username="taken")
+    assert resp.status_code == 409
+    assert "Benutzername bereits vergeben" in resp.text
+
+
+def test_register_sets_username_in_session(client):
+    from jobscanner import storage
+    resp = _reg(client, email="sess@test.de", username="SessName")
+    assert resp.status_code == 303
+    assert storage.get_user_by_username("sessname") is not None

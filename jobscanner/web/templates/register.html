@@ -9,6 +9,10 @@
     {% include "_csrf_field.html" %}
     <label for="email">Email</label>
     <input type="email" id="email" name="email" required autofocus>
+    <label for="username">Benutzername</label>
+    <input type="text" id="username" name="username" required
+           minlength="3" maxlength="20" pattern="[a-zA-Z0-9_-]+"
+           placeholder="3–20 Zeichen, Buchstaben/Zahlen/_-">
     <label for="password">Passwort</label>
     <input type="password" id="password" name="password" required>
     <label for="invite_code">Invite-Code</label>

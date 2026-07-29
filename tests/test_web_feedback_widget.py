@@ -33,7 +33,8 @@ def test_feedback_valid_text_creates_row_and_returns_confirmation(client):
 
 
 def test_feedback_records_correct_user_id(client):
-    client.post("/register", data={"email": "member@test.de", "password": "pw123456",
+    client.post("/register", data={"email": "member@test.de", "username": "feedbackuser",
+                                   "password": "pw123456",
                                    "invite_code": "invite123", "consent": "on"})
     uid = storage.get_user_by_email("member@test.de")["id"]
     client.post("/api/feedback", json={"text": "Feature-Wunsch: Dark Mode toggle"})
