@@ -18,20 +18,6 @@
       <span class="brand"><img class="bob-avatar" style="height:28px" src="/static/img/bob/bob-pose-winken.png" alt="Bob"> BOB DER JOB-BOT</span>
     </span>
     {% if request.session.get("user_id") %}
-      {% set _profiles = nav_profiles(request) %}
-      {% if _profiles|length > 1 %}
-      <form method="post" action="/profil/aktiv" class="profil-switcher">
-        {% include "_csrf_field.html" %}
-        <select name="profile_id" data-profile-switcher aria-label="Aktives Profil">
-          {% for p in _profiles %}
-          <option value="{{ p.id }}" {{ 'selected' if p.id == request.session.get('active_profile_id') }}>{{ p.name }}</option>
-          {% endfor %}
-        </select>
-        <noscript><button type="submit" class="btn btn-secondary">OK</button></noscript>
-      </form>
-      {% endif %}
-      <a class="link" href="/einstellungen">{{ request.session.get("username") or request.session.get("email") }}</a>
-      <a class="link" href="/logout">Abmelden</a>
     {% else %}
       <a class="link" href="/login">Anmelden</a>
     {% endif %}
@@ -53,7 +39,7 @@
     {{ nav_item("/feintuning", "🎛", "Feintuning") }}
     {{ nav_item("/lernen", "🧠", "Lernen") }}
     {{ nav_item("/portale", "🌐", "Portale prüfen") }}
-    {{ nav_item("/profil", "👤", "Mein Profil") }}
+    {{ nav_item("/profil", "👤", "Meine Profile") }}
     <span class="drawer-group"><span class="drawer-item-label">System</span></span>
     {{ nav_item("/einstellungen", "⚙", "Einstellungen") }}
     {{ nav_item("/account/email", "🔑", "Konto & Daten") }}
@@ -65,7 +51,11 @@
     {{ nav_item("/admin/registrations", "📋", "Registrierungen") }}
     {{ nav_item("/admin/members", "👥", "Mitglieder") }}
     {% endif %}
-    <button type="button" class="drawer-collapse" data-drawer-collapse aria-label="Sidebar einklappen">«</button>
+    <div class="drawer-footer">
+      <a class="drawer-item" href="/einstellungen">👤 <span class="drawer-item-label">{{ request.session.get("username") or request.session.get("email") }}</span></a>
+      <a class="drawer-item" href="/logout">⎋ <span class="drawer-item-label">Abmelden</span></a>
+      <button type="button" class="drawer-collapse" data-drawer-collapse aria-label="Sidebar einklappen">«</button>
+    </div>
   </nav>
   {% endif %}
   <main class="page">
