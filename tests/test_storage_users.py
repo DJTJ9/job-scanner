@@ -203,3 +203,20 @@ def test_admin_list_members_returns_all_users(db):
     emails = {m["email"] for m in members}
     assert {"m1@example.com", "m2@example.com"} <= emails
     assert all("email_verified_at" in m and "role" in m for m in members)
+
+
+def test_create_user_stores_username(db):
+    uid = db.create_user("u1@example.com", "pw", username="MaxMustermann")
+    assert db.get_user(uid)["username"] == "MaxMustermann"
+
+
+def test_username_unique_case_insensitive(db):
+    import sqlite3
+    db.create_user("a@example.com", "pw", username="Alice")
+    with pytest.raises(sqlite3.IntegrityError):
+        db.create_user("b@example.com", "pw", username="alice")
+
+
+def test_username_defaults_to_null(db):
+    uid = db.create_user("legacy@example.com", "pw")
+    assert db.get_user(uid)["username"] is None

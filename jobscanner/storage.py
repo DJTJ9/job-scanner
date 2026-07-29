@@ -265,6 +265,10 @@ def init_db(path: str | Path) -> None:
         _conn.execute("ALTER TABLE users ADD COLUMN pending_email_token TEXT")
     if "firecrawl_key_enc" not in user_cols:
         _conn.execute("ALTER TABLE users ADD COLUMN firecrawl_key_enc TEXT")
+    if "username" not in user_cols:
+        _conn.execute("ALTER TABLE users ADD COLUMN username TEXT")
+    _conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(lower(username))")
     score_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(job_scores)")}
     if "notified_at" not in score_cols:
         _conn.execute("ALTER TABLE job_scores ADD COLUMN notified_at TEXT")
@@ -316,17 +320,18 @@ def _hash_password(password: str, salt: bytes) -> str:
 
 @_retry_on_locked
 def create_user(email: str, password: str, role: str = "member",
-                consent: bool = False, ip: str | None = None) -> int:
+                consent: bool = False, ip: str | None = None,
+                username: str | None = None) -> int:
     conn = _require_conn()
     salt = os.urandom(16)
     verify_token = secrets.token_urlsafe(32)
     consent_at = conn.execute("SELECT datetime('now')").fetchone()[0] if consent else None
     cur = conn.execute(
         "INSERT INTO users (email, pw_hash, salt, role, created_at, "
-        "verify_token, consent_at, registered_ip) "
-        "VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?)",
+        "verify_token, consent_at, registered_ip, username) "
+        "VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?)",
         (email.strip().lower(), _hash_password(password, salt), salt.hex(), role,
-         verify_token, consent_at, ip))
+         verify_token, consent_at, ip, username))
     conn.commit()
     return cur.lastrowid
 
