@@ -234,10 +234,11 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return templates.TemplateResponse(
                 request, "login.html", {"error": "Zu viele Versuche — bitte später erneut"},
                 status_code=429)
-        user = storage.verify_password(email, password)
+        user = storage.verify_login(email, password)
         if user is not None:
             request.session["user_id"] = user["id"]
             request.session["email"] = user["email"]
+            request.session["username"] = user["username"]
             request.session["role"] = user["role"]
             request.session["email_verified"] = user["email_verified_at"] is not None
             return RedirectResponse("/", status_code=303)

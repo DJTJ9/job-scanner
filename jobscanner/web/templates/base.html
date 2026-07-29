@@ -30,7 +30,7 @@
         <noscript><button type="submit" class="btn btn-secondary">OK</button></noscript>
       </form>
       {% endif %}
-      <a class="link" href="/einstellungen">{{ request.session.get("email") }}</a>
+      <a class="link" href="/einstellungen">{{ request.session.get("username") or request.session.get("email") }}</a>
       <a class="link" href="/logout">Abmelden</a>
     {% else %}
       <a class="link" href="/login">Anmelden</a>

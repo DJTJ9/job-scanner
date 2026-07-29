@@ -79,3 +79,25 @@ def test_register_sets_username_in_session(client):
     resp = _reg(client, email="sess@test.de", username="SessName")
     assert resp.status_code == 303
     assert storage.get_user_by_username("sessname") is not None
+
+
+def test_login_by_username_works(client):
+    from jobscanner import storage
+    storage.create_user("byname@test.de", "pw123456", username="LoginName")
+    resp = client.post("/login", data={"email": "LoginName", "password": "pw123456"},
+                       follow_redirects=False)
+    assert resp.status_code == 303
+    # GET / würde für einen frisch angelegten User ohne Profil zum Wizard
+    # redirecten (leerer Body). /einstellungen braucht nur einen eingeloggten
+    # User und rendert die Topbar mit der Login-Identität.
+    home = client.get("/einstellungen", follow_redirects=False)
+    assert "LoginName" in home.text   # Topbar zeigt username
+
+
+def test_login_by_email_still_works(client):
+    # Owner wird von der Fixture geseedet (owner@test.de / geheim123), hat keinen username
+    resp = client.post("/login", data={"email": "owner@test.de", "password": "geheim123"},
+                       follow_redirects=False)
+    assert resp.status_code == 303
+    home = client.get("/", follow_redirects=False)
+    assert "owner@test.de" in home.text   # Fallback auf Email bei fehlendem username
