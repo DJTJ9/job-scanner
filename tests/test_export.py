@@ -170,3 +170,19 @@ def test_export_invalide_params_400_und_anonym_redirect(client, tmp_path):
     anon = CSRFTestClient(create_app(db_path=tmp_path / "jobs.db"))
     resp = anon.get("/export?quelle=alle&format=csv", follow_redirects=False)
     assert resp.status_code in (302, 303)
+
+
+def test_jobs_seite_hat_export_dialog_mit_ansicht(client):
+    resp = client.get("/jobs")
+    assert "export-dialog" in resp.text
+    assert "⤓ Export" in resp.text
+    assert 'value="ansicht"' in resp.text
+    assert 'name="min_score"' in resp.text  # hidden fields tragen Filter
+
+
+def test_favoriten_seite_dialog_favoriten_vorgewaehlt_ohne_ansicht(client):
+    resp = client.get("/favoriten")
+    assert "export-dialog" in resp.text
+    assert 'value="favoriten"\n      checked' in resp.text.replace("\r", "") or \
+           'value="favoriten" checked' in resp.text
+    assert 'value="ansicht"' not in resp.text

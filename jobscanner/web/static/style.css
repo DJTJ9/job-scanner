@@ -669,3 +669,23 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
 .inbox-unread{background:rgba(30,136,168,.08)}
 .inbox-dot{color:#1E88A8}
 .inbox-meta{font-size:13px;opacity:.75;margin-top:4px}
+
+/* Export-Dialog (erstes Modal der App — natives <dialog>) */
+.export-trigger { margin-top: 0; }
+dialog.export-dialog {
+  background: var(--tiefe);
+  border: 1px solid var(--wasser);
+  border-radius: 8px;
+  color: var(--gischt);
+  padding: 1.25rem;
+  min-width: 320px;
+}
+dialog.export-dialog::backdrop { background: rgba(5, 13, 26, 0.7); }
+.export-kopf { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.export-kopf h3 { margin: 0; }
+.export-schliessen { background: none; border: none; color: var(--gischt); cursor: pointer; font-size: 1rem; }
+.export-label { margin: 0.75rem 0 0.25rem; font-size: 0.9rem; color: var(--gischt); }
+.export-option { display: block; margin-top: 0.25rem; }
+.export-option input[type="radio"] { width: auto; margin-right: 0.4rem; accent-color: var(--signal); }
+.export-formate { display: flex; gap: 0.5rem; }
+.export-formate .btn { margin-top: 0.5rem; }

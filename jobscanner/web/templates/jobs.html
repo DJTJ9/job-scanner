@@ -27,9 +27,15 @@
         <option value="70" {{ 'selected' if min_score == 70 }}>≥ 70</option>
         <option value="85" {{ 'selected' if min_score == 85 }}>≥ 85</option>
       </select>
+      <button type="button" class="btn btn-secondary export-trigger"
+              onclick="document.getElementById('export-dialog').showModal()">⤓ Export</button>
     </div>
     {% endif %}
   </form>
+  {% if tab == 'aktiv' %}
+  {% set export_quelle_default = 'ansicht' %}{% set export_zeige_ansicht = true %}{% set export_anzahl = result_count %}
+  {% include "_export_dialog.html" %}
+  {% endif %}
   {% set qs = '&sort=' ~ sort ~ '&min_score=' ~ min_score ~ '&q=' ~ (q | urlencode) %}
   <nav class="tabs">
     <a class="tab {{ 'active' if tab == 'aktiv' else '' }}" href="/jobs?tab=aktiv{{ qs }}">Aktiv <span class="mono">({{ counts.aktiv }})</span></a>

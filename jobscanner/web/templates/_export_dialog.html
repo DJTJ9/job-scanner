@@ -1,0 +1,32 @@
+{# Export-Dialog. Parameter per {% set %} vor dem Include:
+   export_quelle_default ('ansicht'|'favoriten'), export_zeige_ansicht (bool),
+   export_anzahl (int, nur bei export_zeige_ansicht) #}
+<dialog id="export-dialog" class="export-dialog">
+  <form method="get" action="/export"
+        onsubmit="const d=this.closest('dialog');setTimeout(function(){d.close()},150)">
+    <div class="export-kopf">
+      <h3>Matches exportieren</h3>
+      <button type="button" class="export-schliessen" aria-label="Schließen"
+              onclick="this.closest('dialog').close()">✕</button>
+    </div>
+    <p class="export-label">Was exportieren?</p>
+    {% if export_zeige_ansicht %}
+    <label class="export-option"><input type="radio" name="quelle" value="ansicht"
+      {{ 'checked' if export_quelle_default == 'ansicht' }}> Aktuelle Ansicht ({{ export_anzahl }} Jobs)</label>
+    {% endif %}
+    <label class="export-option"><input type="radio" name="quelle" value="favoriten"
+      {{ 'checked' if export_quelle_default == 'favoriten' }}> Nur Favoriten</label>
+    <label class="export-option"><input type="radio" name="quelle" value="alle"> Alle Matches</label>
+    {% if export_zeige_ansicht %}
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="min_score" value="{{ min_score }}">
+    <input type="hidden" name="q" value="{{ q }}">
+    {% endif %}
+    <p class="export-label">Format:</p>
+    <div class="export-formate">
+      <button class="btn btn-secondary" name="format" value="csv">CSV – für Excel</button>
+      <button class="btn btn-primary" name="format" value="pdf">PDF – zum Lesen</button>
+    </div>
+  </form>
+</dialog>
