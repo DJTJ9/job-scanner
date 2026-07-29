@@ -161,3 +161,13 @@ def test_enqueue_filters_by_location_substring():
     storage.enqueue_member_rescore(pid, locations=["Berlin"])
     queued = {i["fingerprint"] for i in storage.list_member_rescore([pid])}
     assert ber in queued and muc not in queued
+
+
+def test_has_confirmed_insight_reflects_confirmed_status():
+    uid = storage.create_user("hci@test.de", "pw")
+    pid = storage.create_profile("HCI", {}, user_id=uid)
+    assert storage.has_confirmed_insight(pid) is False
+    iid = storage.add_insight(pid, "preference", "remote bevorzugt", source="member")
+    assert storage.has_confirmed_insight(pid) is False  # proposed, nicht confirmed
+    storage.confirm_insight(iid, pid)
+    assert storage.has_confirmed_insight(pid) is True

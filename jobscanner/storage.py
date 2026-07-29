@@ -1246,6 +1246,16 @@ def list_insights(profile_id: int, status: str | None = None) -> list[dict]:
     return [_row_to_insight(r) for r in conn.execute(sql, params)]
 
 
+def has_confirmed_insight(profile_id: int) -> bool:
+    """True, sobald das Profil ≥1 bestätigten Insight hat — das Gate-Signal für
+    Member-LLM-Scoring (billiger COUNT, eine Wahrheitsquelle statt eigener Spalte)."""
+    conn = _require_conn()
+    row = conn.execute(
+        "SELECT COUNT(*) AS n FROM insights WHERE profile_id = ? AND status = 'confirmed'",
+        (profile_id,)).fetchone()
+    return row["n"] > 0
+
+
 def _append_preference(conn: sqlite3.Connection, profile_id: int, text: str) -> None:
     row = conn.execute("SELECT data_json FROM profiles WHERE id = ?", (profile_id,)).fetchone()
     data = json.loads(row["data_json"] or "{}") if row else {}
