@@ -20,7 +20,8 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
-from jobscanner import browser, config, crypto, nocodb_board, precheck, scoring, storage
+from jobscanner import (browser, config, crypto, nocodb_board, precheck, scoring,
+                        search, storage)
 from jobscanner.web import csrf, llm_refine, mailer, mcp_api, rate_limit
 
 _DIR = Path(__file__).parent
@@ -691,6 +692,11 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return redirect
         if not csrf.verify(request, csrf_token):
             return _csrf_error_page(request)
+        if search_url_template and not search.validate_query_template(search_url_template):
+            return _error_page(
+                request, 400, "Ungültige Suchvorlage",
+                "Die Suchvorlage darf genau einen {query}-Platzhalter und sonst keine "
+                "geschweiften Felder enthalten.")
         allow_global = is_global and request.session.get("role") == "owner"
         pid = storage.create_custom_portal(
             url, typ, request.session["user_id"],

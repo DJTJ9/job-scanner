@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import re
+import string
 from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote_plus, urljoin
@@ -40,6 +41,17 @@ _DE_CITIES = {
     "ingolstadt", "jena", "trier", "koblenz", "oldenburg", "osnabrück",
     "leverkusen", "wolfsburg", "göttingen", "reutlingen",
 }
+
+
+def validate_query_template(template: str) -> bool:
+    """True nur wenn das Template GENAU einen literalen {query}-Platzhalter enthält
+    und kein anderes/Attribut-/Item-Feld (Finding 5: str.format-Traversal verhindern)."""
+    try:
+        fields = [name for _lit, name, _spec, _conv
+                  in string.Formatter().parse(template) if name is not None]
+    except ValueError:
+        return False
+    return fields == ["query"]
 
 
 def classify_location(location: str) -> bool:

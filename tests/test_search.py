@@ -334,3 +334,14 @@ def test_jooble_drops_non_german_results():
          patch("jobscanner.search.requests.post", return_value=resp):
         urls = provider.search("unity")
     assert urls == ["https://jooble.org/desc/Hamburg"]
+
+
+def test_validate_query_template_allowlist():
+    from jobscanner.search import validate_query_template
+    assert validate_query_template("https://x.example/s?q={query}")
+    assert validate_query_template("https://x.example/{query}/jobs")
+    # Attribut-Traversal / fremde Felder / fehlender Platzhalter → abgelehnt:
+    assert not validate_query_template("https://x.example/{query.__class__}")
+    assert not validate_query_template("https://x.example/{other}")
+    assert not validate_query_template("https://x.example/static")
+    assert not validate_query_template("https://x.example/{query}/{query}")
