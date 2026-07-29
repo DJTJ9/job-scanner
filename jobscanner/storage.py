@@ -1360,6 +1360,29 @@ def migrate_yaml_profile() -> int:
     return pid
 
 
+def migrate_owner_criteria_to_weights() -> int:
+    """Owner-geseedete Profile (9 DEFAULT_CRITERIA) auf die 25 WEIGHTS_CATALOG-Kriterien heben.
+
+    Erkennung am Kriterium 'role_fit' (nur im 9er-Owner-Seed). Nur 'remote' überlappt —
+    dessen Weight bleibt erhalten, die übrigen 24 werden mit default_weight neu angelegt.
+    Idempotent: Profile ohne 'role_fit' werden übersprungen.
+    """
+    migrated = 0
+    for profile in list_profiles():
+        keys = {c["key"] for c in list_criteria(profile["id"])}
+        if "role_fit" not in keys:
+            continue
+        old = {c["key"]: c["weight"] for c in list_criteria(profile["id"])}
+        new = [
+            {"key": w["key"], "label": w["label"], "sort": i,
+             "weight": old.get(w["key"], w["default_weight"])}
+            for i, w in enumerate(scoring.WEIGHTS_CATALOG)
+        ]
+        save_criteria(profile["id"], new)
+        migrated += 1
+    return migrated
+
+
 def list_jobs_with_scores(profile_id: int, locations: list[str] | None = None,
                           languages: list[str] | None = None,
                           include_expired: bool = False) -> list[dict]:
