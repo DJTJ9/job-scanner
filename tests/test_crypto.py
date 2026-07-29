@@ -26,3 +26,14 @@ def test_missing_env_raises(monkeypatch):
     monkeypatch.delenv("JOBSCANNER_FERNET_KEY", raising=False)
     with pytest.raises(RuntimeError):
         crypto.encrypt("x")
+
+
+def test_require_key_raises_when_missing(monkeypatch):
+    monkeypatch.delenv("JOBSCANNER_FERNET_KEY", raising=False)
+    with pytest.raises(RuntimeError):
+        crypto.require_key()
+
+
+def test_require_key_returns_when_set(monkeypatch):
+    monkeypatch.setenv("JOBSCANNER_FERNET_KEY", Fernet.generate_key().decode())
+    assert crypto.require_key()

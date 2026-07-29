@@ -72,6 +72,7 @@ def relzeit_datum(value: str | None) -> str:
 
 def create_app(db_path: str | Path | None = None) -> FastAPI:
     settings = config.load_web_settings()
+    crypto.require_key()
     storage.init_db(db_path or _DEFAULT_DB)
     storage.migrate_yaml_profile()
     if settings["owner_email"]:
