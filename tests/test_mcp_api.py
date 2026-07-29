@@ -3,6 +3,7 @@ import pytest
 from _csrf_client import CSRFTestClient
 
 from jobscanner import storage
+from jobscanner.models import Job
 from jobscanner.web.app import create_app
 
 
@@ -125,6 +126,7 @@ class TestToolLogic:
 
     def test_pull_pending_includes_raw_and_own_unscored(self, client):
         user, pid = _member_with_profile()
+        storage.confirm_insight(storage.add_insight(pid, "preference", "x", source="member"), pid)
         storage.insert_raw_job("https://m.test/raw", "adzuna", "Rohtext", "2026-07-17")
         fp = _mk_extracted_job("p1")
         out = mcp_api.pull_pending_jobs_data(user, limit=10)
@@ -622,3 +624,26 @@ class TestGetScanConfig:
                                      "scan_portals": ["stepstone"]})
         cfg = mcp_api.get_scan_config_data({"id": member["id"]})
         assert {t["portal"] for t in cfg["targets"]} == {"stepstone"}
+
+
+class TestPullFeedbackGate:
+    def test_gated_profile_gets_no_feeds_but_deterministic_fill(self, client):
+        user, pid = _member_with_profile("gate1@test.de")
+        job = Job(title="Junior Unity Dev", company="ACME", location="Hamburg",
+                  remote_flag="remote", language="de", tech_stack=["Unity"])
+        fp = storage.upsert_job(job)  # extrahiert, ungescort
+        assert storage.get_job_score(pid, fp) is None
+        out = mcp_api.pull_pending_jobs_data(user)
+        assert out["to_score"] == []
+        assert out["to_rescore"] == []
+        # Deterministik-Fill hat für das gated Profil kostenlos einen Score erzeugt:
+        assert storage.get_job_score(pid, fp) is not None
+
+    def test_unlocked_profile_receives_to_score(self, client):
+        user, pid = _member_with_profile("gate2@test.de")
+        storage.confirm_insight(storage.add_insight(pid, "preference", "x", source="member"), pid)
+        job = Job(title="Junior Unity Dev", company="ACME", location="Hamburg",
+                  remote_flag="remote", language="de", tech_stack=["Unity"])
+        fp = storage.upsert_job(job)
+        out = mcp_api.pull_pending_jobs_data(user)
+        assert fp in {j["fingerprint"] for j in out["to_score"]}

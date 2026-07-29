@@ -99,10 +99,15 @@ def get_scan_config_data(user: dict) -> dict:
 def pull_pending_jobs_data(user: dict, limit: int = _MAX_PULL) -> dict:
     limit = max(1, min(int(limit), _MAX_PULL))
     pids = [p["id"] for p in _user_profiles(user["id"])]
+    unlocked = [pid for pid in pids if storage.has_confirmed_insight(pid)]
+    gated = [pid for pid in pids if pid not in unlocked]
+    # gated-Profile: kostenlose deterministische Deckung, kein LLM-Feed.
+    for pid in gated:
+        storage.score_profile_deterministic(pid, only_missing=True)
     return {
         "jobs": storage.list_pending_extraction(limit=limit),
-        "to_score": storage.list_unscored_for_profiles(pids, limit=limit),
-        "to_rescore": storage.list_member_rescore(pids, limit=limit),
+        "to_score": storage.list_unscored_for_profiles(unlocked, limit=limit),
+        "to_rescore": storage.list_member_rescore(unlocked, limit=limit),
     }
 
 
