@@ -330,8 +330,9 @@ class TestRescoreQueueAndSparModus:
 
     def test_push_batch_score_clears_rescore_queue_entry(self, client):
         user, pid = _member_with_profile("sm5@test.de")
+        storage.confirm_insight(storage.add_insight(pid, "preference", "x", source="member"), pid)
         fp = _mk_extracted_job("rq2")
-        storage.upsert_job_score(pid, fp, 6, "alt", "Mittel", {"remote": {"punkte": 6}})
+        storage.upsert_job_score(pid, fp, 6, "alt", "Vielleicht", {"remote": {"punkte": 6}})
         storage.enqueue_member_rescore(pid)
         assert len(storage.list_member_rescore([pid])) == 1
         mcp_api.push_batch_data(user, [{
