@@ -16,6 +16,7 @@ def _member_profile(name="P1", email=None):
     uid = storage.create_user(email or f"{name}@test.de", "pw")
     pid = storage.create_profile(name, {}, user_id=uid)
     storage.save_criteria(pid, [{"key": "remote", "label": "Remote", "weight": 4, "sort": 0}])
+    storage.confirm_insight(storage.add_insight(pid, "preference", "seed", source="member"), pid)
     return uid, pid
 
 
@@ -56,7 +57,7 @@ def test_set_spar_modus_leaves_other_users_untouched():
 def test_enqueue_lists_and_clears_member_rescore():
     _uid, pid = _member_profile()
     fp = _extracted_job()
-    storage.upsert_job_score(pid, fp, 7, "ok", "Gut", {"remote": {"punkte": 7}})
+    storage.upsert_job_score(pid, fp, 7, "ok", "Vielleicht", {"remote": {"punkte": 7}})
     assert storage.enqueue_member_rescore(pid) == 1
     items = storage.list_member_rescore([pid])
     assert len(items) == 1
@@ -70,7 +71,7 @@ def test_enqueue_lists_and_clears_member_rescore():
 def test_enqueue_is_idempotent_and_skips_unscored():
     _uid, pid = _member_profile()
     fp = _extracted_job("b")
-    storage.upsert_job_score(pid, fp, 5, "ok", "Mittel", {"remote": {"punkte": 5}})
+    storage.upsert_job_score(pid, fp, 5, "ok", "Vielleicht", {"remote": {"punkte": 5}})
     _extracted_job("c")  # extrahiert, aber nie gescort -> kein Rescore-Kandidat
     storage.enqueue_member_rescore(pid)
     assert storage.enqueue_member_rescore(pid) == 0
@@ -127,7 +128,7 @@ def _extracted_scored_job(pid, suffix, location="Hamburg", language="de"):
               sources=[{"portal": "test", "url": f"https://t.test/{suffix}"}],
               first_seen="2026-07-18", last_seen="2026-07-18")
     storage.upsert_job(job)
-    storage.upsert_job_score(pid, job.fingerprint, 70, "det", "Gut", {"remote": {"punkte": 7}})
+    storage.upsert_job_score(pid, job.fingerprint, 70, "det", "Vielleicht", {"remote": {"punkte": 7}})
     return job.fingerprint
 
 
@@ -171,3 +172,33 @@ def test_has_confirmed_insight_reflects_confirmed_status():
     assert storage.has_confirmed_insight(pid) is False  # proposed, nicht confirmed
     storage.confirm_insight(iid, pid)
     assert storage.has_confirmed_insight(pid) is True
+
+
+def test_enqueue_gated_without_insight_returns_zero():
+    uid = storage.create_user("gated@test.de", "pw")
+    pid = storage.create_profile("Gated", {}, user_id=uid)
+    storage.save_criteria(pid, [{"key": "remote", "label": "Remote", "weight": 4, "sort": 0}])
+    fp = _scored_job(pid, "g", 80, "Pass")
+    assert storage.enqueue_member_rescore(pid) == 0
+    assert storage.list_member_rescore([pid]) == []
+
+
+def test_enqueue_includes_favorited_no_go():
+    _uid, pid = _member_profile("favng", "favng@test.de")
+    fp = _scored_job(pid, "fng", 0, "No-Go")
+    storage.toggle_favorite(pid, fp)
+    assert storage.enqueue_member_rescore(pid) == 1
+    assert {i["fingerprint"] for i in storage.list_member_rescore([pid])} == {fp}
+
+
+def test_enqueue_includes_feedback_no_go():
+    _uid, pid = _member_profile("fbng", "fbng@test.de")
+    fp = _scored_job(pid, "bng", 0, "No-Go")
+    storage.add_feedback(pid, fp, "down")
+    assert storage.enqueue_member_rescore(pid) == 1
+
+
+def test_enqueue_includes_pass_band():
+    _uid, pid = _member_profile("passband", "passband@test.de")
+    _scored_job(pid, "p", 85, "Pass")
+    assert storage.enqueue_member_rescore(pid) == 1

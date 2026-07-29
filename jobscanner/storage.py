@@ -1605,15 +1605,24 @@ def set_scan_portals(user_id: int, portals: list[str]) -> int:
 def enqueue_member_rescore(profile_id: int, max_jobs: int | None = None,
                            locations: list[str] | None = None,
                            languages: list[str] | None = None) -> int:
-    """Merkt die relevantesten gescorten, extrahierten Jobs des Profils für ein
-    Member-LLM-Rescore vor: Floor (keine No-Gos) + Rang (Score DESC) + optionaler
-    Cap (max_jobs, None = unbegrenzt). Optionale Pool-Filter: Sprache (exakt IN),
-    Standort (Substring-OR, LIKE %x%); leere/None-Liste = kein Filter. Idempotent per
-    INSERT OR IGNORE; der Cap gilt pro Enqueue. Gibt Anzahl NEU vorgemerkter Jobs zurück."""
+    """Merkt die relevantesten extrahierten Jobs des Profils für ein Member-LLM-Rescore
+    vor: Pool = Band (category IN Pass/Vielleicht) ODER favorisiert ODER bewertet —
+    Favoriten/Feedback überspringen den No-Go-Floor (explizite User-Entscheide). Rang
+    (Score DESC) + optionaler Cap (max_jobs, None = unbegrenzt) + optionale Pool-Filter:
+    Sprache (exakt IN), Standort (Substring-OR, LIKE %x%). Gate: nur nach dem ersten
+    bestätigten Insight (has_confirmed_insight), sonst 0 — defensiv gegen künftige Aufrufer.
+    Idempotent per INSERT OR IGNORE; der Cap gilt pro Enqueue. Gibt Anzahl NEU vorgemerkter Jobs zurück."""
+    if not has_confirmed_insight(profile_id):
+        return 0
     conn = _require_conn()
-    where = ["job_scores.profile_id = ?", "jobs.extraction_status = 'extracted'",
-             "job_scores.category != 'No-Go'"]
-    params: list = [profile_id]
+    where = [
+        "job_scores.profile_id = ?",
+        "jobs.extraction_status = 'extracted'",
+        "(job_scores.category IN ('Pass', 'Vielleicht') "
+        "OR jobs.fingerprint IN (SELECT fingerprint FROM favorites WHERE profile_id = ?) "
+        "OR jobs.fingerprint IN (SELECT fingerprint FROM feedback WHERE profile_id = ?))",
+    ]
+    params: list = [profile_id, profile_id, profile_id]
     if languages:
         where.append("jobs.language IN (%s)" % ",".join("?" * len(languages)))
         params += list(languages)
