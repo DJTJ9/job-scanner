@@ -1480,7 +1480,6 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return templates.TemplateResponse(request, "wizard.html", {
             "step": step, "step_order": STEP_ORDER,
             "data": wizard["data"], "suggestions": wizard.get("suggestions", {}),
-            "default_criteria": storage.DEFAULT_CRITERIA,
             "weights_catalog": scoring.WEIGHTS_CATALOG,
             "no_gos_catalog": scoring.NO_GOS_CATALOG,
             "role": request.session.get("role"),
@@ -1573,11 +1572,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 data["no_gos"] = [k for k in form.getlist("no_gos") if k in valid]
         elif step == "gewichte" and not jumping:
             role = request.session.get("role")
-            if role == "owner":
-                catalog = [dict(c) for c in storage.DEFAULT_CRITERIA]
-            else:
-                catalog = [{"key": w["key"], "label": w["label"], "weight": w["default_weight"]}
-                           for w in scoring.WEIGHTS_CATALOG]
+            catalog = [{"key": w["key"], "label": w["label"], "weight": w["default_weight"]}
+                       for w in scoring.WEIGHTS_CATALOG]
             criteria = [
                 {"key": c["key"], "label": c["label"], "sort": i,
                  "weight": int(form.get(f"weight_{c['key']}", 0))}

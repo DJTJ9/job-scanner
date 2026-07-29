@@ -47,3 +47,13 @@ def test_export_button_in_filterzeile(client):
     filters = html.split('class="dash-filters"', 1)[1].split("</div>", 1)[0]
     assert 'name="sort"' in filters and 'name="min_score"' in filters
     assert 'export-trigger' in filters
+
+def test_owner_wizard_seeded_25_kriterien(client):
+    from jobscanner import scoring, storage
+    before = {p["id"] for p in storage.list_profiles()}
+    weights = {f"weight_{w['key']}": "3" for w in scoring.WEIGHTS_CATALOG}
+    r = client.post("/wizard/gewichte", data=weights, follow_redirects=False)
+    assert r.status_code == 303
+    new = [p for p in storage.list_profiles() if p["id"] not in before]
+    assert len(new) == 1
+    assert len(storage.list_criteria(new[0]["id"])) == 25

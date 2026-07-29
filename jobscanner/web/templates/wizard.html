@@ -151,24 +151,13 @@
       {% endfor %}
     {% endif %}
   {% elif step == "gewichte" %}
-    {% if role == "owner" %}
-      {% for c in default_criteria %}
-        {% set suggested = suggestions.get("criteria_weights", {}).get(c.key) %}
-        <div class="criterion">
-          <label for="weight_{{ c.key }}">{{ c.label }} <span class="weight">{{ suggested if suggested is not none else c.weight }}</span></label>
-          <input type="range" id="weight_{{ c.key }}" name="weight_{{ c.key }}" min="0" max="5"
-                 value="{{ suggested if suggested is not none else c.weight }}">
-        </div>
-      {% endfor %}
-    {% else %}
-      {% for w in weights_catalog %}
-        <div class="criterion">
-          <label for="weight_{{ w.key }}">{{ w.label }} <span class="weight">{{ data.get('weights', {}).get(w.key, w.default_weight) }}</span></label>
-          <input type="range" id="weight_{{ w.key }}" name="weight_{{ w.key }}" min="0" max="5"
-                 value="{{ data.get('weights', {}).get(w.key, w.default_weight) }}">
-        </div>
-      {% endfor %}
-    {% endif %}
+    {% for w in weights_catalog %}
+      <div class="criterion">
+        <label for="weight_{{ w.key }}">{{ w.label }} <span class="weight">{{ data.get('weights', {}).get(w.key, w.default_weight) }}</span></label>
+        <input type="range" id="weight_{{ w.key }}" name="weight_{{ w.key }}" min="0" max="5"
+               value="{{ data.get('weights', {}).get(w.key, w.default_weight) }}">
+      </div>
+    {% endfor %}
   {% endif %}
   <div class="wizard-actions">
     {% if prev_step %}<a class="btn btn-secondary" href="/wizard/{{ prev_step }}">← Zurück</a>{% endif %}
