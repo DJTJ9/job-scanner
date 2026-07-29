@@ -242,3 +242,21 @@ def test_stille_forms_tragen_confirm_save(member):
 def test_passwort_form_hat_kein_confirm_save(member):
     body = member.get("/einstellungen").text
     assert 'action="/account/passwort" data-confirm-save' not in body
+
+
+def test_change_username_success(member):
+    resp = member.post("/account/username", data={"username": "GeaenderterName"},
+                       follow_redirects=False)
+    assert resp.status_code == 200
+    assert storage.get_user_by_username("geaendertername") is not None
+
+
+def test_change_username_rejects_duplicate(member):
+    storage.create_user("occupied@test.de", "pw", username="Belegt")
+    resp = member.post("/account/username", data={"username": "belegt"})
+    assert resp.status_code == 409
+
+
+def test_change_username_rejects_invalid(member):
+    resp = member.post("/account/username", data={"username": "x@"})
+    assert resp.status_code == 400

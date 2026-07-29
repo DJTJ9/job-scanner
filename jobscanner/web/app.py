@@ -291,7 +291,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         spar = storage.get_spar_modus(own[0]["data"]) if own else dict(storage.SPAR_MODUS_DEFAULT)
         notify_pref = storage.get_notify_pref(own[0]["data"]) if own else dict(storage.NOTIFY_PREF_DEFAULT)
         return {"has_claude_kit": bool(user.get("api_token_hash")), "spar_modus": spar,
-                "notify_pref": notify_pref,
+                "notify_pref": notify_pref, "username": user.get("username"),
                 "has_firecrawl_key": bool(storage.get_firecrawl_key_enc(user_id)),
                 "scan_portals": (storage.get_scan_portals(own[0]["data"], user_id) if own
                                  else list(storage.SCAN_PORTALS_DEFAULT)),
@@ -332,6 +332,34 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             {"error": None, "success": "Passwort geändert", "api_token": None,
              "active_tab": "profil",
              **_settings_extra(request.session["user_id"])})
+
+    @app.get("/account/username")
+    def account_username_form(request: Request):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        return RedirectResponse("/einstellungen", status_code=303)
+
+    @app.post("/account/username")
+    def account_username_submit(request: Request, username: str = Form(...),
+                                csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return _csrf_error_page(request)
+
+        def _resp(error, success, code=200):
+            return templates.TemplateResponse(
+                request, "settings.html",
+                {"error": error, "success": success, "api_token": None,
+                 "active_tab": "profil",
+                 **_settings_extra(request.session["user_id"])}, status_code=code)
+
+        if not _valid_username(username):
+            return _resp("Benutzername: 3–20 Zeichen, nur Buchstaben/Zahlen/_-, kein @", None, 400)
+        if not storage.set_username(request.session["user_id"], username.strip()):
+            return _resp("Benutzername bereits vergeben", None, 409)
+        request.session["username"] = username.strip()
+        return _resp(None, "Benutzername geändert")
 
     @app.get("/account/email")
     def account_email_form(request: Request):

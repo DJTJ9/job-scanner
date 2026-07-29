@@ -20,9 +20,23 @@
 
   <section class="tab-panel{% if active_tab == 'profil' %} tab-panel-active{% endif %}"
            data-tab-panel="profil">
-    <h2>Passwort ändern</h2>
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
     {% if success %}<p class="success-msg">{{ success }}</p>{% endif %}
+    <h2>Benutzername</h2>
+    {% if username %}
+      <p>Aktuell: <strong>{{ username }}</strong></p>
+    {% else %}
+      <p class="hinweis">Lege einen Benutzernamen fest.</p>
+    {% endif %}
+    <form method="post" action="/account/username">
+      {% include "_csrf_field.html" %}
+      <label for="username">Neuer Benutzername</label>
+      <input type="text" id="username" name="username" required
+             minlength="3" maxlength="20" pattern="[a-zA-Z0-9_-]+">
+      <button type="submit" class="btn btn-primary">Speichern</button>
+    </form>
+    <div class="tiefenlinie"></div>
+    <h2>Passwort ändern</h2>
     <form method="post" action="/account/passwort">
       {% include "_csrf_field.html" %}
       <label for="current_password">Aktuelles Passwort</label>
