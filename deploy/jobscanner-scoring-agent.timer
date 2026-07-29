@@ -1,9 +1,0 @@
-[Unit]
-Description=Täglicher Scoring-Agent-Lauf (06:30, 30 Min nach Discover)
-
-[Timer]
-OnCalendar=*-*-* 06:30:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target

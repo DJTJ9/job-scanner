@@ -1,9 +1,0 @@
-[Unit]
-Description=Täglicher Notify-Pass (07:00, nach Scoring 06:30)
-
-[Timer]
-OnCalendar=*-*-* 07:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target

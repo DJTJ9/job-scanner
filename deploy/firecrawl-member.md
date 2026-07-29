@@ -41,5 +41,4 @@ Team-`FIRECRAWL_API_KEY` liegt bereits im Discover-`.env`.
 sudo systemctl restart jobscanner-web
 ```
 
-Discover-Cron (`jobscanner-discover.timer`) zieht `.env` beim nächsten Lauf automatisch.
 Live-Smoke: `GET /einstellungen?tab=firecrawl` → 200, Firecrawl-Tab sichtbar.
