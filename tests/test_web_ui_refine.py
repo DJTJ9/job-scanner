@@ -39,3 +39,11 @@ def test_home_hat_banner(client):
     html = client.get("/").text
     assert "home-banner" in html
     assert "hero-landscape-band.png" in html
+
+def test_export_button_in_filterzeile(client):
+    html = client.get("/jobs?tab=aktiv").text
+    # Export-Button steht in derselben .dash-filters-Zeile wie die Selects
+    assert 'class="dash-filters"' in html
+    filters = html.split('class="dash-filters"', 1)[1].split("</div>", 1)[0]
+    assert 'name="sort"' in filters and 'name="min_score"' in filters
+    assert 'export-trigger' in filters

@@ -550,6 +550,8 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
   white-space: nowrap;
   opacity: 0.75;
 }
+.dash-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+.dash-filters .export-trigger { margin-left: auto; }
 
 /* --- Scan-Anleitung: Split-Screen --- */
 .scan-wrap {
