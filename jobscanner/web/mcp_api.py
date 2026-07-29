@@ -11,7 +11,7 @@ from contextvars import ContextVar
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from jobscanner import config, dedup, extract, scan_config, scoring, search, storage
+from jobscanner import config, dedup, extract, extract_rules, scan_config, scoring, search, storage
 from jobscanner.models import make_fingerprint
 
 _current_user: ContextVar[dict | None] = ContextVar("mcp_current_user", default=None)
@@ -237,7 +237,7 @@ def push_jobs_data(user: dict, listings: list) -> dict:
 
     known = dedup.known_source_urls()
     today = _dt.date.today().isoformat()
-    stats = {"inserted": 0, "duplicates_url": 0, "duplicates_content": 0}
+    stats = {"inserted": 0, "duplicates_url": 0, "duplicates_content": 0, "extracted": 0}
     for listing in listings:
         portal = listing["portal"].strip()
         url = dedup.canonicalize_url(listing["url"].strip(), portal)
@@ -259,6 +259,10 @@ def push_jobs_data(user: dict, listings: list) -> dict:
                                     today, via=f"member:{user['id']}")
         known[url] = fp
         stats["inserted"] += 1
+        job = extract_rules.to_job(listing, today)
+        if job is not None:
+            storage.apply_extraction(fp, job)
+            stats["extracted"] += 1
     storage.log_event("scan_pushed", user_id=user["id"],
                       meta={"source": "member", "inserted": stats["inserted"]})
     return stats

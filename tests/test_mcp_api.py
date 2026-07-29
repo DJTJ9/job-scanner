@@ -190,7 +190,8 @@ class TestToolLogic:
         listings = [{"url": "https://m.test/j1", "portal": "adzuna", "raw_text": "Anzeige 1"},
                     {"url": "https://m.test/j1", "portal": "adzuna", "raw_text": "Anzeige 1"}]
         stats = mcp_api.push_jobs_data(user, listings)
-        assert stats == {"inserted": 1, "duplicates_url": 1, "duplicates_content": 0}
+        assert stats == {"inserted": 1, "duplicates_url": 1, "duplicates_content": 0,
+                         "extracted": 0}
         pending = storage.list_pending_extraction()
         assert len(pending) == 1
         conn = storage._require_conn()
@@ -205,7 +206,8 @@ class TestToolLogic:
                      "raw_text": "Anzeige", "title": "Unity Dev",
                      "company": "Firma-cd1", "location": "Hamburg"}]
         stats = mcp_api.push_jobs_data(user, listings)
-        assert stats == {"inserted": 0, "duplicates_url": 0, "duplicates_content": 1}
+        assert stats == {"inserted": 0, "duplicates_url": 0, "duplicates_content": 1,
+                         "extracted": 0}
         assert storage.list_pending_extraction() == []
 
     def test_push_jobs_missing_structured_fields_falls_back_to_url_only(self, client):
@@ -213,7 +215,8 @@ class TestToolLogic:
         listings = [{"url": "https://m.test/legacy", "portal": "adzuna",
                      "raw_text": "Anzeige ohne strukturierte Felder"}]
         stats = mcp_api.push_jobs_data(user, listings)
-        assert stats == {"inserted": 1, "duplicates_url": 0, "duplicates_content": 0}
+        assert stats == {"inserted": 1, "duplicates_url": 0, "duplicates_content": 0,
+                         "extracted": 0}
 
     def test_push_jobs_rejects_bad_listing(self, client):
         user, _pid = _member_with_profile()
@@ -222,6 +225,31 @@ class TestToolLogic:
         with pytest.raises(ValueError):
             mcp_api.push_jobs_data(user, [{"url": "https://ok.test", "portal": "a",
                                            "raw_text": ""}])
+
+    def test_push_jobs_extracts_inline_when_company_present(self, client):
+        from jobscanner.models import make_fingerprint
+        user, _pid = _member_with_profile()
+        res = mcp_api.push_jobs_data(user, [{
+            "url": "https://x.de/inline", "portal": "stepstone",
+            "title": "Python Dev", "company": "Acme GmbH", "location": "Berlin",
+            "raw_text": "Remote möglich. Vollzeit. Python.",
+        }])
+        assert res["extracted"] == 1
+        fp = make_fingerprint("Acme GmbH", "Python Dev", "Berlin")
+        assert storage.get_job(fp) is not None
+        conn = storage._require_conn()
+        row = conn.execute(
+            "SELECT extraction_status FROM jobs WHERE fingerprint = ?", (fp,)).fetchone()
+        assert row["extraction_status"] == "extracted"
+
+    def test_push_jobs_stays_pending_without_company(self, client):
+        user, _pid = _member_with_profile()
+        res = mcp_api.push_jobs_data(user, [{
+            "url": "https://x.de/pending", "portal": "indeed",
+            "raw_text": "Irgendein Text ohne Firmenname.",
+        }])
+        assert res["extracted"] == 0
+        assert res["inserted"] == 1
 
 
 class TestGetMyVotes:
