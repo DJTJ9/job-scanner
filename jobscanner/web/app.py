@@ -20,7 +20,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
-from jobscanner import config, nocodb_board, precheck, scoring, storage
+from jobscanner import browser, config, crypto, nocodb_board, precheck, scoring, storage
 from jobscanner.web import csrf, llm_refine, mailer, mcp_api, rate_limit
 
 _DIR = Path(__file__).parent
@@ -279,6 +279,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         notify_pref = storage.get_notify_pref(own[0]["data"]) if own else dict(storage.NOTIFY_PREF_DEFAULT)
         return {"has_claude_kit": bool(user.get("api_token_hash")), "spar_modus": spar,
                 "notify_pref": notify_pref,
+                "has_firecrawl_key": bool(storage.get_firecrawl_key_enc(user_id)),
                 "scan_portals": (storage.get_scan_portals(own[0]["data"]) if own
                                  else list(storage.SCAN_PORTALS_DEFAULT)),
                 "custom_scan_portals": [
@@ -387,7 +388,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return redirect
         return templates.TemplateResponse(request, "settings.html", {
             "error": None, "success": None, "api_token": None,
-            "active_tab": tab if tab in ("profil", "token", "notify") else "profil",
+            "active_tab": tab if tab in ("profil", "token", "notify", "firecrawl") else "profil",
             **_settings_extra(request.session["user_id"])})
 
     @app.get("/benachrichtigungen")
@@ -444,6 +445,32 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 "inbox": inbox is not None}
         storage.set_notify_pref(request.session["user_id"], pref)
         return RedirectResponse("/einstellungen?tab=notify", status_code=303)
+
+    @app.post("/einstellungen/firecrawl")
+    def firecrawl_key_submit(request: Request, firecrawl_key: str = Form(""),
+                             csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return _csrf_error_page(request)
+        uid = request.session["user_id"]
+        key = firecrawl_key.strip()
+        if not key or not browser.validate_firecrawl_key(key):
+            return templates.TemplateResponse(request, "settings.html", {
+                "error": "Firecrawl-Key ungültig oder ohne Kontingent — abgelehnt.",
+                "success": None, "api_token": None, "active_tab": "firecrawl",
+                **_settings_extra(uid)})
+        storage.set_firecrawl_key(uid, crypto.encrypt(key))
+        return RedirectResponse("/einstellungen?tab=firecrawl", status_code=303)
+
+    @app.post("/einstellungen/firecrawl/loeschen")
+    def firecrawl_key_delete(request: Request, csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return _csrf_error_page(request)
+        storage.clear_firecrawl_key(request.session["user_id"])
+        return RedirectResponse("/einstellungen?tab=firecrawl", status_code=303)
 
     @app.get("/register")
     def register_form(request: Request):
@@ -651,6 +678,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             p["can_manage"] = _may_manage_portal(request, p)
         return templates.TemplateResponse(request, "portale.html", {
             "portale": portale, "is_owner": request.session.get("role") == "owner",
+            "has_firecrawl_key": bool(storage.get_firecrawl_key_enc(request.session["user_id"])),
             "result": None})
 
     @app.post("/portale/pruefen")
@@ -675,7 +703,35 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return templates.TemplateResponse(request, "portale.html", {
             "portale": portale,
             "is_owner": request.session.get("role") == "owner",
+            "has_firecrawl_key": bool(storage.get_firecrawl_key_enc(request.session["user_id"])),
             "result": storage.get_custom_portal(pid)})
+
+    @app.post("/portale/pruefen-firecrawl/{portal_id}")
+    def portale_pruefen_firecrawl(request: Request, portal_id: int,
+                                  csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return _csrf_error_page(request)
+        portal = storage.get_custom_portal(portal_id)
+        if portal is None or not _may_manage_portal(request, portal):
+            return RedirectResponse("/portale", status_code=303)
+        enc = storage.get_firecrawl_key_enc(request.session["user_id"])
+        key = crypto.decrypt(enc) if enc else None
+        if not key:
+            return RedirectResponse("/einstellungen?tab=firecrawl", status_code=303)
+        result = precheck.precheck_portal(portal["url"], use_firecrawl=True, firecrawl_key=key)
+        storage.save_check_result(portal_id, result)
+        if result.get("compatible"):
+            storage.set_firecrawl_failover(portal_id, True)
+        portale = storage.list_custom_portals()
+        for p in portale:
+            p["can_manage"] = _may_manage_portal(request, p)
+        return templates.TemplateResponse(request, "portale.html", {
+            "portale": portale,
+            "is_owner": request.session.get("role") == "owner",
+            "has_firecrawl_key": True,
+            "result": storage.get_custom_portal(portal_id)})
 
     @app.post("/portale/aktivieren/{portal_id}")
     def portale_aktivieren(request: Request, portal_id: int, csrf_token: str = Form("")):
