@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
@@ -22,7 +22,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from jobscanner import (browser, config, crypto, nocodb_board, precheck, scoring,
                         search, storage)
-from jobscanner.web import csrf, llm_refine, mailer, mcp_api, rate_limit
+from jobscanner.web import csrf, export, llm_refine, mailer, mcp_api, rate_limit
 
 _DIR = Path(__file__).parent
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "data" / "jobs.db"
@@ -785,38 +785,13 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     _DASHBOARD_TABS = ("aktiv", "no_go", "bewertet", "ausland", "wartet")
     _DASHBOARD_PAGE_SIZE = 25
-    _FUNNEL_STEPS = (("onboarding_start", "Onboarding-Start"),
-                     ("profil_erstellt", "Profil erstellt"),
-                     ("feedback_gegeben", "Feedback gegeben"))
-    _WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+    _TAB_LABELS = {"aktiv": "Aktiv", "no_go": "No-Go", "bewertet": "Bereits bewertet",
+                   "ausland": "Ausland", "wartet": "Wartet auf Score"}
 
-    @app.get("/dashboard/{profile_id}")
-    def dashboard_redirect(request: Request, profile_id: int, tab: str = ""):
-        """301 auf die neuen flachen Seiten — Bookmarks und Tour-Anker bleiben gültig.
-        Eigenes Profil in der URL wird als aktives Profil übernommen (best effort)."""
-        profile = storage.get_profile(profile_id)
-        if (profile is not None
-                and profile.get("user_id") == request.session.get("user_id")):
-            request.session["active_profile_id"] = profile_id
-        target = (f"/jobs?tab={tab}" if tab in _DASHBOARD_TABS else "/jobs")
-        return RedirectResponse(target, status_code=301)
-
-    @app.get("/dashboard/{profile_id}/metriken")
-    def metrics_redirect(request: Request, profile_id: int):
-        return RedirectResponse("/metriken", status_code=301)
-
-    @app.get("/jobs")
-    def jobs_view(request: Request, tab: str = "aktiv",
-                  page: int | None = None, q: str = "",
-                  sort: str = "score", min_score: int = 0):
-        profile, resp = _active_profile(request)
-        if resp is not None:
-            return resp
-        if profile is None:
-            return RedirectResponse("/", status_code=303)
+    def _gefilterte_eintraege(profile, tab: str, sort: str, min_score: int, q: str):
+        """Gefilterte Einträge eines Tabs + Render-Meta. Von jobs_view UND /export
+        genutzt — ein Filterpfad, kein Drift."""
         profile_id = profile["id"]
-        if tab not in _DASHBOARD_TABS:
-            tab = "aktiv"
         feedback = storage.get_feedback_map(profile_id)
         favorites = storage.get_favorites_set(profile_id)
         spar = profile["data"].get("spar_modus") or {}
@@ -865,6 +840,47 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                     + (e["job"].location or "") + " " + (e["reason"] or "")
                 ).lower()
             ]
+        meta = {"feedback": feedback, "favorites": favorites,
+                "wartet_count": len(wartet),
+                "counts": {"aktiv": len(aktiv), "no_go": len(no_go),
+                           "bewertet": len(bewertet), "ausland": len(ausland)}}
+        return tab_entries, meta
+    _FUNNEL_STEPS = (("onboarding_start", "Onboarding-Start"),
+                     ("profil_erstellt", "Profil erstellt"),
+                     ("feedback_gegeben", "Feedback gegeben"))
+    _WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+
+    @app.get("/dashboard/{profile_id}")
+    def dashboard_redirect(request: Request, profile_id: int, tab: str = ""):
+        """301 auf die neuen flachen Seiten — Bookmarks und Tour-Anker bleiben gültig.
+        Eigenes Profil in der URL wird als aktives Profil übernommen (best effort)."""
+        profile = storage.get_profile(profile_id)
+        if (profile is not None
+                and profile.get("user_id") == request.session.get("user_id")):
+            request.session["active_profile_id"] = profile_id
+        target = (f"/jobs?tab={tab}" if tab in _DASHBOARD_TABS else "/jobs")
+        return RedirectResponse(target, status_code=301)
+
+    @app.get("/dashboard/{profile_id}/metriken")
+    def metrics_redirect(request: Request, profile_id: int):
+        return RedirectResponse("/metriken", status_code=301)
+
+    @app.get("/jobs")
+    def jobs_view(request: Request, tab: str = "aktiv",
+                  page: int | None = None, q: str = "",
+                  sort: str = "score", min_score: int = 0):
+        profile, resp = _active_profile(request)
+        if resp is not None:
+            return resp
+        if profile is None:
+            return RedirectResponse("/", status_code=303)
+        profile_id = profile["id"]
+        if tab not in _DASHBOARD_TABS:
+            tab = "aktiv"
+        tab_entries, meta = _gefilterte_eintraege(profile, tab, sort, min_score, q)
+        feedback = meta["feedback"]
+        favorites = meta["favorites"]
+        q_low = q.strip().lower()
         result_count = len(tab_entries)
         dash_pages = request.session.get("dash_pages", {})
         if page is not None:
@@ -902,10 +918,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "q": q,
             "sort": sort,
             "min_score": min_score,
-            "wartet_count": len(wartet),
+            "wartet_count": meta["wartet_count"],
             "result_count": result_count,
-            "counts": {"aktiv": len(aktiv), "no_go": len(no_go),
-                       "bewertet": len(bewertet), "ausland": len(ausland)},
+            "counts": meta["counts"],
         })
 
     @app.get("/favoriten")
@@ -925,6 +940,53 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "favorites": storage.get_favorites_set(pid),
             "criteria": storage.list_criteria(pid),
         })
+
+    @app.get("/export")
+    def export_matches(request: Request, quelle: str = "ansicht", format: str = "csv",
+                       tab: str = "aktiv", sort: str = "score",
+                       min_score: int = 0, q: str = ""):
+        """Match-Download als CSV/PDF. GET ohne CSRF — read-only, Muster /account/export."""
+        profile, resp = _active_profile(request)
+        if resp is not None:
+            return resp
+        if profile is None:
+            return RedirectResponse("/", status_code=303)
+        if quelle not in ("ansicht", "favoriten", "alle") or format not in ("csv", "pdf"):
+            return JSONResponse({"error": "unbekannte Export-Parameter"}, status_code=400)
+        pid = profile["id"]
+        favorites = storage.get_favorites_set(pid)
+        if quelle == "favoriten":
+            spar = profile["data"].get("spar_modus") or {}
+            entries = storage.list_favorites_with_scores(
+                pid, locations=spar.get("locations"), languages=spar.get("languages"))
+            quelle_label = "Nur Favoriten"
+        elif quelle == "alle":
+            entries, _ = _gefilterte_eintraege(profile, "aktiv", "score", 0, "")
+            quelle_label = "Alle Matches"
+        else:
+            if tab not in _DASHBOARD_TABS:
+                tab = "aktiv"
+            entries, _ = _gefilterte_eintraege(profile, tab, sort, min_score, q)
+            teile = [_TAB_LABELS[tab]]
+            if min_score > 0:
+                teile.append(f"Score ≥ {min_score}")
+            if q.strip():
+                teile.append(f"Suche „{q.strip()}“")
+            quelle_label = "Aktuelle Ansicht (" + ", ".join(teile) + ")"
+        heute = date.today()
+        dateiname = f"bob-matches-{quelle}-{heute.isoformat()}.{format}"
+        if format == "csv":
+            inhalt = export.build_csv(entries, favorites)
+            media = "text/csv; charset=utf-8"
+        else:
+            inhalt = export.build_pdf(entries, favorites,
+                                      {"quelle": quelle_label,
+                                       "datum": heute.strftime("%d.%m.%Y"),
+                                       "anzahl": len(entries)})
+            media = "application/pdf"
+        return Response(content=inhalt, media_type=media,
+                        headers={"Content-Disposition":
+                                 f'attachment; filename="{dateiname}"'})
 
     @app.get("/feintuning")
     def feintuning_view(request: Request):
