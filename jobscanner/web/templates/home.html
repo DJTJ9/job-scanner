@@ -2,6 +2,7 @@
 {% from "_job_card.html" import job_card %}
 {% block title %}Übersicht — Bob der Job-Bot{% endblock %}
 {% block content %}
+<div class="home-banner"><img src="/static/img/bob/hero-landscape-band.png" alt=""></div>
 <h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> Übersicht</h1>
 {% if summary %}
 <div class="sonar-band {{ 'sonar-frisch' if summary.scan_frisch else 'sonar-alt' }}">
