@@ -34,7 +34,7 @@ def test_wizard_full_flow_creates_profile(client):
     client.post("/wizard/ort_umfang", data={"location": "Remote", "employment": "Vollzeit",
                                             "languages": "de, en"})
     client.post("/wizard/no_gos", data={"no_gos": "Zeitarbeit"})
-    resp = client.post("/wizard/gewichte", data={"weight_role_fit": "5"}, follow_redirects=False)
+    resp = client.post("/wizard/gewichte", data={"weight_remote": "5"}, follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/"
 
@@ -44,9 +44,11 @@ def test_wizard_full_flow_creates_profile(client):
     assert profile["data"]["target_roles"] == ["Backend Developer"]
     assert profile["data"]["no_gos"] == ["Zeitarbeit"]
     assert profile["queries"] is None
+    # B3: Owner-Wizard seedet jetzt die 25 WEIGHTS_CATALOG-Kriterien (kein role_fit mehr)
     crits = storage.list_criteria(profile["id"])
-    role_fit = next(c for c in crits if c["key"] == "role_fit")
-    assert role_fit["weight"] == 5
+    assert len(crits) == 25
+    remote = next(c for c in crits if c["key"] == "remote")
+    assert remote["weight"] == 5
 
 
 def test_wizard_suchbegriffe_step_stores_queries_json(client):

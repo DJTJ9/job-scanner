@@ -139,13 +139,16 @@ def test_admin_gruppe_nur_owner(client):
     assert 'href="/metriken"' not in resp.text
 
 
-def test_profil_switcher_nur_bei_mehreren_profilen(client):
+def test_profilwechsel_ueber_profil_seite_statt_topbar(client):
+    # B1: Profilswitcher aus der Topbar entfernt, Wechsel jetzt auf /profil
     resp = client.get("/jobs")
     assert "data-profile-switcher" not in resp.text
     uid = storage.get_user_by_email("owner@test.de")["id"]
     storage.create_profile("Zweit", {"skills": []}, user_id=uid)
-    resp = client.get("/jobs")
-    assert "data-profile-switcher" in resp.text
+    # Topbar bleibt auch bei mehreren Profilen ohne Switcher
+    assert "data-profile-switcher" not in client.get("/jobs").text
+    # Wechsel-UI ist auf die Profil-Seite umgezogen
+    assert 'action="/profil/aktiv"' in client.get("/profil").text
 
 
 @pytest.mark.parametrize("pfad", ["/jobs", "/favoriten", "/feintuning", "/lernen", "/scan"])
