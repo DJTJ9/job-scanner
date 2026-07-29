@@ -364,3 +364,32 @@ def test_career_page_skips_known_detail_url(env):
                side_effect=lambda u, **kw: f"Rohtext {u}"):
         report = pipeline.run(provider=FakeProvider(), db_path=env, today="2026-07-10")
     assert report["new"] == 0
+
+
+class TestCareerPageMemberFailover:
+    def test_failover_portal_decrypts_submitter_key_and_passes_it(self, tmp_path, monkeypatch):
+        from cryptography.fernet import Fernet
+        monkeypatch.setenv("JOBSCANNER_FERNET_KEY", Fernet.generate_key().decode())
+        from jobscanner import storage, crypto, pipeline, career_pages, extract
+        storage.init_db(tmp_path / "jobs.db")
+        uid = storage.create_user("s@test.de", "pw", role="member")
+        storage.set_firecrawl_key(uid, crypto.encrypt("member-fc-key"))
+        pid = storage.create_custom_portal("https://foo.de", "career_page", uid)
+        storage.set_firecrawl_failover(pid, True)
+        storage.activate_custom_portal(pid)
+
+        seen = {}
+        def fake_discover(url, failover=False, api_key=None):
+            seen["discover"] = (failover, api_key)
+            return ["https://foo.de/job/1"]
+        def fake_fetch(url, fetch_method="playwright", failover=False, api_key=None):
+            seen["fetch"] = (failover, api_key)
+            return "Aufgaben Anforderungen wir bieten Vollzeit"
+        monkeypatch.setattr(career_pages, "discover_job_urls", fake_discover)
+        monkeypatch.setattr(extract, "fetch_raw_text", fake_fetch)
+
+        pipeline._discover_custom_career_pages(
+            [storage.get_custom_portal(pid)], known={}, report={"new": 0, "errors": 0},
+            today="2026-07-29")
+        assert seen["discover"] == (True, "member-fc-key")
+        assert seen["fetch"] == (True, "member-fc-key")

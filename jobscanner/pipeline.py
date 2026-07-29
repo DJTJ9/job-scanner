@@ -15,8 +15,8 @@ import json
 import subprocess
 from pathlib import Path
 
-from jobscanner import (browser, career_pages, config, dedup, extract, market,
-                        neighbors, search, storage)
+from jobscanner import (browser, career_pages, config, crypto, dedup, extract,
+                        market, neighbors, search, storage)
 from jobscanner.scan_config import SCAN_PRESETS
 from jobscanner.search import SearchProvider
 
@@ -143,20 +143,7 @@ def run(provider: SearchProvider | None = None, limit_per_query: int | None = No
                             role=role, is_neighbor=role in neighbor_role_names)
                         known[url] = fp
                         report["new"] += 1
-    for cp in custom_active:
-        if cp["typ"] != "career_page":
-            continue
-        for detail_url in career_pages.discover_job_urls(cp["url"]):
-            url = dedup.canonicalize_url(detail_url, f"custom:{cp['id']}")
-            if url in known:
-                continue
-            raw_text = extract.fetch_raw_text(url)
-            if not raw_text:
-                report["errors"] += 1
-                continue
-            fp = storage.insert_raw_job(url, f"custom:{cp['id']}", raw_text, today)
-            known[url] = fp
-            report["new"] += 1
+    _discover_custom_career_pages(custom_active, known, report, today)
     fc_after = browser.credits_remaining()
     real = (fc_before - fc_after
             if fc_before is not None and fc_after is not None else None)
@@ -167,6 +154,29 @@ def run(provider: SearchProvider | None = None, limit_per_query: int | None = No
                             encoding="utf-8")
     storage.log_event("scan_pushed", meta={"source": "server", "new": report["new"]})
     return report
+
+
+def _discover_custom_career_pages(custom_active, known, report, today):
+    for cp in custom_active:
+        if cp["typ"] != "career_page":
+            continue
+        key = None
+        if cp.get("firecrawl_failover") and cp.get("submitted_by"):
+            enc = storage.get_firecrawl_key_enc(cp["submitted_by"])
+            key = crypto.decrypt(enc) if enc else None
+        failover = bool(cp.get("firecrawl_failover") and key)
+        for detail_url in career_pages.discover_job_urls(
+                cp["url"], failover=failover, api_key=key):
+            url = dedup.canonicalize_url(detail_url, f"custom:{cp['id']}")
+            if url in known:
+                continue
+            raw_text = extract.fetch_raw_text(url, failover=failover, api_key=key)
+            if not raw_text:
+                report["errors"] += 1
+                continue
+            fp = storage.insert_raw_job(url, f"custom:{cp['id']}", raw_text, today)
+            known[url] = fp
+            report["new"] += 1
 
 
 def send_report(db_path: str | Path | None = None, today: str | None = None) -> dict:

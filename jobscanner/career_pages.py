@@ -50,9 +50,10 @@ def _candidate_links(html: str, base_url: str) -> list[tuple[str, str]]:
     return out
 
 
-def discover_job_urls(url: str) -> list[str]:
+def discover_job_urls(url: str, failover: bool = False,
+                      api_key: str | None = None) -> list[str]:
     """Career-Page → bestätigte Job-Detail-URLs (absolut, same-domain)."""
-    html = browser.fetch(url)
+    html = browser.fetch(url, failover=failover, api_key=api_key)
     if html is None:
         return []
     candidates = _candidate_links(html, url)
