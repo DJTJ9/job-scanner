@@ -174,12 +174,11 @@ def push_batch_data(user: dict, entries: list) -> dict:
         fp_map[entry["fingerprint"]] = storage.apply_extraction(entry["fingerprint"], job)
         stats["extracted"] += 1
 
-    # Pass 2: deterministisches Auto-Scoring aller Member-Profile — nur fehlende Paare,
-    # damit früher gepushte Member-LLM-Scores nicht überschrieben werden.
+    # Pass 2: deterministisches Auto-Scoring NUR der eigenen Profile (Isolation) —
+    # nur fehlende Paare, damit früher gepushte Member-LLM-Scores nicht überschrieben werden.
     if stats["extracted"]:
-        for p in storage.list_profiles(active_only=True):
-            if not p["is_default"]:
-                storage.score_profile_deterministic(p["id"], only_missing=True)
+        for pid in own:
+            storage.score_profile_deterministic(pid, only_missing=True)
 
     # Pass 3: gepushte Scores für eigene Profile (gewinnen gegen das Auto-Scoring).
     for entry in entries:

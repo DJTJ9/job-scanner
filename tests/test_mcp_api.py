@@ -170,19 +170,22 @@ class TestToolLogic:
         assert score_row is not None and score_row["score"] is not None
         assert jobs[0].score is None  # jobs-Tabelle (Owner-Spalten) bleibt unberührt
 
-    def test_push_batch_auto_scores_other_member_profiles(self, client):
-        user, _pid = _member_with_profile()
-        other, other_pid = _member_with_profile("auto@test.de")
+    def test_push_batch_scores_only_own_profiles(self, client):
+        """Extraktion hilft dem Pool, aber Auto-Scoring läuft NUR für die eigenen Profile."""
+        from jobscanner.models import make_fingerprint
+        user, own_pid = _member_with_profile()
+        _other, other_pid = _member_with_profile("iso-other@test.de")
         raw_fp = storage.insert_raw_job("https://m.test/x2", "adzuna", "Text", "2026-07-17")
         entry = {"fingerprint": raw_fp,
                  "extraction": {"title": "Godot Dev", "company": "ACME2",
-                                "location": "", "remote": "remote", "employment_type": "",
-                                "language": "de", "salary": "",
+                                "location": "Berlin", "remote": "remote",
+                                "employment_type": "", "language": "de", "salary": "",
                                 "requirements": [], "tech_stack": []},
                  "scores": {}}
         mcp_api.push_batch_data(user, [entry])
-        new_fp = storage.list_jobs()[0].fingerprint
-        assert storage.get_job_score(other_pid, new_fp) is not None
+        fp = make_fingerprint("ACME2", "Godot Dev", "Berlin")
+        assert storage.get_job_score(own_pid, fp) is not None    # eigenes Profil: gescort
+        assert storage.get_job_score(other_pid, fp) is None       # fremdes Profil: unberührt
 
     def test_push_jobs_dedups_and_marks_member_source(self, client):
         import json as _json
