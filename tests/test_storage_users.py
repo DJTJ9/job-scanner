@@ -220,3 +220,27 @@ def test_username_unique_case_insensitive(db):
 def test_username_defaults_to_null(db):
     uid = db.create_user("legacy@example.com", "pw")
     assert db.get_user(uid)["username"] is None
+
+
+def test_get_user_by_username_case_insensitive(db):
+    uid = db.create_user("c@example.com", "pw", username="CoolName")
+    assert db.get_user_by_username("coolname")["id"] == uid
+    assert db.get_user_by_username("nope") is None
+
+
+def test_set_username_sets_and_rejects_duplicate(db):
+    uid = db.create_user("d@example.com", "pw")
+    assert db.set_username(uid, "Neu") is True
+    assert db.get_user(uid)["username"] == "Neu"
+    other = db.create_user("e@example.com", "pw", username="Belegt")
+    assert db.set_username(uid, "belegt") is False   # case-insensitiv vergeben
+    assert db.get_user(uid)["username"] == "Neu"     # unverändert
+
+
+def test_verify_login_by_email_and_username(db):
+    db.create_user("f@example.com", "richtig", username="Frank")
+    assert db.verify_login("f@example.com", "richtig") is not None   # @ -> Email-Pfad
+    assert db.verify_login("Frank", "richtig") is not None           # username-Pfad
+    assert db.verify_login("frank", "richtig") is not None           # case-insensitiv
+    assert db.verify_login("Frank", "falsch") is None
+    assert db.verify_login("Unbekannt", "richtig") is None

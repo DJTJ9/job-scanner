@@ -348,6 +348,21 @@ def set_password(user_id: int, new_password: str) -> None:
     conn.commit()
 
 
+@_retry_on_locked
+def set_username(user_id: int, username: str) -> bool:
+    """Setzt/ändert den Benutzernamen. Gibt False zurück, wenn der Name
+    (case-insensitiv) bereits vergeben ist — sonst True."""
+    conn = _require_conn()
+    taken = conn.execute(
+        "SELECT 1 FROM users WHERE lower(username) = lower(?) AND id != ?",
+        (username.strip(), user_id)).fetchone()
+    if taken is not None:
+        return False
+    conn.execute("UPDATE users SET username = ? WHERE id = ?", (username.strip(), user_id))
+    conn.commit()
+    return True
+
+
 def get_user(user_id: int) -> dict | None:
     conn = _require_conn()
     row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
@@ -360,8 +375,29 @@ def get_user_by_email(email: str) -> dict | None:
     return dict(row) if row else None
 
 
+def get_user_by_username(username: str) -> dict | None:
+    conn = _require_conn()
+    row = conn.execute(
+        "SELECT * FROM users WHERE lower(username) = lower(?)",
+        (username.strip(),)).fetchone()
+    return dict(row) if row else None
+
+
 def verify_password(email: str, password: str) -> dict | None:
     user = get_user_by_email(email)
+    if user is None:
+        return None
+    expected = _hash_password(password, bytes.fromhex(user["salt"]))
+    return user if hmac.compare_digest(expected, user["pw_hash"]) else None
+
+
+def verify_login(identifier: str, password: str) -> dict | None:
+    """Login per Email (enthält '@') oder Benutzername. Da username kein '@'
+    enthalten darf, ist die Verzweigung eindeutig."""
+    identifier = identifier.strip()
+    if "@" in identifier:
+        return verify_password(identifier, password)
+    user = get_user_by_username(identifier)
     if user is None:
         return None
     expected = _hash_password(password, bytes.fromhex(user["salt"]))
