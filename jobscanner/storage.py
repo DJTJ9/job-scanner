@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS users (
     salt TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'member',
     api_token_hash TEXT,
+    firecrawl_key_enc TEXT,
     created_at TEXT
 );
 CREATE TABLE IF NOT EXISTS events (
@@ -154,6 +155,7 @@ CREATE TABLE IF NOT EXISTS custom_portals (
         ('pending_check', 'compatible', 'needs_firecrawl_pending', 'active', 'rejected',
          'inactive', 'deleted')),
     firecrawl_needed INTEGER DEFAULT 0,
+    firecrawl_failover INTEGER DEFAULT 0,
     check_ergebnis_json TEXT,
     created_at TEXT NOT NULL,
     activated_at TEXT
@@ -234,6 +236,8 @@ def init_db(path: str | Path) -> None:
     cp_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(custom_portals)")}
     if "is_global" not in cp_cols:
         _conn.execute("ALTER TABLE custom_portals ADD COLUMN is_global INTEGER DEFAULT 0")
+    if "firecrawl_failover" not in cp_cols:
+        _conn.execute("ALTER TABLE custom_portals ADD COLUMN firecrawl_failover INTEGER DEFAULT 0")
     _conn.executescript(_SCHEMA_MEMBER_RESCORE)
     prof_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(profiles)")}
     if "user_id" not in prof_cols:
@@ -259,6 +263,8 @@ def init_db(path: str | Path) -> None:
         _conn.execute("ALTER TABLE users ADD COLUMN pending_email TEXT")
     if "pending_email_token" not in user_cols:
         _conn.execute("ALTER TABLE users ADD COLUMN pending_email_token TEXT")
+    if "firecrawl_key_enc" not in user_cols:
+        _conn.execute("ALTER TABLE users ADD COLUMN firecrawl_key_enc TEXT")
     score_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(job_scores)")}
     if "notified_at" not in score_cols:
         _conn.execute("ALTER TABLE job_scores ADD COLUMN notified_at TEXT")
@@ -1871,6 +1877,7 @@ def _row_to_custom_portal(row: sqlite3.Row) -> dict:
         "submitted_by": row["submitted_by"],
         "status": row["status"],
         "firecrawl_needed": bool(row["firecrawl_needed"]),
+        "firecrawl_failover": bool(row["firecrawl_failover"]),
         "is_global": bool(row["is_global"]),
         "check_ergebnis": json.loads(row["check_ergebnis_json"]) if row["check_ergebnis_json"] else None,
         "created_at": row["created_at"],
@@ -1899,6 +1906,34 @@ def get_custom_portal(portal_id: int) -> dict | None:
     conn = _require_conn()
     row = conn.execute("SELECT * FROM custom_portals WHERE id = ?", (portal_id,)).fetchone()
     return _row_to_custom_portal(row) if row else None
+
+
+@_retry_on_locked
+def set_firecrawl_key(user_id: int, enc: str) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE users SET firecrawl_key_enc = ? WHERE id = ?", (enc, user_id))
+    conn.commit()
+
+
+def get_firecrawl_key_enc(user_id: int) -> str | None:
+    conn = _require_conn()
+    row = conn.execute("SELECT firecrawl_key_enc FROM users WHERE id = ?", (user_id,)).fetchone()
+    return row["firecrawl_key_enc"] if row else None
+
+
+@_retry_on_locked
+def clear_firecrawl_key(user_id: int) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE users SET firecrawl_key_enc = NULL WHERE id = ?", (user_id,))
+    conn.commit()
+
+
+@_retry_on_locked
+def set_firecrawl_failover(portal_id: int, value: bool) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE custom_portals SET firecrawl_failover = ? WHERE id = ?",
+                 (1 if value else 0, portal_id))
+    conn.commit()
 
 
 def list_custom_portals(status: str | None = None) -> list[dict]:

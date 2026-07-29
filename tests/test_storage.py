@@ -482,3 +482,34 @@ class TestRetroMerge:
             "SELECT COUNT(*) FROM favorites WHERE fingerprint=?", (survivor_fp,)).fetchone()[0] == 1
         assert conn.execute(
             "SELECT COUNT(*) FROM favorites WHERE fingerprint=?", (loser_fp,)).fetchone()[0] == 0
+
+
+class TestFirecrawlMemberKey:
+    def test_set_get_clear_key(self, db):
+        uid = storage.create_user("fc@test.de", "pw", role="member")
+        assert storage.get_firecrawl_key_enc(uid) is None
+        storage.set_firecrawl_key(uid, "enc-token-abc")
+        assert storage.get_firecrawl_key_enc(uid) == "enc-token-abc"
+        storage.clear_firecrawl_key(uid)
+        assert storage.get_firecrawl_key_enc(uid) is None
+
+    def test_custom_portal_failover_default_false_and_setter(self, db):
+        uid = storage.create_user("p@test.de", "pw", role="member")
+        pid = storage.create_custom_portal("https://foo.de", "career_page", uid)
+        assert storage.get_custom_portal(pid)["firecrawl_failover"] is False
+        storage.set_firecrawl_failover(pid, True)
+        assert storage.get_custom_portal(pid)["firecrawl_failover"] is True
+
+    def test_init_db_adds_columns_to_pre_firecrawl_schema(self, tmp_path):
+        import sqlite3
+        db_path = tmp_path / "old.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, "
+            "pw_hash TEXT NOT NULL, salt TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'member', "
+            "api_token_hash TEXT, created_at TEXT);")
+        conn.commit()
+        conn.close()
+        storage.init_db(db_path)  # darf nicht crashen, Spalte additiv ergaenzt
+        cols = {r["name"] for r in storage._require_conn().execute("PRAGMA table_info(users)")}
+        assert "firecrawl_key_enc" in cols
