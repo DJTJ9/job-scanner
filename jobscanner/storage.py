@@ -915,7 +915,7 @@ def export_user_data(user_id: int) -> dict:
     """DSGVO-Export: alle personenbezogenen Daten eines Users (ohne Secrets)."""
     conn = _require_conn()
     urow = conn.execute(
-        "SELECT id, email, role, created_at, email_verified_at FROM users WHERE id = ?",
+        "SELECT id, email, username, role, created_at, email_verified_at FROM users WHERE id = ?",
         (user_id,)).fetchone()
     if urow is None:
         return {}
@@ -939,7 +939,7 @@ def admin_list_members() -> list[dict]:
     """Admin-Support: alle User (ohne Secrets), aufsteigend nach id."""
     conn = _require_conn()
     return [dict(r) for r in conn.execute(
-        "SELECT id, email, role, email_verified_at FROM users ORDER BY id ASC")]
+        "SELECT id, email, username, role, email_verified_at FROM users ORDER BY id ASC")]
 
 
 @_retry_on_locked

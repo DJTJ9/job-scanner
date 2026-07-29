@@ -4,11 +4,12 @@
 <h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> BOB DER JOB-BOT — Mitglieder <a class="link" href="/">◂ zurück</a></h1>
 <div class="panel">
   <table>
-    <thead><tr><th>Email</th><th>Verifiziert</th><th>Rolle</th><th>Aktionen</th></tr></thead>
+    <thead><tr><th>Email</th><th>Benutzername</th><th>Verifiziert</th><th>Rolle</th><th>Aktionen</th></tr></thead>
     <tbody>
     {% for m in members %}
       <tr>
         <td>{{ m.email }}</td>
+        <td>{{ m.username or "—" }}</td>
         <td>{{ "✓" if m.email_verified_at else "✗" }}</td>
         <td>{{ m.role }}</td>
         <td>

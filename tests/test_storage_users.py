@@ -244,3 +244,9 @@ def test_verify_login_by_email_and_username(db):
     assert db.verify_login("frank", "richtig") is not None           # case-insensitiv
     assert db.verify_login("Frank", "falsch") is None
     assert db.verify_login("Unbekannt", "richtig") is None
+
+
+def test_export_and_admin_include_username(db):
+    uid = db.create_user("g@example.com", "pw", username="Greta")
+    assert db.export_user_data(uid)["user"]["username"] == "Greta"
+    assert any(m["username"] == "Greta" for m in db.admin_list_members())
