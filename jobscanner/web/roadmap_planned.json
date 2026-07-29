@@ -1,0 +1,8 @@
+{
+  "planned": [
+    {"titel": "Bewerbungsassistent", "notiz": "Erstellt gezielte Anschreiben anhand der gesammelten Job-Informationen."},
+    {"titel": "Bewerbungs-Tracking", "notiz": "Behalte den Überblick über alle Bewerbungen und Antworten an einem Ort."},
+    {"titel": "Mobile-App", "notiz": "Angenehmere Benutzung von unterwegs."},
+    {"titel": "Gamification", "notiz": "Die ein oder andere spielerische Motivation kommt dazu."}
+  ]
+}

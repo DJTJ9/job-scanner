@@ -4,6 +4,8 @@ echte data/jobs.db als Seiteneffekt auslösen."""
 from __future__ import annotations
 
 import hmac
+import json
+import os
 import subprocess
 import threading
 import time
@@ -27,6 +29,17 @@ from jobscanner.web import csrf, export, llm_refine, mailer, mcp_api, rate_limit
 _DIR = Path(__file__).parent
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "data" / "jobs.db"
 _REPO_ROOT = Path(__file__).parent.parent.parent
+
+PATCHES_JSON_PATH = Path(
+    os.environ.get("JOBSCANNER_PATCHES_JSON", "/var/www/thinkshark-hub/patches.json"))
+
+
+def _load_json(path, default):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (FileNotFoundError, ValueError):
+        return default
 
 
 def _read_asset_version(base_dir: Path) -> str:
@@ -1089,6 +1102,16 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "profiles": storage.list_profiles(active_only=True,
                                               user_id=request.session.get("user_id")),
         })
+
+    @app.get("/roadmap")
+    def roadmap_view(request: Request):
+        if (redirect := require_verified_user(request)) is not None:
+            return redirect
+        data = _load_json(PATCHES_JSON_PATH, {"patches": []})
+        patches = [p for p in data.get("patches", []) if p.get("project") == "job-scanner"]
+        planned = _load_json(_DIR / "roadmap_planned.json", {"planned": []}).get("planned", [])
+        return templates.TemplateResponse(request, "roadmap.html", {
+            "patches": patches, "planned": planned})
 
     @app.get("/metriken")
     def metrics_view(request: Request):

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Roadmap & Patch notes — Bob der Job-Bot{% endblock %}
+{% block content %}
+<h1><img class="bob-title" src="/static/img/bob/bob-pose-rakete.png" alt=""> Roadmap &amp; Patch notes</h1>
+<div class="panel">
+  <h2>Als Nächstes geplant</h2>
+  {% if planned %}
+  <ul class="anl-check">
+    {% for item in planned %}
+    <li><strong>{{ item.titel }}</strong> — {{ item.notiz }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="job-meta">Aktuell nichts eingetragen.</p>{% endif %}
+</div>
+<div class="panel">
+  <h2>Zuletzt ausgeliefert</h2>
+  {% if patches %}
+    {% for p in patches %}
+    <div class="patch-entry">
+      <h3>v{{ p.version }} <span class="job-meta">{{ p.date }}</span></h3>
+      {% if p.features %}<ul>{% for f in p.features %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+      {% if p.fixes %}<p class="job-meta">Fixes:</p><ul>{% for f in p.fixes %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% endfor %}
+  {% else %}<p class="job-meta">Noch keine Patch notes.</p>{% endif %}
+</div>
+{% endblock %}

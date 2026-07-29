@@ -44,6 +44,7 @@
     {{ nav_item("/einstellungen", "⚙", "Einstellungen") }}
     {{ nav_item("/account/email", "🔑", "Konto & Daten") }}
     {{ nav_item("/hilfe", "❓", "Hilfe") }}
+    {{ nav_item("/roadmap", "🗺", "Roadmap/Patch notes") }}
     {% if request.session.get("role") == "owner" %}
     <span class="drawer-group"><span class="drawer-item-label">Admin</span></span>
     {{ nav_item("/metriken", "📈", "Metriken") }}

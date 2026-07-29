@@ -57,3 +57,31 @@ def test_owner_wizard_seeded_25_kriterien(client):
     new = [p for p in storage.list_profiles() if p["id"] not in before]
     assert len(new) == 1
     assert len(storage.list_criteria(new[0]["id"])) == 25
+
+
+def test_roadmap_route_zeigt_geplant_und_patches(client, tmp_path, monkeypatch):
+    import json
+    from jobscanner.web import app as appmod
+    patches = {"patches": [
+        {"version": "0.2.0", "date": "2026-07-29", "project": "job-scanner",
+         "features": ["Feature Alpha"], "fixes": [], "member_notes": []},
+        {"version": "9.9.9", "date": "2026-01-01", "project": "anderes-projekt",
+         "features": ["Fremd-Feature"], "fixes": [], "member_notes": []},
+    ]}
+    pfile = tmp_path / "patches.json"
+    pfile.write_text(json.dumps(patches), encoding="utf-8")
+    monkeypatch.setattr(appmod, "PATCHES_JSON_PATH", pfile)
+
+    html = client.get("/roadmap").text
+    assert "Feature Alpha" in html                 # job-scanner-Patch sichtbar
+    assert "Fremd-Feature" not in html             # anderes Projekt gefiltert
+    assert "Bewerbungsassistent" in html           # geplante Liste (roadmap_planned.json)
+
+def test_roadmap_ohne_patches_datei_ok(client, tmp_path, monkeypatch):
+    from jobscanner.web import app as appmod
+    monkeypatch.setattr(appmod, "PATCHES_JSON_PATH", tmp_path / "fehlt.json")
+    r = client.get("/roadmap")
+    assert r.status_code == 200                     # Leer-Zustand statt Fehler
+
+def test_roadmap_in_sidebar(client):
+    assert '/roadmap' in client.get("/").text
