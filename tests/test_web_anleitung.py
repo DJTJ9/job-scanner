@@ -28,7 +28,7 @@ def test_anleitung_has_all_key_commands(client):
     assert "curl -fsSL https://claude.ai/install.sh | bash" in body
     assert "/plugin marketplace add DJTJ9/bob-member-kit" in body
     assert "/plugin install bob@bob-kit" in body
-    assert "/bob:bob-score" in body
+    assert "/bob:bob-rescore" in body
     assert "/bob:bob-scan" in body
 
 

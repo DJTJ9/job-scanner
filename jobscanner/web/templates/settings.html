@@ -91,13 +91,13 @@
         </div>
       </div>
       <div class="panel">
-        <h3>⭐ bob-score</h3>
-        <p class="job-meta">Bewerten &amp; Rescoren</p>
+        <h3>⭐ bob-rescore</h3>
+        <p class="job-meta">Rescoren nach dem Lernen</p>
         {% if has_claude_kit %}
-        <a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-score">→ In Claude Code</a>
+        <a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-rescore">→ In Claude Code</a>
         {% endif %}
-        <div class="copy-block"><code>/bob:bob-score</code>
-          <button type="button" class="copy-btn" data-copy="/bob:bob-score" aria-label="Befehl kopieren">⧉</button>
+        <div class="copy-block"><code>/bob:bob-rescore</code>
+          <button type="button" class="copy-btn" data-copy="/bob:bob-rescore" aria-label="Befehl kopieren">⧉</button>
         </div>
       </div>
       <div class="panel">
@@ -137,7 +137,7 @@
           {% for n in (10, 25, 50, 100) %}
           <option value="{{ n }}" {% if spar_modus.max_jobs == n %}selected{% endif %}>{{ n }}</option>
           {% endfor %}
-        </select> Jobs pro bob-score-Lauf</label>
+        </select> Jobs pro bob-rescore-Lauf</label>
       <label><input type="checkbox" name="neighbor_roles"
              {% if spar_modus.neighbor_roles %}checked{% endif %}>
              Entdecker-Nachbarrollen bei bob-scan generieren</label>

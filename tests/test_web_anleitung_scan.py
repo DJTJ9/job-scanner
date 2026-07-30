@@ -28,7 +28,7 @@ def test_scan_anleitung_has_scan_command(client):
 
 def test_scan_anleitung_explains_scan_vs_score(client):
     body = client.get("/anleitung/scan").text
-    assert "/bob:bob-score" in body
+    assert "/bob:bob-rescore" in body
 
 
 def test_scan_anleitung_links_keys_guide(client):

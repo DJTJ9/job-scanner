@@ -54,9 +54,9 @@ def test_settings_has_bob_befehle_buttons(member):
     member.post("/profiles/api-token")
     body = member.get("/einstellungen").text
     assert "claude-cli://open?q=%2Fbob%3Abob-scan" in body
-    assert "claude-cli://open?q=%2Fbob%3Abob-score" in body
+    assert "claude-cli://open?q=%2Fbob%3Abob-rescore" in body
     assert "/bob:bob-scan" in body
-    assert "/bob:bob-score" in body
+    assert "/bob:bob-rescore" in body
 
 
 def test_settings_bob_befehle_have_copy_fallback(member):
@@ -64,7 +64,7 @@ def test_settings_bob_befehle_have_copy_fallback(member):
     body = member.get("/einstellungen").text
     assert body.count('class="copy-btn"') >= 2
     assert 'data-copy="/bob:bob-scan"' in body
-    assert 'data-copy="/bob:bob-score"' in body
+    assert 'data-copy="/bob:bob-rescore"' in body
 
 
 def test_password_post_renders_settings_success(member):
@@ -105,7 +105,7 @@ def test_password_get_redirects_to_settings_when_logged_in(member):
 
 def test_settings_has_four_bob_command_cards(member):
     body = member.get("/einstellungen").text
-    for cmd in ("bob-scan", "bob-score", "bob-learn", "bob-profil"):
+    for cmd in ("bob-scan", "bob-rescore", "bob-learn", "bob-profil"):
         assert f'data-copy="/bob:{cmd}"' in body
 
 
