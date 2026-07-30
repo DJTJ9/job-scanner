@@ -94,7 +94,10 @@ def test_scan_seite_zeigt_befehle_und_letzten_scan(client):
     resp = client.get("/scan")
     assert resp.status_code == 200
     assert "/bob:bob-scan" in resp.text
-    assert "noch nie" in resp.text          # kein scan_pushed-Event in frischer DB
+    assert "/bob:bob-rescore" in resp.text        # neue Rescore-Karte
+    assert "/bob:bob-score" not in resp.text      # alter Name vollständig weg
+    assert "noch nie" in resp.text                # relzeit(None) — kein scan_pushed-Event
+    assert "Stepstone" in resp.text               # Portal-Badge aus scan_portals-Default (jinja capitalize)
 
 
 def test_profil_seite_listet_profile(client):

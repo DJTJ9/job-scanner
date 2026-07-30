@@ -2,21 +2,54 @@
 {% block title %}Scan starten — Bob der Job-Bot{% endblock %}
 {% block content %}
 <h1><img class="bob-title" src="/static/img/bob/bob-pose-rakete.png" alt=""> Scan starten</h1>
-{% set kurzhilfe_text = "Ein Scan durchsucht die Jobportale nach neuen Anzeigen für den gemeinsamen Pool. Mit /bob:bob-scan lieferst du über deine Heim-IP zu." %}{% set kurzhilfe_anker = "scannen" %}{% include "_kurzhilfe.html" %}
+{% set kurzhilfe_text = "Ein Scan durchsucht die Jobportale über deine Heim-IP nach neuen Anzeigen und bewertet frische Funde sofort deterministisch — gratis, ohne Keys." %}{% set kurzhilfe_anker = "scannen" %}{% include "_kurzhilfe.html" %}
+
 <div class="panel">
   <p class="job-meta">Letzter Scan: {{ last_scan_ts | relzeit }} · {{ jobs_total }} Anzeigen im Netz</p>
-  <p>Mit <strong>/bob:bob-scan</strong> durchsuchst du StepStone &amp; Indeed über deine
-    Heim-IP und fütterst den gemeinsamen Job-Pool. Danach bewertet
-    <strong>/bob:bob-score</strong> wartende Anzeigen gegen dein Profil.</p>
+</div>
+
+<div class="panel">
+  <h3>🛰 /bob:bob-scan
+    <button type="button" class="copy-btn" data-copy="/bob:bob-scan" aria-label="Befehl kopieren">⧉</button>
+  </h3>
+  <p class="job-meta">Neue Jobs finden + sofort bewerten (Heim-IP, gratis, keine Keys)</p>
   <div class="copy-block"><code>/bob:bob-scan</code>
     <button type="button" class="copy-btn" data-copy="/bob:bob-scan" aria-label="Befehl kopieren">⧉</button>
   </div>
-  <div class="copy-block"><code>/bob:bob-score</code>
-    <button type="button" class="copy-btn" data-copy="/bob:bob-score" aria-label="Befehl kopieren">⧉</button>
+</div>
+
+<div class="panel">
+  <h3>⭐ /bob:bob-rescore
+    <button type="button" class="copy-btn" data-copy="/bob:bob-rescore" aria-label="Befehl kopieren">⧉</button>
+  </h3>
+  <p class="job-meta">Gute Treffer nach dem Lernen mit dem LLM neu bewerten (Tier mittel/hoch)</p>
+  <div class="copy-block"><code>/bob:bob-rescore</code>
+    <button type="button" class="copy-btn" data-copy="/bob:bob-rescore" aria-label="Befehl kopieren">⧉</button>
   </div>
-  <p>
-    <a class="btn btn-secondary" href="/anleitung/scan">🛰 Scan-Anleitung</a>
-    <a class="btn btn-secondary" href="/anleitung/keys">🔑 Adzuna-/Jooble-Keys holen</a>
+</div>
+
+<div class="panel">
+  <p><code>/bob:bob-learn</code>
+    <button type="button" class="copy-btn" data-copy="/bob:bob-learn" aria-label="Befehl kopieren">⧉</button>
+    Kriterien aus deinen Votes schärfen</p>
+  <p><code>/bob:bob-profil</code>
+    <button type="button" class="copy-btn" data-copy="/bob:bob-profil" aria-label="Befehl kopieren">⧉</button>
+    Profil im Chat schärfen</p>
+</div>
+
+<div class="panel">
+  <p class="job-meta">Scan-Größe (Bob fragt beim Start): <span class="chip">klein</span> <span class="chip">mittel</span> <span class="chip">groß</span></p>
+  <p class="job-meta">Portale (Heim-IP, keine Keys):
+    {% for p in scan_portals %}<span class="chip">✅ {{ p | capitalize }}</span> {% endfor %}
+    {% for cp in custom_scan_portals %}<span class="chip">✅ {{ cp.domain }}</span> {% endfor %}
   </p>
+  <p class="job-meta">Opt-in mit Keys: <span class="chip">○ Jooble</span> <span class="chip">○ Adzuna</span>
+    <a href="/einstellungen">→ Einstellungen</a></p>
+  <details>
+    <summary>Scan automatisieren (cron / launchd / Aufgabenplanung)</summary>
+    <p class="hinweis">Der OS-Scheduler ruft <code>claude -p "/bob:bob-scan"</code> auf —
+      Beispiele stehen im README des Bob-Kits.</p>
+  </details>
+  <p><a class="btn btn-secondary" href="/anleitung/scan">→ Ausführliche Scan-Anleitung</a></p>
 </div>
 {% endblock %}

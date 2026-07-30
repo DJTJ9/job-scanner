@@ -1089,9 +1089,15 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return resp
         summary = (storage.get_home_summary(profile["id"]) if profile
                    else {"last_scan_ts": None, "jobs_total": 0})
+        user_id = request.session.get("user_id")
         return templates.TemplateResponse(request, "scan.html", {
             "last_scan_ts": summary["last_scan_ts"],
             "jobs_total": summary["jobs_total"],
+            "scan_portals": (storage.get_scan_portals(profile["data"], user_id) if profile
+                             else list(storage.SCAN_PORTALS_DEFAULT)),
+            "custom_scan_portals": [
+                {"id": cp["id"], "domain": urlparse(cp["url"]).netloc or cp["url"]}
+                for cp in storage.list_scannable_custom_portals(owner_id=user_id)],
         })
 
     @app.get("/profil")
