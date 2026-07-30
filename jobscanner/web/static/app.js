@@ -124,7 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
       history.replaceState(null, "", "#" + t.dataset.tab);
     }));
     const hash = window.location.hash.replace("#", "");
-    if (hash === "profil" || hash === "token") activate(hash);
+    if (hash && tabs.some(t => t.dataset.tab === hash)) activate(hash);
   }
 
   document.querySelectorAll("[data-profile-switcher]").forEach((sel) => {

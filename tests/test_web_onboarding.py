@@ -269,3 +269,12 @@ def test_hinweis_class_is_unscoped_in_css():
 def test_datenschutz_hinweis_still_renders(owner_client):
     resp = owner_client.get("/datenschutz")
     assert 'class="hinweis"' in resp.text
+
+
+def test_app_js_hash_activation_is_generalized():
+    from pathlib import Path
+    js = Path("jobscanner/web/static/app.js").read_text()
+    # nicht mehr auf profil/token hartkodiert
+    assert 'hash === "profil" || hash === "token"' not in js
+    # aktiviert Tab, dessen data-tab dem Hash entspricht
+    assert "tabs.some" in js and "t.dataset.tab === hash" in js
