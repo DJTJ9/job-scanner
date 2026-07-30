@@ -310,6 +310,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return {"has_claude_kit": bool(user.get("api_token_hash")), "spar_modus": spar,
                 "notify_pref": notify_pref, "username": user.get("username"),
                 "has_firecrawl_key": bool(storage.get_firecrawl_key_enc(user_id)),
+                "has_adzuna_key": all(storage.get_adzuna_keys_enc(user_id)),
+                "has_jooble_key": bool(storage.get_jooble_key_enc(user_id)),
                 "scan_portals": (storage.get_scan_portals(own[0]["data"], user_id) if own
                                  else list(storage.SCAN_PORTALS_DEFAULT)),
                 "custom_scan_portals": [
@@ -529,6 +531,58 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return _csrf_error_page(request)
         storage.clear_firecrawl_key(request.session["user_id"])
         return RedirectResponse("/einstellungen?tab=firecrawl", status_code=303)
+
+    @app.post("/einstellungen/adzuna")
+    def adzuna_keys_submit(request: Request, adzuna_app_id: str = Form(""),
+                           adzuna_app_key: str = Form(""), csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return _csrf_error_page(request)
+        uid = request.session["user_id"]
+        app_id, app_key = adzuna_app_id.strip(), adzuna_app_key.strip()
+        if not app_id or not app_key or not search.validate_adzuna_keys(app_id, app_key):
+            return templates.TemplateResponse(request, "settings.html", {
+                "error": "Adzuna-Keys ungültig oder unvollständig — abgelehnt.",
+                "success": None, "api_token": None, "active_tab": "anbindungen",
+                **_settings_extra(uid)})
+        storage.set_adzuna_keys(uid, crypto.encrypt(app_id), crypto.encrypt(app_key))
+        return RedirectResponse("/einstellungen?tab=anbindungen", status_code=303)
+
+    @app.post("/einstellungen/adzuna/loeschen")
+    def adzuna_keys_delete(request: Request, csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return _csrf_error_page(request)
+        storage.clear_adzuna_keys(request.session["user_id"])
+        return RedirectResponse("/einstellungen?tab=anbindungen", status_code=303)
+
+    @app.post("/einstellungen/jooble")
+    def jooble_key_submit(request: Request, jooble_key: str = Form(""),
+                          csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return _csrf_error_page(request)
+        uid = request.session["user_id"]
+        key = jooble_key.strip()
+        if not key or not search.validate_jooble_key(key):
+            return templates.TemplateResponse(request, "settings.html", {
+                "error": "Jooble-Key ungültig — abgelehnt.",
+                "success": None, "api_token": None, "active_tab": "anbindungen",
+                **_settings_extra(uid)})
+        storage.set_jooble_key(uid, crypto.encrypt(key))
+        return RedirectResponse("/einstellungen?tab=anbindungen", status_code=303)
+
+    @app.post("/einstellungen/jooble/loeschen")
+    def jooble_key_delete(request: Request, csrf_token: str = Form("")):
+        if (redirect := require_user(request)) is not None:
+            return redirect
+        if not csrf.verify(request, csrf_token):
+            return _csrf_error_page(request)
+        storage.clear_jooble_key(request.session["user_id"])
+        return RedirectResponse("/einstellungen?tab=anbindungen", status_code=303)
 
     @app.get("/register")
     def register_form(request: Request):

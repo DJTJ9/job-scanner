@@ -260,3 +260,52 @@ def test_change_username_rejects_duplicate(member):
 def test_change_username_rejects_invalid(member):
     resp = member.post("/account/username", data={"username": "x@"})
     assert resp.status_code == 400
+
+
+def test_adzuna_submit_persists_encrypted(member, monkeypatch):
+    monkeypatch.setattr("jobscanner.search.validate_adzuna_keys", lambda a, b: True)
+    resp = member.post("/einstellungen/adzuna",
+                       data={"adzuna_app_id": "my-id", "adzuna_app_key": "my-key"},
+                       follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/einstellungen?tab=anbindungen"
+    uid = storage.get_user_by_email("m@test.de")["id"]
+    aid_enc, akey_enc = storage.get_adzuna_keys_enc(uid)
+    assert aid_enc and aid_enc != "my-id"        # verschlüsselt, kein Klartext
+    assert akey_enc and akey_enc != "my-key"
+
+
+def test_adzuna_submit_invalid_rejected(member, monkeypatch):
+    monkeypatch.setattr("jobscanner.search.validate_adzuna_keys", lambda a, b: False)
+    resp = member.post("/einstellungen/adzuna",
+                       data={"adzuna_app_id": "x", "adzuna_app_key": "y"})
+    assert "Adzuna" in resp.text and "abgelehnt" in resp.text
+    uid = storage.get_user_by_email("m@test.de")["id"]
+    assert storage.get_adzuna_keys_enc(uid) == (None, None)
+
+
+def test_adzuna_delete_clears_keys(member, monkeypatch):
+    monkeypatch.setattr("jobscanner.search.validate_adzuna_keys", lambda a, b: True)
+    member.post("/einstellungen/adzuna",
+                data={"adzuna_app_id": "i", "adzuna_app_key": "k"})
+    resp = member.post("/einstellungen/adzuna/loeschen", data={}, follow_redirects=False)
+    assert resp.status_code == 303
+    uid = storage.get_user_by_email("m@test.de")["id"]
+    assert storage.get_adzuna_keys_enc(uid) == (None, None)
+
+
+def test_jooble_submit_and_delete(member, monkeypatch):
+    monkeypatch.setattr("jobscanner.search.validate_jooble_key", lambda k: True)
+    resp = member.post("/einstellungen/jooble", data={"jooble_key": "jk"},
+                       follow_redirects=False)
+    assert resp.status_code == 303
+    uid = storage.get_user_by_email("m@test.de")["id"]
+    assert storage.get_jooble_key_enc(uid) is not None
+    member.post("/einstellungen/jooble/loeschen", data={})
+    assert storage.get_jooble_key_enc(uid) is None
+
+
+def test_jooble_invalid_rejected(member, monkeypatch):
+    monkeypatch.setattr("jobscanner.search.validate_jooble_key", lambda k: False)
+    resp = member.post("/einstellungen/jooble", data={"jooble_key": "bad"})
+    assert "Jooble" in resp.text and "abgelehnt" in resp.text
