@@ -2,93 +2,17 @@
 {% block title %}Hilfe — Bob der Job-Bot{% endblock %}
 {% block content %}
 <h1>Hilfe-Center</h1>
-<p class="hinweis">Alles an einem Ort — Einstieg, Anleitung, Scan, FAQ.</p>
-<nav class="tabs">
-  <a class="tab" href="#erste-schritte">Erste Schritte</a>
-  <a class="tab" href="#anleitung">Anleitung</a>
-  <a class="tab" href="#scannen">Scannen</a>
-  <a class="tab" href="#faq">FAQ</a>
-</nav>
+<p class="hinweis">Einstieg, Antworten auf alle Funktionen, und das große Handbuch.</p>
 
-<section id="erste-schritte">
-<h2>Erste Schritte</h2>
+<div class="tab-bar" role="tablist">
+  <button type="button" class="tab tab-active" data-tab="erste-schritte" role="tab">Erste Schritte</button>
+  <button type="button" class="tab" data-tab="faq" role="tab">FAQ</button>
+  <button type="button" class="tab" data-tab="handbuch" role="tab">Handbuch</button>
+</div>
 
-<section class="panel onboarding-section">
-  <div class="onboarding-avatar-wrap">
-    <img class="bob-avatar ping" src="/static/img/bob/bob-pose-rakete.png" alt="Bob">
-  </div>
-  <h2>Wer bin ich?</h2>
-  <p>Ich bin <strong>Bob der Job-Bot</strong>. Ich durchsuche laufend Jobportale nach Stellen, die zu deinem Profil passen — du musst nicht mehr selbst suchen.</p>
-  <p>Jede gefundene Stelle vergleiche ich mit deinen Kriterien (Skills, Zielrollen, Domänen, Standort, Sprache) und errechne eine Passung von 0–100.</p>
-  <p>Deine Treffer findest du in deinem Profil. Stellenangebote, die ein oder mehrere No-gos enthalten, filtere ich automatisch raus. Du kannst diese Jobs aber weiterhin in deinem Profil unter "Aussortiert" finden.</p>
-  <p>Für dich heißt das: weniger Zeit mit manuellem Suchen, mehr passende Treffer.</p>
-</section>
+{# ---------- TAB 1: ERSTE SCHRITTE ---------- #}
+<section class="tab-panel tab-panel-active" data-tab-panel="erste-schritte">
 
-<section class="panel onboarding-section">
-  <div class="onboarding-avatar-wrap">
-    <img class="bob-avatar" src="/static/img/bob/bob-pose-frage.png" alt="Bob">
-  </div>
-  <h2>Wer bist du?</h2>
-  <p>Erzähl mir, wonach du suchst — dann finde ich passende Stellen für dich. Leg dazu ein Profil mit deinen Skills, Zielrollen und Wünschen an.</p>
-  <div class="onboarding-footer">
-    <a class="btn btn-primary" href="/wizard/new">Profil erstellen →</a>
-  </div>
-</section>
-
-<section class="panel onboarding-section">
-  <div class="onboarding-avatar-wrap">
-    <img class="bob-avatar" src="/static/img/bob/bob-pose-daumen-hoch.png" alt="Bob">
-  </div>
-  <h2>Wie kannst du mitmachen?</h2>
-  <p><strong>1. Registrieren</strong> — mit einem Invite-Code ein Konto anlegen.</p>
-  <p><strong>2. Profil anlegen</strong> — Skills, Zielrollen und Wünsche eintragen; ab da bewerte ich den Job-Pool automatisch für dich.</p>
-  <p><strong>3. Optional: eigenes Claude-Abo anbinden</strong> — API-Token in den Einstellungen erzeugen, Bob-Plugin installieren; die Bob-Befehle laufen dann über dein Abo.</p>
-  <p><strong>4. Optional: Heim-IP-Scan beisteuern</strong> — mit <code>/bob:bob-scan</code> durchsuchst du StepStone &amp; Indeed über deine Heim-IP und fütterst den gemeinsamen Job-Pool.</p>
-  <div class="onboarding-footer">
-    <a class="btn btn-primary" href="#anleitung">Zur Anleitung →</a>
-  </div>
-</section>
-</section>
-
-<section id="funktionen">
-<section class="panel onboarding-section">
-  <div class="onboarding-avatar-wrap">
-    <img class="bob-avatar" src="/static/img/bob/bob-pose-herz.png" alt="Bob">
-  </div>
-  <h2>Was kann ich?</h2>
-  <p><strong>Profil</strong> — deine Skills, Zielrollen, Domänen, Standort, Sprachen und No-Gos. Danach bewerte ich den kompletten Job-Pool automatisch für dich.</p>
-  <p><strong>Job-Angebote</strong> — Treffer sortiert nach Passung (0–100), mit nachvollziehbarer Begründung pro Kriterium.</p>
-  <p><strong>Bewerten</strong> — 👍/👎 auf einzelne Treffer; ich lerne daraus und passe die Gewichtung über die Zeit an.</p>
-  <p><strong>Feintuning</strong> — du kannst die Gewichte deiner Kriterien jederzeit selbst nachjustieren.</p>
-  <p><strong>Aussortiert</strong> — Stellen, die ein No-Go treffen, landen hier statt in den Job-Angeboten — du kannst sie trotzdem einsehen.</p>
-  <p><strong>Original-Anzeige</strong> — ein Klick auf den Job-Titel öffnet die Ursprungsanzeige im Portal.</p>
-  <div class="onboarding-footer">
-    <a class="btn btn-secondary" target="_blank" rel="noopener" href="https://djtj9.github.io/teach-lessons/job-scanner/job-scanner-nutzen/lessons/job-scanner-nutzen.html">Ausführliche Anleitung →</a>
-  </div>
-</section>
-
-<section class="panel onboarding-section">
-  <div class="onboarding-avatar-wrap">
-    <img class="bob-avatar ping" src="/static/img/bob/bob-pose-rakete.png" alt="Bob">
-  </div>
-  <h2>Wie ich arbeite</h2>
-  <p><strong>1. Ingestion</strong> — Jobportale (StepStone, Arbeitsagentur, Indeed, Stellenanzeigen.de) werden nach hinterlegten Such-Queries durchsucht.</p>
-  <p><strong>2. Extraktion &amp; Dedup</strong> — rohe Seiten werden in strukturierte Felder (Titel, Anforderungen, Gehalt, Standort) umgewandelt; ein Fingerabdruck verhindert doppelte Einträge über Portale hinweg.</p>
-  <p><strong>3. Storage</strong> — landet in SQLite, der einzigen Wahrheitsquelle des Systems.</p>
-  <p><strong>4. Scoring</strong> — jede Anzeige wird gegen die persönlichen Kriterien eines Profils bewertet (Skills, Zielrollen, Domänen, Standort, Sprache, No-Gos) und bekommt eine Punktzahl 0–100.</p>
-  <p><strong>5. Dashboard</strong> — die Web-Oberfläche zeigt die Treffer sortiert nach Score, mit nachvollziehbarer Begründung pro Kriterium.</p>
-  <p><strong>6. Feedback-Loop</strong> — Daumen hoch/runter auf einzelne Treffer fließen zurück: ein Claude-Agent analysiert die Bewertungsmuster und schlägt Anpassungen an den Kriterien-Gewichten vor.</p>
-  <p>
-    <span class="chip">Python</span><span class="chip">FastAPI</span><span class="chip">Jinja2</span><span class="chip">SQLite</span><span class="chip">Playwright</span><span class="chip">Firecrawl</span><span class="chip">Claude</span><span class="chip">Claude Agents</span><span class="chip">systemd</span><span class="chip">NocoDB</span><span class="chip">Caddy</span>
-  </p>
-  <div class="onboarding-footer">
-    <a class="btn btn-secondary" target="_blank" rel="noopener" href="https://djtj9.github.io/teach-lessons/job-scanner/job-scanner-erklaert/lessons/job-scanner-erklaert.html">Ausführliche Erklärung →</a>
-    <a class="link" href="#anleitung">Setup-Anleitung →</a>
-  </div>
-</section>
-</section>
-
-<section id="anleitung">
 <section class="anl-hero">
   <div class="anl-hero-text">
     <h1>In 5 Minuten mit Bob verbunden</h1>
@@ -98,6 +22,20 @@
     <a class="btn btn-secondary" href="#schritt-1">Los geht's ↓</a>
   </div>
   <img class="anl-hero-bild" src="/static/img/bob/bob-pose-laptop.png" alt="Bob mit Laptop">
+</section>
+
+<section class="panel onboarding-section">
+  <div class="onboarding-avatar-wrap">
+    <img class="bob-avatar" src="/static/img/bob/bob-pose-daumen-hoch.png" alt="Bob">
+  </div>
+  <h2>So machst du mit</h2>
+  <p><strong>1. Registrieren</strong> — mit einem Invite-Code ein Konto anlegen.</p>
+  <p><strong>2. Profil anlegen</strong> — Skills, Zielrollen und Wünsche eintragen; ab da bewerte ich den Job-Pool automatisch für dich.</p>
+  <p><strong>3. Optional: eigenes Claude-Abo anbinden</strong> — API-Token in den Einstellungen erzeugen, Bob-Plugin installieren; die Bob-Befehle laufen dann über dein Abo.</p>
+  <p><strong>4. Optional: Heim-IP-Scan beisteuern</strong> — mit <code>/bob:bob-scan</code> durchsuchst du StepStone &amp; Indeed über deine Heim-IP und fütterst den gemeinsamen Job-Pool.</p>
+  <div class="onboarding-footer">
+    <a class="btn btn-primary" href="/wizard/new">Profil erstellen →</a>
+  </div>
 </section>
 
 <div class="anl-prereq">
@@ -255,6 +193,22 @@
   <p><a class="btn btn-secondary" href="/anleitung/scan">🛰 Alles zum Scannen: die Scan-Anleitung</a></p>
 </section>
 
+<!-- SCAN-KARTEN -->
+<div class="cc-grid">
+  <a class="cc-card" href="/anleitung/scan">
+    <span class="cc-icon">🛰</span><span class="cc-label">Scan-Anleitung</span>
+    <span class="cc-desc">Heim-IP-Scan einrichten</span>
+  </a>
+  <a class="cc-card" href="/anleitung/keys">
+    <span class="cc-icon">🔑</span><span class="cc-label">API-Keys holen</span>
+    <span class="cc-desc">Adzuna/Jooble Schritt für Schritt</span>
+  </a>
+  <a class="cc-card" href="/scan">
+    <span class="cc-icon">🔍</span><span class="cc-label">Scan starten</span>
+    <span class="cc-desc">Befehle + letzter Scan-Stand</span>
+  </a>
+</div>
+
 <!-- DIAGRAMM -->
 <section class="anl-diagram-wrap">
   <h2>Wie Bob und dein Claude zusammenarbeiten</h2>
@@ -317,36 +271,40 @@
       <a class="link" href="https://github.com/DJTJ9/bob-member-kit" target="_blank" rel="noopener">bob-member-kit ↗</a>.</li>
   </ul>
 </section>
-</section>
 
-<section id="scannen">
-  <h2>🛰 Scannen</h2>
-  <p>Eigene Scans über deine Heim-IP mit <code>/bob:bob-scan</code> — Schritt für
-    Schritt erklärt in der Scan-Anleitung; die kostenlosen API-Keys holst du dir
-    über die Key-Anleitung.</p>
-  <div class="cc-grid">
-    <a class="cc-card" href="/anleitung/scan">
-      <span class="cc-icon">🛰</span><span class="cc-label">Scan-Anleitung</span>
-      <span class="cc-desc">Heim-IP-Scan einrichten</span>
-    </a>
-    <a class="cc-card" href="/anleitung/keys">
-      <span class="cc-icon">🔑</span><span class="cc-label">API-Keys holen</span>
-      <span class="cc-desc">Adzuna/Jooble Schritt für Schritt</span>
-    </a>
-    <a class="cc-card" href="/scan">
-      <span class="cc-icon">🔍</span><span class="cc-label">Scan starten</span>
-      <span class="cc-desc">Befehle + letzter Scan-Stand</span>
-    </a>
-  </div>
-</section>
-
-<section id="faq">
-<!-- FAQ -->
-<section class="anl-step">
+<!-- CHECKLISTE -->
+<section class="anl-step anl-check-wrap">
   <div class="anl-step-head">
-    <span class="anl-step-num">?</span>
-    <h2>Wenn etwas klemmt</h2>
+    <span class="anl-step-num">✓</span>
+    <h2>Geschafft? So sieht Erfolg aus</h2>
   </div>
+  <ul class="anl-check">
+    <li>✅ <code>/plugin install bob@bob-kit</code> lief durch und fragte nach deinem Token.</li>
+    <li>✅ <code>/bob:bob-rescore</code> startet ohne „401" und läuft durch.</li>
+    <li>✅ In deinem Dashboard erscheinen bewertete Jobs.</li>
+  </ul>
+  <p class="anl-outro">Wenn alle drei Haken sitzen, bist du fertig — und jede Bewertung,
+    die du fährst, macht die Treffer für alle Member besser. 🚀</p>
+  <p><a class="btn btn-secondary" href="/">Zur Übersicht</a></p>
+</section>
+</section>
+
+{# ---------- TAB 2: FAQ ---------- #}
+<section class="tab-panel" data-tab-panel="faq">
+  <h2>Häufige Fragen — alle Funktionen</h2>
+  <h3 class="faq-gruppe">Profil &amp; Kriterien</h3>
+  <details class="anl-faq"><summary>Wie lege ich ein Profil an?</summary><p>Über den <a class="link" href="/wizard/new">Profil-Wizard</a>. <a class="link" href="/hilfe/handbuch#profil">Mehr →</a></p></details>
+  <details class="anl-faq"><summary>Was macht Feintuning?</summary><p>Du justierst die Gewichte deiner Kriterien. <a class="link" href="/feintuning">Zum Feintuning</a> · <a class="link" href="/hilfe/handbuch#profil">Mehr →</a></p></details>
+
+  <h3 class="faq-gruppe">Jobs &amp; Bewerten</h3>
+  <details class="anl-faq"><summary>Wie entsteht der Score 0–100?</summary><p>Jede Anzeige wird gegen deine Kriterien bewertet. <a class="link" href="/hilfe/handbuch#jobs">Mehr →</a></p></details>
+  <details class="anl-faq"><summary>Was bewirkt 👍 / 👎?</summary><p>Deine Votes trainieren Bobs Gewichtung. <a class="link" href="/hilfe/handbuch#jobs">Mehr →</a></p></details>
+
+  <h3 class="faq-gruppe">Scannen &amp; Befehle</h3>
+  <details class="anl-faq"><summary><code>/bob:bob-rescore</code> vs. <code>/bob:bob-scan</code>?</summary><p><strong>bob-rescore</strong> bewertet gute Treffer nach dem Lernen mit dem LLM neu (Tier mittel/hoch). <strong>bob-scan</strong> findet neue Jobs über deine Heim-IP und bewertet sie sofort deterministisch (gratis, keine Keys). <a class="link" href="/anleitung/scan">Scan-Anleitung</a> · <a class="link" href="/hilfe/handbuch#scannen">Mehr →</a></p></details>
+  <details class="anl-faq"><summary><code>/bob:bob-scan</code> sagt, es fehlen Keys</summary><p>Die eigene Suche braucht kostenlose Keys von Adzuna/Jooble. Nur bewerten? <code>/bob:bob-rescore</code>. <a class="link" href="/anleitung/keys">Keys holen</a></p></details>
+
+  <h3 class="faq-gruppe">Einstieg &amp; Fehler</h3>
 
   <details class="anl-faq">
     <summary>Fehler „401" / „Unauthorized" beim ersten Bob-Befehl</summary>
@@ -378,22 +336,18 @@
       Trag sie per <code>/plugin</code> in der Bob-Konfiguration ein. Nur bewerten willst
       du? Dann brauchst du sie nicht — nutze einfach <code>/bob:bob-rescore</code>.</p>
   </details>
+
+  <h3 class="faq-gruppe">Favoriten · Lernen · Konto · Sicherheit</h3>
+  <details class="anl-faq"><summary>Was sind Favoriten?</summary><p>Mit ★ markierte Jobs. <a class="link" href="/favoriten">Favoriten</a> · <a class="link" href="/hilfe/handbuch#jobs">Mehr →</a></p></details>
+  <details class="anl-faq"><summary>Wie lösche ich mein Konto / exportiere meine Daten?</summary><p>In den <a class="link" href="/einstellungen">Einstellungen</a>. <a class="link" href="/hilfe/handbuch#konto">Mehr →</a></p></details>
 </section>
 
-<!-- CHECKLISTE -->
-<section class="anl-step anl-check-wrap">
-  <div class="anl-step-head">
-    <span class="anl-step-num">✓</span>
-    <h2>Geschafft? So sieht Erfolg aus</h2>
-  </div>
-  <ul class="anl-check">
-    <li>✅ <code>/plugin install bob@bob-kit</code> lief durch und fragte nach deinem Token.</li>
-    <li>✅ <code>/bob:bob-rescore</code> startet ohne „401" und läuft durch.</li>
-    <li>✅ In deinem Dashboard erscheinen bewertete Jobs.</li>
-  </ul>
-  <p class="anl-outro">Wenn alle drei Haken sitzen, bist du fertig — und jede Bewertung,
-    die du fährst, macht die Treffer für alle Member besser. 🚀</p>
-  <p><a class="btn btn-secondary" href="/">Zur Übersicht</a></p>
-</section>
+{# ---------- TAB 3: HANDBUCH (Landing) ---------- #}
+<section class="tab-panel" data-tab-panel="handbuch">
+  <section class="panel">
+    <h2>📖 Das große Handbuch</h2>
+    <p>Alles zu jeder Funktion, sauber erklärt: Profil · Jobs · Scannen · Konto · und mehr.</p>
+    <p><a class="btn btn-primary" href="/hilfe/handbuch">Zum vollständigen Handbuch →</a></p>
+  </section>
 </section>
 {% endblock %}

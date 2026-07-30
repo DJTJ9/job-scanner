@@ -48,14 +48,22 @@ def test_hilfe_has_three_scan_cards(app):
     assert "Heim-IP-Scan einrichten" in text
 
 
-def test_hilfe_center_sektionen(client):
+def test_hilfe_center_tab_struktur(client):
     resp = client.get("/hilfe")
     assert resp.status_code == 200
-    for anker in ["erste-schritte", "funktionen", "anleitung", "scannen",
-                  "sicherheit", "faq"]:
-        assert f'id="{anker}"' in resp.text
-    assert "In 5 Minuten mit Bob verbunden" in resp.text   # Anleitungs-Inhalt
-    assert "Wer bin ich?" in resp.text                     # Onboarding-Inhalt
+    t = resp.text
+    assert 'class="tab-bar"' in t
+    for name in ("erste-schritte", "faq", "handbuch"):
+        assert f'data-tab="{name}"' in t
+        assert f'data-tab-panel="{name}"' in t
+    # Default-Panel Erste Schritte aktiv gerendert
+    assert "tab-panel-active" in t
+    assert "In 5 Minuten mit Bob verbunden" in t          # Setup bleibt
+    assert "Wer bin ich?" not in t                          # nach home verlagert
+    # FAQ-Gruppe Scannen & Befehle mit bob-rescore vs bob-scan
+    assert "bob-rescore" in t and "bob-scan" in t
+    # Handbuch-Landing verlinkt die eigene Seite
+    assert 'href="/hilfe/handbuch"' in t
 
 
 def test_hilfe_public_ohne_login(client_ohne_login):
