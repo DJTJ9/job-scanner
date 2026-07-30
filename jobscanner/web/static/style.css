@@ -158,13 +158,18 @@ input[type="text"], input[type="url"], input[type="password"], input[type="numbe
 
 .topbar-left { display: flex; align-items: center; gap: 0.75rem; }
 .drawer-toggle, .drawer-close { background: transparent; border: none; color: var(--gischt); font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 0; display: none; }
-.drawer { position: fixed; top: 0; left: 0; height: 100%; width: 240px; background: var(--wasser); box-shadow: 2px 0 24px rgba(0, 0, 0, 0.4); z-index: 20; padding: 1rem; flex-direction: column; gap: 0.4rem; transition: width 0.2s ease; }
+.drawer { position: fixed; top: 0; left: 0; height: 100%; width: 240px; background: var(--wasser); box-shadow: 2px 0 24px rgba(0, 0, 0, 0.4); z-index: 20; padding: 1rem; flex-direction: column; gap: 0.4rem; transition: width 0.2s ease; overflow-y: auto; }
 .drawer:not(.panel-hidden) { display: flex; }
 .drawer-close { align-self: flex-end; }
 .drawer-item { display: block; width: 100%; text-align: left; background: transparent; border: none; color: var(--gischt); font-family: "IBM Plex Sans", sans-serif; font-size: 1rem; padding: 0.6rem 0.5rem; border-radius: 4px; text-decoration: none; cursor: pointer; }
 .drawer-item:hover { background: var(--tiefe); }
 .drawer-footer { margin-top: auto; display: flex; flex-direction: column; gap: 0.25rem; border-top: 1px solid var(--wasser); padding-top: 0.5rem; }
 .drawer-collapse { background: transparent; border: none; color: var(--gischt); font-size: 1.1rem; cursor: pointer; align-self: flex-end; padding: 0.4rem; margin-top: auto; }
+.drawer-admin > summary { list-style: none; }
+.drawer-admin > summary::-webkit-details-marker { display: none; }
+.drawer-admin > summary::after { content: "▸"; float: right; opacity: 0.6; }
+.drawer-admin[open] > summary::after { content: "▾"; }
+.drawer-admin > .drawer-item:not(summary) { padding-left: 1.5rem; }
 .drawer.drawer-collapsed { width: 56px; }
 .drawer.drawer-collapsed .drawer-item-label { display: none; }
 
@@ -537,6 +542,7 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
 
 .dash-search {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.75rem;
@@ -550,8 +556,8 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
   white-space: nowrap;
   opacity: 0.75;
 }
-.dash-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
-.dash-filters .export-trigger { margin-left: auto; }
+.dash-filters { display: flex; flex: 1 1 100%; flex-wrap: nowrap; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+.dash-filters .export-trigger { margin-left: auto; margin-top: 0.25rem; padding-top: 0.35rem; padding-bottom: 0.35rem; line-height: 1.2; font-size: 0.95rem; align-self: center; }
 
 /* --- Scan-Anleitung: Split-Screen --- */
 .scan-wrap {

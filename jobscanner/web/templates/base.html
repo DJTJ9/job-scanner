@@ -45,15 +45,17 @@
     {{ nav_item("/hilfe", "❓", "Hilfe") }}
     {{ nav_item("/roadmap", "🗺", "Roadmap/Patch notes") }}
     {% if request.session.get("role") == "owner" %}
-    <span class="drawer-group"><span class="drawer-item-label">Admin</span></span>
-    {{ nav_item("/metriken", "📈", "Metriken") }}
-    {{ nav_item("/admin/feedback", "✉", "Feedback") }}
-    {{ nav_item("/admin/registrations", "📋", "Registrierungen") }}
-    {{ nav_item("/admin/members", "👥", "Mitglieder") }}
+    <details class="drawer-admin"{% if _pfad == '/metriken' or _pfad.startswith('/admin') %} open{% endif %}>
+      <summary class="drawer-item">📊 <span class="drawer-item-label">Admin</span></summary>
+      {{ nav_item("/metriken", "📈", "Metriken") }}
+      {{ nav_item("/admin/feedback", "✉", "Feedback") }}
+      {{ nav_item("/admin/registrations", "📋", "Registrierungen") }}
+      {{ nav_item("/admin/members", "👥", "Mitglieder") }}
+    </details>
     {% endif %}
     <div class="drawer-footer">
       <a class="drawer-item" href="/einstellungen">👤 <span class="drawer-item-label">{{ request.session.get("username") or request.session.get("email") }}</span></a>
-      <a class="drawer-item" href="/logout">⎋ <span class="drawer-item-label">Abmelden</span></a>
+      <a class="drawer-item" href="/logout" title="Abmelden">🚪 <span class="drawer-item-label">Abmelden</span></a>
       <button type="button" class="drawer-collapse" data-drawer-collapse aria-label="Sidebar einklappen">«</button>
     </div>
   </nav>
