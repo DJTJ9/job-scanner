@@ -7,21 +7,22 @@
   <p class="settings-email">{{ request.session.get("email") }}</p>
   <div class="tiefenlinie"></div>
 
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  {% if success %}<p class="success-msg">{{ success }}</p>{% endif %}
+
   <div class="tab-bar" role="tablist">
-    <button type="button" class="tab{% if active_tab == 'profil' %} tab-active{% endif %}"
-            data-tab="profil" role="tab">Profil</button>
-    <button type="button" class="tab{% if active_tab == 'token' %} tab-active{% endif %}"
-            data-tab="token" role="tab">API-Token</button>
+    <button type="button" class="tab{% if active_tab == 'konto' %} tab-active{% endif %}"
+            data-tab="konto" role="tab">Konto</button>
+    <button type="button" class="tab{% if active_tab == 'anbindungen' %} tab-active{% endif %}"
+            data-tab="anbindungen" role="tab">Anbindungen</button>
+    <button type="button" class="tab{% if active_tab == 'suche' %} tab-active{% endif %}"
+            data-tab="suche" role="tab">Suche &amp; Scoring</button>
     <button type="button" class="tab{% if active_tab == 'notify' %} tab-active{% endif %}"
             data-tab="notify" role="tab">Benachrichtigung</button>
-    <button type="button" class="tab{% if active_tab == 'firecrawl' %} tab-active{% endif %}"
-            data-tab="firecrawl" role="tab">Firecrawl</button>
   </div>
 
-  <section class="tab-panel{% if active_tab == 'profil' %} tab-panel-active{% endif %}"
-           data-tab-panel="profil">
-    {% if error %}<p class="error">{{ error }}</p>{% endif %}
-    {% if success %}<p class="success-msg">{{ success }}</p>{% endif %}
+  <section class="tab-panel{% if active_tab == 'konto' %} tab-panel-active{% endif %}"
+           data-tab-panel="konto">
     <h2>Benutzername</h2>
     {% if username %}
       <p>Aktuell: <strong>{{ username }}</strong></p>
@@ -49,12 +50,33 @@
       <input type="password" id="new_password_repeat" name="new_password_repeat" required>
       <button type="submit" class="btn btn-primary">Speichern</button>
     </form>
+
     <div class="tiefenlinie"></div>
-    <p><a class="link" href="/account/email">Konto &amp; Daten verwalten (Email ändern, Export, löschen) →</a></p>
+    <h2>Email ändern</h2>
+    <form method="post" action="/account/email">
+      {% include "_csrf_field.html" %}
+      <label for="new_email">Neue Email</label>
+      <input type="email" id="new_email" name="new_email" required>
+      <button type="submit" class="btn btn-primary">Ändern</button>
+    </form>
+
+    <div class="tiefenlinie"></div>
+    <h2>Meine Daten</h2>
+    <p><a class="btn btn-secondary" href="/account/export">Als JSON herunterladen</a></p>
+
+    <div class="tiefenlinie"></div>
+    <h2>Gefahrenzone</h2>
+    <p class="hinweis">⚠ Unwiderruflich. Alle Profile, Kriterien und Bewertungen werden gelöscht.</p>
+    <form method="post" action="/account/loeschen">
+      {% include "_csrf_field.html" %}
+      <label for="delete_password">Aktuelles Passwort</label>
+      <input type="password" id="delete_password" name="current_password" required>
+      <button type="submit" class="btn btn-secondary">Konto endgültig löschen</button>
+    </form>
   </section>
 
-  <section class="tab-panel{% if active_tab == 'token' %} tab-panel-active{% endif %}"
-           data-tab-panel="token">
+  <section class="tab-panel{% if active_tab == 'anbindungen' %} tab-panel-active{% endif %}"
+           data-tab-panel="anbindungen">
     <h2>API-Token für Claude</h2>
     {% if api_token %}
     <p><strong>Dein neues Token — nur jetzt sichtbar, kopiere es sofort:</strong></p>
@@ -123,6 +145,67 @@
     </div>
 
     <div class="tiefenlinie"></div>
+    <h2>Firecrawl-Key</h2>
+    <p class="hinweis">Optional. Für eigene Portale/Career-Pages, die Playwright nicht rendern kann,
+       greift Bob als letzten Ausweg auf Firecrawl zurück — mit deinem eigenen Kontingent.
+       Der Key wird verschlüsselt gespeichert.</p>
+    <p>Status: {% if has_firecrawl_key %}Key hinterlegt ✓{% else %}kein Key hinterlegt{% endif %}</p>
+    <form method="post" action="/einstellungen/firecrawl" data-confirm-save>
+      {% include "_csrf_field.html" %}
+      <label>Firecrawl-API-Key
+        <input type="password" name="firecrawl_key" autocomplete="off"
+               placeholder="fc-..."></label>
+      <button type="submit" class="btn btn-secondary">Speichern &amp; prüfen</button>
+    </form>
+    {% if has_firecrawl_key %}
+    <form method="post" action="/einstellungen/firecrawl/loeschen">
+      {% include "_csrf_field.html" %}
+      <button type="submit" class="btn btn-secondary">Key entfernen</button>
+    </form>
+    {% endif %}
+
+    <div class="tiefenlinie"></div>
+    <h2>Adzuna-Key</h2>
+    <p class="hinweis">Optional. Eigener kostenloser Adzuna-API-Zugang
+       (developer.adzuna.com) — bob-scan durchsucht damit den Adzuna-Aggregator
+       serverseitig mit deinem Kontingent. Wird verschlüsselt gespeichert.</p>
+    <p>Status: {% if has_adzuna_key %}Key hinterlegt ✓{% else %}kein Key hinterlegt{% endif %}</p>
+    <form method="post" action="/einstellungen/adzuna" data-confirm-save>
+      {% include "_csrf_field.html" %}
+      <label>App-ID
+        <input type="password" name="adzuna_app_id" autocomplete="off"></label>
+      <label>App-Key
+        <input type="password" name="adzuna_app_key" autocomplete="off"></label>
+      <button type="submit" class="btn btn-secondary">Speichern &amp; prüfen</button>
+    </form>
+    {% if has_adzuna_key %}
+    <form method="post" action="/einstellungen/adzuna/loeschen">
+      {% include "_csrf_field.html" %}
+      <button type="submit" class="btn btn-secondary">Key entfernen</button>
+    </form>
+    {% endif %}
+    <div class="tiefenlinie"></div>
+    <h2>Jooble-Key</h2>
+    <p class="hinweis">Optional. Eigener kostenloser Jooble-API-Key
+       (jooble.org/api/about) — gleiche Mechanik wie Adzuna. Wird verschlüsselt
+       gespeichert.</p>
+    <p>Status: {% if has_jooble_key %}Key hinterlegt ✓{% else %}kein Key hinterlegt{% endif %}</p>
+    <form method="post" action="/einstellungen/jooble" data-confirm-save>
+      {% include "_csrf_field.html" %}
+      <label>API-Key
+        <input type="password" name="jooble_key" autocomplete="off"></label>
+      <button type="submit" class="btn btn-secondary">Speichern &amp; prüfen</button>
+    </form>
+    {% if has_jooble_key %}
+    <form method="post" action="/einstellungen/jooble/loeschen">
+      {% include "_csrf_field.html" %}
+      <button type="submit" class="btn btn-secondary">Key entfernen</button>
+    </form>
+    {% endif %}
+  </section>
+
+  <section class="tab-panel{% if active_tab == 'suche' %} tab-panel-active{% endif %}"
+           data-tab-panel="suche">
     <h2>Spar-Modus</h2>
     <p class="hinweis">Schützt dein Claude-Abo vor Überraschungsverbrauch — die Bob-Befehle respektieren diese Limits.</p>
     <form method="post" action="/einstellungen/spar-modus" data-confirm-save>
@@ -153,8 +236,9 @@
 
     <div class="tiefenlinie"></div>
     <h2>Portal-Auswahl</h2>
-    <p class="hinweis">Welche Anti-Bot-Portale dein bob-scan über deine Heim-IP scannt. Aggregatoren
-       (Adzuna/Jooble) und Arbeitsagentur laufen unabhängig davon als Server-Baseline.</p>
+    <p class="hinweis">Welche Anti-Bot-Portale dein bob-scan über deine Heim-IP scannt.
+       Adzuna/Jooble laufen zusätzlich serverseitig, sobald eigene Keys unter
+       Anbindungen hinterlegt sind.</p>
     <form method="post" action="/einstellungen/scan-portale" data-confirm-save>
       {% include "_csrf_field.html" %}
       <label><input type="checkbox" name="portal_stepstone"{% if 'stepstone' in scan_portals %} checked{% endif %}> StepStone</label>
@@ -188,28 +272,6 @@
              In-App-Benachrichtigungen (Inbox)</label>
       <button type="submit" class="btn btn-secondary">Speichern</button>
     </form>
-  </section>
-
-  <section class="tab-panel{% if active_tab == 'firecrawl' %} tab-panel-active{% endif %}"
-           data-tab-panel="firecrawl">
-    <h2>Firecrawl-Key</h2>
-    <p class="hinweis">Optional. Für eigene Portale/Career-Pages, die Playwright nicht rendern kann,
-       greift Bob als letzten Ausweg auf Firecrawl zurück — mit deinem eigenen Kontingent.
-       Der Key wird verschlüsselt gespeichert.</p>
-    <p>Status: {% if has_firecrawl_key %}Key hinterlegt ✓{% else %}kein Key hinterlegt{% endif %}</p>
-    <form method="post" action="/einstellungen/firecrawl" data-confirm-save>
-      {% include "_csrf_field.html" %}
-      <label>Firecrawl-API-Key
-        <input type="password" name="firecrawl_key" autocomplete="off"
-               placeholder="fc-..."></label>
-      <button type="submit" class="btn btn-secondary">Speichern &amp; prüfen</button>
-    </form>
-    {% if has_firecrawl_key %}
-    <form method="post" action="/einstellungen/firecrawl/loeschen">
-      {% include "_csrf_field.html" %}
-      <button type="submit" class="btn btn-secondary">Key entfernen</button>
-    </form>
-    {% endif %}
   </section>
 </div>
 {% endblock %}

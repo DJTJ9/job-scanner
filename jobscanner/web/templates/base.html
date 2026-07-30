@@ -42,7 +42,6 @@
     {{ nav_item("/profil", "👤", "Meine Profile") }}
     <span class="drawer-group"><span class="drawer-item-label">System</span></span>
     {{ nav_item("/einstellungen", "⚙", "Einstellungen") }}
-    {{ nav_item("/account/email", "🔑", "Konto & Daten") }}
     {{ nav_item("/hilfe", "❓", "Hilfe") }}
     {{ nav_item("/roadmap", "🗺", "Roadmap/Patch notes") }}
     {% if request.session.get("role") == "owner" %}

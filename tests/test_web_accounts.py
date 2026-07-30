@@ -240,6 +240,7 @@ def test_account_email_change_flow(app):
     resp = c.post("/account/email", data={"new_email": "neu-owner@test.de"})
     assert resp.status_code == 200
     assert "gesendet" in resp.text.lower()
+    assert 'data-tab="konto"' in resp.text
     uid = storage.get_user_by_email("owner@test.de")["id"]
     token = storage.get_user(uid)["pending_email_token"]
     resp2 = c.get(f"/account/email/confirm?token={token}")

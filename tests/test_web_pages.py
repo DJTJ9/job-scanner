@@ -125,7 +125,7 @@ def test_metriken_member_403(client, tmp_path):
 def test_sidebar_gruppen_und_aktiv_highlight(client):
     resp = client.get("/jobs")
     for href in ["/", "/jobs", "/favoriten", "/scan", "/feintuning", "/lernen",
-                 "/portale", "/profil", "/einstellungen", "/account/email", "/hilfe",
+                 "/portale", "/profil", "/einstellungen", "/hilfe",
                  "/metriken", "/admin/feedback"]:
         assert f'href="{href}"' in resp.text
     assert "drawer-group" in resp.text

@@ -30,11 +30,36 @@ def test_settings_requires_login(tmp_path, monkeypatch):
     assert resp.headers["location"] == "/login"
 
 
-def test_settings_shows_email_and_both_tabs(member):
+def test_settings_shows_email_and_four_tabs(member):
     body = member.get("/einstellungen").text
     assert "m@test.de" in body
-    assert 'data-tab="profil"' in body
-    assert 'data-tab="token"' in body
+    for slug in ("konto", "anbindungen", "suche", "notify"):
+        assert f'data-tab="{slug}"' in body
+    assert 'data-tab="profil"' not in body
+    assert 'data-tab="token"' not in body
+    assert 'data-tab="firecrawl"' not in body
+
+
+def test_konto_tab_contains_email_export_delete(member):
+    body = member.get("/einstellungen?tab=konto").text
+    assert 'action="/account/email"' in body
+    assert 'href="/account/export"' in body
+    assert 'action="/account/loeschen"' in body
+    assert "Gefahrenzone" in body
+
+
+def test_anbindungen_tab_contains_token_firecrawl_agg_forms(member):
+    body = member.get("/einstellungen?tab=anbindungen").text
+    assert 'action="/profiles/api-token"' in body
+    assert 'action="/einstellungen/firecrawl"' in body
+    assert 'action="/einstellungen/adzuna"' in body
+    assert 'action="/einstellungen/jooble"' in body
+
+
+def test_account_email_get_redirects_to_konto_tab(member):
+    resp = member.get("/account/email", follow_redirects=False)
+    assert resp.status_code == 301
+    assert resp.headers["location"] == "/einstellungen?tab=konto"
 
 
 def test_settings_has_password_form(member):
@@ -73,7 +98,7 @@ def test_password_post_renders_settings_success(member):
         "new_password_repeat": "neupw1"}, follow_redirects=False)
     assert resp.status_code == 200
     assert "geändert" in resp.text
-    assert 'data-tab="profil"' in resp.text
+    assert 'data-tab="konto"' in resp.text
 
 
 def test_password_post_error_renders_settings(member):
@@ -82,14 +107,14 @@ def test_password_post_error_renders_settings(member):
         "new_password_repeat": "neupw1"}, follow_redirects=False)
     assert resp.status_code == 400
     assert "falsch" in resp.text
-    assert 'data-tab="profil"' in resp.text
+    assert 'data-tab="konto"' in resp.text
 
 
 def test_token_post_renders_settings_with_token(member):
     resp = member.post("/profiles/api-token", follow_redirects=False)
     assert resp.status_code == 200
     assert "bob_" in resp.text
-    assert 'data-tab="token"' in resp.text
+    assert 'data-tab="anbindungen"' in resp.text
 
 
 def test_startseite_has_no_token_panel(member):

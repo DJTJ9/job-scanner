@@ -336,7 +336,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return templates.TemplateResponse(
                 request, "settings.html",
                 {"error": msg, "success": None, "api_token": None,
-                 "active_tab": "profil",
+                 "active_tab": "konto",
                  **_settings_extra(request.session["user_id"])}, status_code=400)
 
         if storage.verify_password(email, current_password) is None:
@@ -349,7 +349,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return templates.TemplateResponse(
             request, "settings.html",
             {"error": None, "success": "Passwort geändert", "api_token": None,
-             "active_tab": "profil",
+             "active_tab": "konto",
              **_settings_extra(request.session["user_id"])})
 
     @app.get("/account/username")
@@ -370,7 +370,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return templates.TemplateResponse(
                 request, "settings.html",
                 {"error": error, "success": success, "api_token": None,
-                 "active_tab": "profil",
+                 "active_tab": "konto",
                  **_settings_extra(request.session["user_id"])}, status_code=code)
 
         if not _valid_username(username):
@@ -384,8 +384,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def account_email_form(request: Request):
         if (redirect := require_user(request)) is not None:
             return redirect
-        return templates.TemplateResponse(request, "account_email.html",
-                                          {"error": None, "success": None})
+        return RedirectResponse("/einstellungen?tab=konto", status_code=301)
 
     @app.post("/account/email")
     def account_email_submit(request: Request, new_email: str = Form(...),
@@ -394,30 +393,36 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return redirect
         if not csrf.verify(request, csrf_token):
             return _csrf_error_page(request)
-        token = storage.request_email_change(request.session["user_id"], new_email)
+        uid = request.session["user_id"]
+        token = storage.request_email_change(uid, new_email)
         if token is None:
-            return templates.TemplateResponse(request, "account_email.html",
-                {"error": "Email bereits vergeben", "success": None}, status_code=409)
+            return templates.TemplateResponse(request, "settings.html",
+                {"error": "Email bereits vergeben", "success": None, "api_token": None,
+                 "active_tab": "konto", **_settings_extra(uid)}, status_code=409)
         try:
             mailer.send_email_change_verification(
                 new_email.strip().lower(), token, settings["base_url"])
         except Exception:
             pass
-        return templates.TemplateResponse(request, "account_email.html",
-            {"error": None, "success": "Bestätigungs-Mail an neue Adresse gesendet"})
+        return templates.TemplateResponse(request, "settings.html",
+            {"error": None, "success": "Bestätigungs-Mail an neue Adresse gesendet",
+             "api_token": None, "active_tab": "konto", **_settings_extra(uid)})
 
     @app.get("/account/email/confirm")
     def account_email_confirm(request: Request, token: str = ""):
         if (redirect := require_user(request)) is not None:
             return redirect
+        uid = request.session["user_id"]
         user = storage.confirm_email_change(token)
         if user is None:
-            return templates.TemplateResponse(request, "account_email.html",
-                {"error": "Link ungültig", "success": None}, status_code=400)
+            return templates.TemplateResponse(request, "settings.html",
+                {"error": "Link ungültig", "success": None, "api_token": None,
+                 "active_tab": "konto", **_settings_extra(uid)}, status_code=400)
         request.session["email"] = user["email"]
         request.session["email_verified"] = True
-        return templates.TemplateResponse(request, "account_email.html",
-            {"error": None, "success": "Email geändert"})
+        return templates.TemplateResponse(request, "settings.html",
+            {"error": None, "success": "Email geändert", "api_token": None,
+             "active_tab": "konto", **_settings_extra(uid)})
 
     @app.get("/account/export")
     def account_export(request: Request):
@@ -436,19 +441,21 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return _csrf_error_page(request)
         email = request.session.get("email")
         if storage.verify_password(email, current_password) is None:
-            return templates.TemplateResponse(request, "account_email.html",
-                {"error": "Passwort ist falsch", "success": None}, status_code=400)
+            return templates.TemplateResponse(request, "settings.html",
+                {"error": "Passwort ist falsch", "success": None, "api_token": None,
+                 "active_tab": "konto",
+                 **_settings_extra(request.session["user_id"])}, status_code=400)
         storage.delete_user(request.session["user_id"])
         request.session.clear()
         return RedirectResponse("/login", status_code=303)
 
     @app.get("/einstellungen")
-    def settings_view(request: Request, tab: str = "profil"):
+    def settings_view(request: Request, tab: str = "konto"):
         if (redirect := require_user(request)) is not None:
             return redirect
         return templates.TemplateResponse(request, "settings.html", {
             "error": None, "success": None, "api_token": None,
-            "active_tab": tab if tab in ("profil", "token", "notify", "firecrawl") else "profil",
+            "active_tab": tab if tab in ("konto", "anbindungen", "suche", "notify") else "konto",
             **_settings_extra(request.session["user_id"])})
 
     @app.get("/benachrichtigungen")
@@ -474,7 +481,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         langs = [l for l, on in (("de", lang_de), ("en", lang_en)) if on is not None] or ["de"]
         storage.set_spar_modus(request.session["user_id"], limit,
                                neighbor_roles is not None, locs, langs)
-        return RedirectResponse("/einstellungen?tab=token", status_code=303)
+        return RedirectResponse("/einstellungen?tab=suche", status_code=303)
 
     @app.post("/einstellungen/scan-portale")
     async def scan_portals_submit(request: Request):
@@ -490,7 +497,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                     if key.startswith("portal_custom_")
                     and key.removeprefix("portal_custom_").isdigit()]
         storage.set_scan_portals(request.session["user_id"], portals)
-        return RedirectResponse("/einstellungen?tab=token", status_code=303)
+        return RedirectResponse("/einstellungen?tab=suche", status_code=303)
 
     @app.post("/einstellungen/notify")
     def notify_submit(request: Request, email_mode: str = Form("daily"),
@@ -518,10 +525,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if not key or not browser.validate_firecrawl_key(key):
             return templates.TemplateResponse(request, "settings.html", {
                 "error": "Firecrawl-Key ungültig oder ohne Kontingent — abgelehnt.",
-                "success": None, "api_token": None, "active_tab": "firecrawl",
+                "success": None, "api_token": None, "active_tab": "anbindungen",
                 **_settings_extra(uid)})
         storage.set_firecrawl_key(uid, crypto.encrypt(key))
-        return RedirectResponse("/einstellungen?tab=firecrawl", status_code=303)
+        return RedirectResponse("/einstellungen?tab=anbindungen", status_code=303)
 
     @app.post("/einstellungen/firecrawl/loeschen")
     def firecrawl_key_delete(request: Request, csrf_token: str = Form("")):
@@ -530,7 +537,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if not csrf.verify(request, csrf_token):
             return _csrf_error_page(request)
         storage.clear_firecrawl_key(request.session["user_id"])
-        return RedirectResponse("/einstellungen?tab=firecrawl", status_code=303)
+        return RedirectResponse("/einstellungen?tab=anbindungen", status_code=303)
 
     @app.post("/einstellungen/adzuna")
     def adzuna_keys_submit(request: Request, adzuna_app_id: str = Form(""),
@@ -778,7 +785,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         token = storage.create_api_token(request.session["user_id"])
         return templates.TemplateResponse(request, "settings.html", {
             "error": None, "success": None, "api_token": token,
-            "active_tab": "token",
+            "active_tab": "anbindungen",
             **_settings_extra(request.session["user_id"])})
 
     @app.post("/profil/aktiv")
@@ -848,7 +855,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         enc = storage.get_firecrawl_key_enc(request.session["user_id"])
         key = crypto.decrypt(enc) if enc else None
         if not key:
-            return RedirectResponse("/einstellungen?tab=firecrawl", status_code=303)
+            return RedirectResponse("/einstellungen?tab=anbindungen", status_code=303)
         result = precheck.precheck_portal(portal["url"], use_firecrawl=True, firecrawl_key=key)
         storage.save_check_result(portal_id, result)
         if result.get("compatible"):

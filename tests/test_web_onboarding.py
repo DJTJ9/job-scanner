@@ -218,7 +218,7 @@ def test_wizard_has_cancel_to_home(owner_client):
 # --- .hinweis-Klasse vereinheitlicht ---
 
 def test_settings_hint_texts_use_hinweis_class(owner_client):
-    resp = owner_client.get("/einstellungen?tab=token")
+    resp = owner_client.get("/einstellungen?tab=suche")
     assert '<p class="hinweis">' in resp.text
     assert resp.text.count('<p class="hinweis">') >= 2  # Spar-Modus + Portal-Auswahl
 

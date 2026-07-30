@@ -24,8 +24,8 @@ def member(tmp_path, monkeypatch):
 
 def test_firecrawl_tab_renders(member):
     c, uid = member
-    resp = c.get("/einstellungen?tab=firecrawl")
-    assert 'data-tab-panel="firecrawl"' in resp.text
+    resp = c.get("/einstellungen?tab=anbindungen")
+    assert 'data-tab-panel="anbindungen"' in resp.text
     assert 'action="/einstellungen/firecrawl"' in resp.text
 
 
