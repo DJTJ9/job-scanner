@@ -1103,16 +1103,39 @@ def mark_notified(profile_id: int, fingerprints: list[str]) -> None:
 
 @_retry_on_locked
 def sync_inbox_notifications(profile_id: int) -> int:
-    """Legt für jede aktuelle Pass-Match (non-expired) des Profils eine Inbox-Zeile an.
+    """Legt für jede In-Scope-Pass-Match des Profils eine Inbox-Zeile an und pruned
+    Zeilen außerhalb des Suchrahmens. In-Scope = category='Pass', non-expired, extracted
+    und — wie Job-Angebote (list_jobs_with_scores) — im spar_modus-Sprache/Standort-Filter.
     INSERT OR IGNORE (PK profile_id, fingerprint) → idempotent. Gibt Anzahl NEUER Zeilen."""
     conn = _require_conn()
+    prof = get_profile(profile_id)
+    spar = (prof["data"].get("spar_modus") or {}) if prof else {}
+    langs = spar.get("languages")
+    locs = spar.get("locations")
+    where = ["job_scores.profile_id = ?",
+             "job_scores.category = 'Pass'",
+             "jobs.status != 'expired'",
+             "jobs.extraction_status = 'extracted'"]
+    params: list = [profile_id]
+    if langs:
+        where.append("jobs.language IN (%s)" % ",".join("?" * len(langs)))
+        params += list(langs)
+    if locs:
+        where.append("(" + " OR ".join("jobs.location LIKE ?" for _ in locs) + ")")
+        params += [f"%{loc}%" for loc in locs]
     rows = conn.execute(
         """SELECT job_scores.fingerprint AS fp, job_scores.score AS score
            FROM job_scores JOIN jobs ON jobs.fingerprint = job_scores.fingerprint
-           WHERE job_scores.profile_id = ?
-             AND job_scores.category = 'Pass'
-             AND jobs.status != 'expired'""",
-        (profile_id,)).fetchall()
+           WHERE """ + " AND ".join(where),
+        params).fetchall()
+    in_scope = [r["fp"] for r in rows]
+    if in_scope:
+        ph = ",".join("?" * len(in_scope))
+        conn.execute(
+            f"DELETE FROM notifications WHERE profile_id = ? AND fingerprint NOT IN ({ph})",
+            [profile_id, *in_scope])
+    else:
+        conn.execute("DELETE FROM notifications WHERE profile_id = ?", (profile_id,))
     inserted = 0
     for r in rows:
         cur = conn.execute(

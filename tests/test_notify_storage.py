@@ -159,3 +159,65 @@ def test_list_immediate_matches_threshold_and_unnotified():
     assert [r["fingerprint"] for r in rows] == [fp_hi]
     storage.mark_notified(pid, [fp_hi])
     assert storage.list_immediate_matches(pid, 90) == []
+
+
+def _pass_job(pid, title, score, language="", location="Hamburg"):
+    fp = storage.upsert_job(
+        Job(title=title, company="ACME", location=location,
+            language=language, first_seen="2026-07-20"))
+    storage.upsert_job_score(pid, fp, score, "passt", "Pass", {})
+    return fp
+
+
+def _member_profile(spar, email="m@test.de"):
+    uid = storage.create_user(email, "pw", role="member")
+    pid = storage.create_profile(email, {"spar_modus": spar}, user_id=uid)
+    return uid, pid
+
+
+def test_sync_inbox_language_filter_excludes_out_of_scope():
+    uid, pid = _member_profile({"languages": ["de"], "locations": []})
+    _pass_job(pid, "Deutscher Job", 90, language="de")
+    _pass_job(pid, "English Job", 88, language="en")
+    storage.sync_inbox_notifications(pid)
+    titles = [r["title"] for r in storage.list_inbox(uid)]
+    assert titles == ["Deutscher Job"]
+
+
+def test_sync_inbox_location_substring_filter():
+    uid, pid = _member_profile({"languages": [], "locations": ["Hamburg"]})
+    _pass_job(pid, "HH Job", 90, location="Hamburg (remote)")
+    _pass_job(pid, "Berlin Job", 88, location="Berlin")
+    storage.sync_inbox_notifications(pid)
+    titles = [r["title"] for r in storage.list_inbox(uid)]
+    assert titles == ["HH Job"]
+
+
+def test_sync_inbox_no_filter_when_scope_empty():
+    uid, pid = _member_profile({"languages": [], "locations": []})
+    _pass_job(pid, "DE Job", 90, language="de", location="Hamburg")
+    _pass_job(pid, "EN US Job", 88, language="en", location="Seattle")
+    storage.sync_inbox_notifications(pid)
+    assert storage.count_unread(uid) == 2
+
+
+def test_sync_inbox_prunes_out_of_scope_existing_row():
+    uid, pid = _member_profile({"languages": [], "locations": []})
+    _pass_job(pid, "EN Job", 88, language="en")
+    storage.sync_inbox_notifications(pid)
+    assert storage.count_unread(uid) == 1
+    # Scope auf de einengen → EN-Zeile muss beim Re-Sync verschwinden
+    storage.set_spar_modus(uid, None, True, locations=[], languages=["de"])
+    storage.sync_inbox_notifications(pid)
+    assert storage.count_unread(uid) == 0
+    assert storage.list_inbox(uid) == []
+
+
+def test_sync_inbox_keeps_in_scope_and_inserts_new_returns_count():
+    uid, pid = _member_profile({"languages": ["de"], "locations": []})
+    _pass_job(pid, "Erst", 90, language="de")
+    assert storage.sync_inbox_notifications(pid) == 1
+    _pass_job(pid, "Zweit", 85, language="de")
+    assert storage.sync_inbox_notifications(pid) == 1  # nur der neue zählt
+    titles = {r["title"] for r in storage.list_inbox(uid)}
+    assert titles == {"Erst", "Zweit"}
