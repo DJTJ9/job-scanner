@@ -257,6 +257,10 @@ def push_jobs_data(user: dict, listings: list) -> dict:
         if job is not None:
             storage.apply_extraction(fp, job)
             stats["extracted"] += 1
+    # bob-scan: frische Funde sofort deterministisch für die eigenen Profile ranken.
+    if stats["extracted"]:
+        for p in _user_profiles(user["id"]):
+            storage.score_profile_deterministic(p["id"], only_missing=True)
     storage.log_event("scan_pushed", user_id=user["id"],
                       meta={"source": "member", "inserted": stats["inserted"]})
     return stats

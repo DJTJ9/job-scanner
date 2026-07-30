@@ -256,6 +256,17 @@ class TestToolLogic:
         assert res["extracted"] == 0
         assert res["inserted"] == 1
 
+    def test_push_jobs_scores_scanner_own_profiles(self, client):
+        user, pid = _member_with_profile()
+        stats = mcp_api.push_jobs_data(user, [{
+            "url": "https://m.test/j1", "portal": "adzuna",
+            "raw_text": "Junior Unity Dev bei ACME in Hamburg",
+            "title": "Junior Unity Dev", "company": "ACME", "location": "Hamburg"}])
+        assert stats["extracted"] == 1
+        # frischer Fund ist für das eigene Profil bereits deterministisch gescort:
+        # ein nachgelagerter only_missing-Lauf findet nichts Offenes mehr.
+        assert storage.score_profile_deterministic(pid, only_missing=True) == 0
+
 
 class TestGetMyVotes:
     def test_scoped_to_token_user_with_job_context(self, client):
