@@ -19,7 +19,7 @@ def client(tmp_path, monkeypatch):
 def test_anleitung_redirects_301_to_hilfe(client):
     resp = client.get("/anleitung", follow_redirects=False)
     assert resp.status_code == 301
-    assert resp.headers["location"] == "/hilfe#anleitung"
+    assert resp.headers["location"] == "/hilfe#erste-schritte"
 
 
 def test_anleitung_has_all_key_commands(client):

@@ -273,7 +273,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/anleitung")
     def anleitung_view(request: Request):
-        return RedirectResponse("/hilfe#anleitung", status_code=301)
+        return RedirectResponse("/hilfe#erste-schritte", status_code=301)
 
     @app.get("/anleitung/keys")
     def anleitung_keys_view(request: Request):

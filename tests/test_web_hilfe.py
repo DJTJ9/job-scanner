@@ -66,7 +66,7 @@ def test_hilfe_public_ohne_login(client_ohne_login):
 def test_anleitung_301(client_ohne_login):
     resp = client_ohne_login.get("/anleitung", follow_redirects=False)
     assert resp.status_code == 301
-    assert resp.headers["location"] == "/hilfe#anleitung"
+    assert resp.headers["location"] == "/hilfe#erste-schritte"
 
 
 def test_onboarding_301(client_ohne_login):
