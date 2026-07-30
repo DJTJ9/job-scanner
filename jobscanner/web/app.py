@@ -287,6 +287,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def hilfe_view(request: Request):
         return templates.TemplateResponse(request, "hilfe.html", {})
 
+    @app.get("/hilfe/handbuch")
+    def handbuch_view(request: Request):
+        return templates.TemplateResponse(request, "handbuch.html", {})
+
     @app.get("/onboarding")
     def onboarding_view(request: Request):
         return RedirectResponse("/hilfe#erste-schritte", status_code=301)

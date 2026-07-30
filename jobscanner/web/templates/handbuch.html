@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Handbuch — Bob der Job-Bot{% endblock %}
+{% block content %}
+<h1>📖 Das große Handbuch</h1>
+<p class="hinweis">Alles zu jeder Funktion, sauber erklärt. Nachschlagen statt suchen.</p>
+
+<nav class="hb-toc">
+  <a class="link" href="#ueberblick">1 Überblick</a>
+  <a class="link" href="#profil">2 Profil &amp; Kriterien</a>
+  <a class="link" href="#jobs">3 Jobs &amp; Bewerten</a>
+  <a class="link" href="#scannen">4 Scannen &amp; Befehle</a>
+  <a class="link" href="#konto">5 Konto &amp; Daten</a>
+</nav>
+
+<section class="panel" id="ueberblick">
+  <h2>1 Überblick — wie Bob arbeitet</h2>
+  <p>Bob durchsucht laufend Jobportale, extrahiert die Anzeigen in strukturierte Felder,
+     dedupliziert über Portale hinweg und bewertet jede Stelle gegen deine Kriterien (0–100).
+     Deine Treffer erscheinen sortiert nach Passung im Dashboard.</p>
+</section>
+
+<section class="panel" id="profil">
+  <h2>2 Profil &amp; Kriterien</h2>
+  <p>Lege ein Profil mit Skills, Zielrollen, Domänen, Standort, Sprachen und No-Gos an
+     (<a class="link" href="/wizard/new">Profil erstellen</a>). Danach bewertet Bob den
+     kompletten Job-Pool automatisch für dich. Im <a class="link" href="/feintuning">Feintuning</a>
+     justierst du die Gewichte jederzeit nach.</p>
+</section>
+
+<section class="panel" id="jobs">
+  <h2>3 Jobs &amp; Bewerten</h2>
+  <p>Unter <a class="link" href="/jobs">Job-Angebote</a> siehst du deine Treffer mit Begründung
+     pro Kriterium. 👍/👎 trainiert Bobs Gewichtung, ★ merkt Jobs in den
+     <a class="link" href="/favoriten">Favoriten</a>. No-Go-Treffer landen unter „Aussortiert".</p>
+</section>
+
+<section class="panel" id="scannen">
+  <h2>4 Scannen &amp; Befehle</h2>
+  <p><code>/bob:bob-rescore</code> — gute Treffer nach dem Lernen mit dem LLM neu bewerten
+     (Tier mittel/hoch). <code>/bob:bob-scan</code> — neue Jobs über deine Heim-IP finden und
+     sofort deterministisch bewerten (gratis, keine Keys). <code>/bob:bob-learn</code> schärft
+     die Kriterien aus deinen Votes, <code>/bob:bob-profil</code> das Profil im Chat.
+     Details: <a class="link" href="/anleitung/scan">Scan-Anleitung</a>,
+     <a class="link" href="/anleitung/keys">Keys holen</a>.</p>
+</section>
+
+<section class="panel" id="konto">
+  <h2>5 Konto &amp; Daten</h2>
+  <p>In den <a class="link" href="/einstellungen">Einstellungen</a> verwaltest du API-Token,
+     Benachrichtigungen, Spar-Modus und Portale. Konto löschen, Datenexport und
+     Passwort-Änderung findest du ebenfalls dort.</p>
+</section>
+
+<p><a class="btn btn-secondary" href="/hilfe#faq">← Zurück zum Hilfe-Center</a></p>
+{% endblock %}
