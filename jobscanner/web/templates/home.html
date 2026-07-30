@@ -3,6 +3,45 @@
 {% block title %}Übersicht — Bob der Job-Bot{% endblock %}
 {% block content %}
 <div class="home-banner"><img src="/static/img/bob/hero-landscape-band.png" alt=""></div>
+<details{% if not (steps is defined and steps.profil) %} open{% endif %} class="panel bob-intro">
+  <summary><strong>▾ Was ist Bob? · Was kann Bob?</strong></summary>
+
+  <div class="bob-intro-block">
+    <img class="bob-avatar" src="/static/img/bob/bob-pose-rakete.png" alt="Bob">
+    <div>
+      <h3>Wer bin ich?</h3>
+      <p>Ich bin <strong>Bob der Job-Bot</strong>. Ich durchsuche laufend Jobportale nach
+        Stellen, die zu deinem Profil passen — du musst nicht mehr selbst suchen. Jede Stelle
+        vergleiche ich mit deinen Kriterien und errechne eine Passung von 0–100. Stellen mit
+        einem No-Go filtere ich automatisch raus (findest du unter „Aussortiert").</p>
+    </div>
+  </div>
+
+  <div class="bob-intro-block">
+    <img class="bob-avatar" src="/static/img/bob/bob-pose-herz.png" alt="Bob">
+    <div>
+      <h3>Was kann ich?</h3>
+      <p><strong>Profil</strong> — Skills, Zielrollen, Domänen, Standort, Sprachen, No-Gos.
+        <strong>Job-Angebote</strong> — Treffer sortiert nach Passung mit Begründung pro
+        Kriterium. <strong>Bewerten</strong> — 👍/👎 trainiert die Gewichtung.
+        <strong>Feintuning</strong> — Gewichte selbst nachjustieren.
+        <strong>Aussortiert</strong> — No-Go-Treffer bleiben einsehbar.</p>
+    </div>
+  </div>
+
+  <div class="bob-intro-block">
+    <img class="bob-avatar" src="/static/img/bob/bob-pose-rakete.png" alt="Bob">
+    <div>
+      <h3>Wie ich arbeite</h3>
+      <p>Ingestion → Extraktion &amp; Dedup → Storage (SQLite) → Scoring (0–100) → Dashboard →
+        Feedback-Loop (deine 👍/👎 verfeinern die Gewichte).</p>
+      <p>
+        <span class="chip">Python</span><span class="chip">FastAPI</span><span class="chip">Jinja2</span><span class="chip">SQLite</span><span class="chip">Playwright</span><span class="chip">Firecrawl</span><span class="chip">Claude</span><span class="chip">Claude Agents</span><span class="chip">systemd</span><span class="chip">NocoDB</span><span class="chip">Caddy</span>
+      </p>
+      <a class="link" href="/hilfe">Zum Hilfe-Center →</a>
+    </div>
+  </div>
+</details>
 <h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> Übersicht</h1>
 {% if summary %}
 <div class="sonar-band {{ 'sonar-frisch' if summary.scan_frisch else 'sonar-alt' }}">
