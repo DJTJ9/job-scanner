@@ -160,6 +160,10 @@ document.querySelectorAll("[data-confirm-save]").forEach(function (form) {
     fetch(form.action, { method: "POST", body: new FormData(form) })
       .then(function (res) {
         if (!res.ok) { form.submit(); return; }
+        if (form.hasAttribute("data-reload-on-save")) {
+          window.location = res.url || window.location.href;
+          return;
+        }
         btn.textContent = "✓ Gespeichert";
         btn.disabled = true;
         setTimeout(function () {

@@ -150,7 +150,7 @@
        greift Bob als letzten Ausweg auf Firecrawl zurück — mit deinem eigenen Kontingent.
        Der Key wird verschlüsselt gespeichert.</p>
     <p>Status: {% if has_firecrawl_key %}Key hinterlegt ✓{% else %}kein Key hinterlegt{% endif %}</p>
-    <form method="post" action="/einstellungen/firecrawl" data-confirm-save>
+    <form method="post" action="/einstellungen/firecrawl" data-confirm-save data-reload-on-save>
       {% include "_csrf_field.html" %}
       <label>Firecrawl-API-Key
         <input type="password" name="firecrawl_key" autocomplete="off"
@@ -170,7 +170,7 @@
        (developer.adzuna.com) — bob-scan durchsucht damit den Adzuna-Aggregator
        serverseitig mit deinem Kontingent. Wird verschlüsselt gespeichert.</p>
     <p>Status: {% if has_adzuna_key %}Key hinterlegt ✓{% else %}kein Key hinterlegt{% endif %}</p>
-    <form method="post" action="/einstellungen/adzuna" data-confirm-save>
+    <form method="post" action="/einstellungen/adzuna" data-confirm-save data-reload-on-save>
       {% include "_csrf_field.html" %}
       <label>App-ID
         <input type="password" name="adzuna_app_id" autocomplete="off"></label>
@@ -190,7 +190,7 @@
        (jooble.org/api/about) — gleiche Mechanik wie Adzuna. Wird verschlüsselt
        gespeichert.</p>
     <p>Status: {% if has_jooble_key %}Key hinterlegt ✓{% else %}kein Key hinterlegt{% endif %}</p>
-    <form method="post" action="/einstellungen/jooble" data-confirm-save>
+    <form method="post" action="/einstellungen/jooble" data-confirm-save data-reload-on-save>
       {% include "_csrf_field.html" %}
       <label>API-Key
         <input type="password" name="jooble_key" autocomplete="off"></label>
