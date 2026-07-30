@@ -118,6 +118,9 @@ CREATE TABLE IF NOT EXISTS users (
     role TEXT NOT NULL DEFAULT 'member',
     api_token_hash TEXT,
     firecrawl_key_enc TEXT,
+    adzuna_app_id_enc TEXT,
+    adzuna_app_key_enc TEXT,
+    jooble_key_enc TEXT,
     created_at TEXT
 );
 CREATE TABLE IF NOT EXISTS events (
@@ -265,6 +268,9 @@ def init_db(path: str | Path) -> None:
         _conn.execute("ALTER TABLE users ADD COLUMN pending_email_token TEXT")
     if "firecrawl_key_enc" not in user_cols:
         _conn.execute("ALTER TABLE users ADD COLUMN firecrawl_key_enc TEXT")
+    for _col in ("adzuna_app_id_enc", "adzuna_app_key_enc", "jooble_key_enc"):
+        if _col not in user_cols:
+            _conn.execute(f"ALTER TABLE users ADD COLUMN {_col} TEXT")
     if "username" not in user_cols:
         _conn.execute("ALTER TABLE users ADD COLUMN username TEXT")
     _conn.execute(
@@ -2015,6 +2021,49 @@ def get_firecrawl_key_enc(user_id: int) -> str | None:
 def clear_firecrawl_key(user_id: int) -> None:
     conn = _require_conn()
     conn.execute("UPDATE users SET firecrawl_key_enc = NULL WHERE id = ?", (user_id,))
+    conn.commit()
+
+
+@_retry_on_locked
+def set_adzuna_keys(user_id: int, app_id_enc: str, app_key_enc: str) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE users SET adzuna_app_id_enc = ?, adzuna_app_key_enc = ? WHERE id = ?",
+                 (app_id_enc, app_key_enc, user_id))
+    conn.commit()
+
+
+def get_adzuna_keys_enc(user_id: int) -> tuple[str | None, str | None]:
+    conn = _require_conn()
+    row = conn.execute("SELECT adzuna_app_id_enc, adzuna_app_key_enc FROM users WHERE id = ?",
+                       (user_id,)).fetchone()
+    return (row["adzuna_app_id_enc"], row["adzuna_app_key_enc"]) if row else (None, None)
+
+
+@_retry_on_locked
+def clear_adzuna_keys(user_id: int) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE users SET adzuna_app_id_enc = NULL, adzuna_app_key_enc = NULL "
+                 "WHERE id = ?", (user_id,))
+    conn.commit()
+
+
+@_retry_on_locked
+def set_jooble_key(user_id: int, enc: str) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE users SET jooble_key_enc = ? WHERE id = ?", (enc, user_id))
+    conn.commit()
+
+
+def get_jooble_key_enc(user_id: int) -> str | None:
+    conn = _require_conn()
+    row = conn.execute("SELECT jooble_key_enc FROM users WHERE id = ?", (user_id,)).fetchone()
+    return row["jooble_key_enc"] if row else None
+
+
+@_retry_on_locked
+def clear_jooble_key(user_id: int) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE users SET jooble_key_enc = NULL WHERE id = ?", (user_id,))
     conn.commit()
 
 
