@@ -7,7 +7,7 @@ from jobscanner.search import (PortalSearchProvider, ArbeitsagenturSearchProvide
                                discover_urls, provider_for, classify_location,
                                build_search_url, is_german_location,
                                AdzunaSearchProvider, JoobleSearchProvider)
-from jobscanner import browser
+from jobscanner import browser, search
 
 HTML = """
 <html><body>
@@ -345,3 +345,73 @@ def test_validate_query_template_allowlist():
     assert not validate_query_template("https://x.example/{other}")
     assert not validate_query_template("https://x.example/static")
     assert not validate_query_template("https://x.example/{query}/{query}")
+
+
+class _FakeResp:
+    def __init__(self, payload, status=200):
+        self._payload = payload
+        self.status_code = status
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise requests.RequestException(f"HTTP {self.status_code}")
+
+    def json(self):
+        return self._payload
+
+
+def test_adzuna_provider_uses_ctor_keys_and_fills_records(monkeypatch):
+    captured = {}
+
+    def fake_get(url, params=None, timeout=None):
+        captured.update(params)
+        return _FakeResp({"results": [{
+            "redirect_url": "https://adzuna.de/details/1",
+            "title": "Unity Dev", "company": {"display_name": "ACME"},
+            "location": {"display_name": "Berlin"}, "description": "Text"}]})
+
+    monkeypatch.setattr(search.requests, "get", fake_get)
+    p = search.AdzunaSearchProvider(app_id="A-ID", app_key="A-KEY")
+    urls = p.search("unity dev")
+    assert captured["app_id"] == "A-ID" and captured["app_key"] == "A-KEY"
+    assert urls == ["https://adzuna.de/details/1"]
+    assert p.records["https://adzuna.de/details/1"] == {
+        "title": "Unity Dev", "company": "ACME", "location": "Berlin"}
+
+
+def test_jooble_provider_uses_ctor_key(monkeypatch):
+    seen = {}
+
+    def fake_post(url, json=None, timeout=None):
+        seen["url"] = url
+        return _FakeResp({"jobs": [{"link": "https://jooble.org/desc/9",
+                                    "title": "Dev", "company": "Foo",
+                                    "location": "Hamburg", "snippet": "S"}]})
+
+    monkeypatch.setattr(search.requests, "post", fake_post)
+    p = search.JoobleSearchProvider(api_key="J-KEY")
+    urls = p.search("dev")
+    assert seen["url"].endswith("J-KEY")
+    assert urls == ["https://jooble.org/desc/9"]
+    assert p.records["https://jooble.org/desc/9"]["company"] == "Foo"
+
+
+def test_validate_adzuna_keys(monkeypatch):
+    monkeypatch.setattr(search.requests, "get",
+                        lambda url, params=None, timeout=None: _FakeResp({}, status=200))
+    assert search.validate_adzuna_keys("a", "b") is True
+    monkeypatch.setattr(search.requests, "get",
+                        lambda url, params=None, timeout=None: _FakeResp({}, status=401))
+    assert search.validate_adzuna_keys("a", "b") is False
+
+
+def test_validate_jooble_key(monkeypatch):
+    monkeypatch.setattr(search.requests, "post",
+                        lambda url, json=None, timeout=None: _FakeResp({}, status=200))
+    assert search.validate_jooble_key("k") is True
+
+    def boom(url, json=None, timeout=None):
+        raise requests.RequestException("down")
+
+    monkeypatch.setattr(search.requests, "post", boom)
+    assert search.validate_jooble_key("k") is False

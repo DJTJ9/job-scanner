@@ -152,13 +152,19 @@ class ArbeitsagenturSearchProvider:
 class AdzunaSearchProvider:
     """Adzuna-Aggregator-API — Description je URL gecacht, Detail-Phase braucht keinen Scrape."""
 
-    def __init__(self):
+    def __init__(self, app_id: str | None = None, app_key: str | None = None):
         self.descriptions: dict[str, str] = {}
+        self.records: dict[str, dict] = {}
+        self._app_id = app_id
+        self._app_key = app_key
 
     def search(self, query: str, limit: int = 10, location: str | None = None) -> list[str]:
-        _load_env()
-        app_id = os.environ.get("ADZUNA_APP_ID", "")
-        app_key = os.environ.get("ADZUNA_APP_KEY", "")
+        if self._app_id and self._app_key:
+            app_id, app_key = self._app_id, self._app_key
+        else:
+            _load_env()
+            app_id = os.environ.get("ADZUNA_APP_ID", "")
+            app_key = os.environ.get("ADZUNA_APP_KEY", "")
         if not app_id or not app_key:
             return []
         params = {"app_id": app_id, "app_key": app_key,
@@ -183,6 +189,10 @@ class AdzunaSearchProvider:
                 (r.get("company") or {}).get("display_name", ""),
                 (r.get("location") or {}).get("display_name", ""),
                 r.get("description", "")]))
+            self.records[url] = {
+                "title": r.get("title", ""),
+                "company": (r.get("company") or {}).get("display_name", ""),
+                "location": loc}
             urls.append(url)
         return urls[:limit]
 
@@ -190,12 +200,17 @@ class AdzunaSearchProvider:
 class JoobleSearchProvider:
     """Jooble-Aggregator-API — POST mit Key in URL, Description-Cache wie Adzuna."""
 
-    def __init__(self):
+    def __init__(self, api_key: str | None = None):
         self.descriptions: dict[str, str] = {}
+        self.records: dict[str, dict] = {}
+        self._api_key = api_key
 
     def search(self, query: str, limit: int = 10, location: str | None = None) -> list[str]:
-        _load_env()
-        key = os.environ.get("JOOBLE_API_KEY", "")
+        if self._api_key:
+            key = self._api_key
+        else:
+            _load_env()
+            key = os.environ.get("JOOBLE_API_KEY", "")
         if not key:
             return []
         try:
@@ -215,6 +230,9 @@ class JoobleSearchProvider:
             self.descriptions[url] = "\n".join(filter(None, [
                 j.get("title", ""), j.get("company", ""),
                 j.get("location", ""), j.get("snippet", "")]))
+            self.records[url] = {"title": j.get("title", ""),
+                                 "company": j.get("company", ""),
+                                 "location": j.get("location", "")}
             urls.append(url)
         return urls[:limit]
 
@@ -267,3 +285,24 @@ def discover_urls(portal: dict, term: str, provider: SearchProvider,
                    if u not in detail]
     seen: set[str] = set()
     return [u for u in detail if not (u in seen or seen.add(u))][:limit]
+
+
+def validate_adzuna_keys(app_id: str, app_key: str) -> bool:
+    """Key-Paar gültig, wenn die Adzuna-API einen Mini-Request akzeptiert (HTTP 200)."""
+    try:
+        resp = requests.get(_ADZUNA_API, params={"app_id": app_id, "app_key": app_key,
+                                                 "what": "test", "results_per_page": 1},
+                            timeout=_TIMEOUT)
+        return resp.status_code == 200
+    except requests.RequestException:
+        return False
+
+
+def validate_jooble_key(key: str) -> bool:
+    """Key gültig, wenn die Jooble-API einen Mini-Request akzeptiert (HTTP 200)."""
+    try:
+        resp = requests.post(_JOOBLE_API + key,
+                             json={"keywords": "test", "location": ""}, timeout=_TIMEOUT)
+        return resp.status_code == 200
+    except requests.RequestException:
+        return False
