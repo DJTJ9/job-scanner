@@ -2,7 +2,7 @@
 {% block title %}Lernen — Bob der Job-Bot{% endblock %}
 {% block content %}
 <h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> Lernen</h1>
-{% set kurzhilfe_text = "Bob analysiert deine 👍/👎-Votes, erkennt Muster und schlägt Anpassungen an deinen Kriterien vor." %}{% set kurzhilfe_anker = "funktionen" %}{% include "_kurzhilfe.html" %}
+{% set kurzhilfe_text = "Bob analysiert deine 👍/👎-Votes, erkennt Muster und schlägt Anpassungen an deinen Kriterien vor." %}{% set kurzhilfe_anker = "faq" %}{% include "_kurzhilfe.html" %}
 <div class="panel" data-analysis-base="/dashboard/{{ profile.id }}"
      data-analysis-status="{{ analysis.status if analysis else '' }}">
   {% if request.session.get("role") == "owner" %}

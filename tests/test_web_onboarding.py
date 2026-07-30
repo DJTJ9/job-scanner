@@ -44,53 +44,27 @@ def test_onboarding_redirects_301_to_hilfe():
     assert resp.headers["location"] == "/hilfe#erste-schritte"
 
 
-def test_onboarding_sections_on_hilfe_in_order(member_client):
-    resp = member_client.get("/hilfe")
-    assert resp.status_code == 200
-    text = resp.text
-    positions = [text.index(h) for h in (
-        "Wer bin ich?", "Wer bist du?", "Wie kannst du mitmachen?",
-        "Was kann ich?", "Wie ich arbeite")]
+def test_bob_intro_sections_on_home_in_order(member_client):
+    text = member_client.get("/").text
+    positions = [text.index(h) for h in ("Wer bin ich?", "Was kann ich?", "Wie ich arbeite")]
     assert positions == sorted(positions)
 
 
-def test_onboarding_mitmachen_panel_content(member_client):
+def test_erste_schritte_mitmachen_intro(member_client):
     text = member_client.get("/hilfe").text
     assert "Invite" in text
     assert "Heim-IP" in text
-    assert 'href="#anleitung">Zur Anleitung' in text
-    assert "/static/img/bob/bob-pose-daumen-hoch.png" in text
+    assert 'href="/wizard/new"' in text
 
 
-def test_onboarding_page_keeps_bot_avatar_images(member_client):
-    resp = member_client.get("/hilfe")
-    assert "/static/img/bob/bob-pose-rakete.png" in resp.text
-    assert "/static/img/bob/bob-pose-herz.png" in resp.text
-    assert "/static/img/bob/bob-pose-frage.png" in resp.text
+def test_hilfe_keeps_hero_avatar(member_client):
+    assert "/static/img/bob/bob-pose-laptop.png" in member_client.get("/hilfe").text
 
 
 def test_onboarding_page_wizard_section_links_to_new_profile(member_client):
     resp = member_client.get("/hilfe")
     assert 'href="/wizard/new"' in resp.text
     assert "Profil erstellen" in resp.text
-
-
-def test_onboarding_page_links_to_setup_anleitung(member_client):
-    resp = member_client.get("/hilfe")
-    assert 'href="#anleitung">Setup-Anleitung' in resp.text
-
-
-def test_onboarding_page_mentions_aussortiert(member_client):
-    resp = member_client.get("/hilfe")
-    assert "Aussortiert" in resp.text
-    assert "filtere ich automatisch raus" in resp.text
-
-
-def test_onboarding_page_has_tech_stack_chips(member_client):
-    resp = member_client.get("/hilfe")
-    for tech in ("Python", "FastAPI", "Jinja2", "SQLite", "Playwright", "Firecrawl",
-                 "Claude", "Claude Agents", "systemd", "NocoDB", "Caddy"):
-        assert f'<span class="chip">{tech}</span>' in resp.text
 
 
 def test_onboarding_partials_deleted():

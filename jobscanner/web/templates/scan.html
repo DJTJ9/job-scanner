@@ -2,7 +2,7 @@
 {% block title %}Scan starten — Bob der Job-Bot{% endblock %}
 {% block content %}
 <h1><img class="bob-title" src="/static/img/bob/bob-pose-rakete.png" alt=""> Scan starten</h1>
-{% set kurzhilfe_text = "Ein Scan durchsucht die Jobportale über deine Heim-IP nach neuen Anzeigen und bewertet frische Funde sofort deterministisch — gratis, ohne Keys." %}{% set kurzhilfe_anker = "scannen" %}{% include "_kurzhilfe.html" %}
+{% set kurzhilfe_text = "Ein Scan durchsucht die Jobportale über deine Heim-IP nach neuen Anzeigen und bewertet frische Funde sofort deterministisch — gratis, ohne Keys." %}{% set kurzhilfe_anker = "faq" %}{% include "_kurzhilfe.html" %}
 
 <div class="panel">
   <p class="job-meta">Letzter Scan: {{ last_scan_ts | relzeit }} · {{ jobs_total }} Anzeigen im Netz</p>

@@ -3,7 +3,7 @@
 {% block title %}Job-Angebote — Bob der Job-Bot{% endblock %}
 {% block content %}
 <h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> Job-Angebote</h1>
-{% set kurzhilfe_text = "Alle für dein Profil bewerteten Stellenanzeigen, sortiert nach Passung (0–100). 👍/👎 trainiert Bobs Gewichtung, ★ merkt Jobs in den Favoriten." %}{% set kurzhilfe_anker = "funktionen" %}{% include "_kurzhilfe.html" %}
+{% set kurzhilfe_text = "Alle für dein Profil bewerteten Stellenanzeigen, sortiert nach Passung (0–100). 👍/👎 trainiert Bobs Gewichtung, ★ merkt Jobs in den Favoriten." %}{% set kurzhilfe_anker = "faq" %}{% include "_kurzhilfe.html" %}
 {% if notify_count and notify_count > 0 %}
 <div class="notify-banner">⭐ {{ notify_count }} neue Top-Treffer seit gestern</div>
 {% endif %}

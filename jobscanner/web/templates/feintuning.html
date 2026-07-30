@@ -2,7 +2,7 @@
 {% block title %}Feintuning — Bob der Job-Bot{% endblock %}
 {% block content %}
 <h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> Feintuning</h1>
-{% set kurzhilfe_text = "Die Gewichte bestimmen, wie stark jedes Kriterium in deine Passung eingeht. Nach dem Speichern bewertet Bob den Job-Pool neu." %}{% set kurzhilfe_anker = "funktionen" %}{% include "_kurzhilfe.html" %}
+{% set kurzhilfe_text = "Die Gewichte bestimmen, wie stark jedes Kriterium in deine Passung eingeht. Nach dem Speichern bewertet Bob den Job-Pool neu." %}{% set kurzhilfe_anker = "faq" %}{% include "_kurzhilfe.html" %}
 <div class="panel feintuning">
   <form method="post" action="/dashboard/{{ profile.id }}/criteria" data-criteria-form>
     {% include "_csrf_field.html" %}
