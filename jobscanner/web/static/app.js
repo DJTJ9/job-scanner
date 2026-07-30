@@ -161,6 +161,7 @@ document.querySelectorAll("[data-confirm-save]").forEach(function (form) {
       .then(function (res) {
         if (!res.ok) { form.submit(); return; }
         if (form.hasAttribute("data-reload-on-save")) {
+          sessionStorage.setItem("restoreScroll", String(window.scrollY));
           window.location = res.url || window.location.href;
           return;
         }
@@ -173,4 +174,13 @@ document.querySelectorAll("[data-confirm-save]").forEach(function (form) {
       })
       .catch(function () { form.submit(); });
   });
+});
+
+// Scroll-Position nach einem data-reload-on-save-Reload wiederherstellen.
+window.addEventListener("load", function () {
+  var y = sessionStorage.getItem("restoreScroll");
+  if (y !== null) {
+    sessionStorage.removeItem("restoreScroll");
+    window.scrollTo(0, parseInt(y, 10) || 0);
+  }
 });
