@@ -124,14 +124,16 @@ class TestToolLogic:
         assert out["profiles"][0]["criteria"] == [
             {"key": "remote", "label": "Remote", "weight": 5}]
 
-    def test_pull_pending_includes_raw_and_own_unscored(self, client):
+    def test_pull_pending_returns_only_to_rescore(self, client):
         user, pid = _member_with_profile()
         storage.confirm_insight(storage.add_insight(pid, "preference", "x", source="member"), pid)
         storage.insert_raw_job("https://m.test/raw", "adzuna", "Rohtext", "2026-07-17")
         fp = _mk_extracted_job("p1")
         out = mcp_api.pull_pending_jobs_data(user, limit=10)
-        assert [j["raw_text"] for j in out["jobs"]] == ["Rohtext"]
-        assert [j["fingerprint"] for j in out["to_score"]] == [fp]
+        # kein LLM-Initial-Feed mehr: weder rohe noch ungescorte Jobs
+        assert set(out) == {"to_rescore"}
+        # der ungescorte extrahierte Job wurde deterministisch gefüllt
+        assert storage.get_job_score(pid, fp) is not None
 
     def test_push_batch_rejects_foreign_profile(self, client):
         user, _pid = _member_with_profile()
@@ -666,16 +668,17 @@ class TestPullFeedbackGate:
         fp = storage.upsert_job(job)  # extrahiert, ungescort
         assert storage.get_job_score(pid, fp) is None
         out = mcp_api.pull_pending_jobs_data(user)
-        assert out["to_score"] == []
         assert out["to_rescore"] == []
         # Deterministik-Fill hat für das gated Profil kostenlos einen Score erzeugt:
         assert storage.get_job_score(pid, fp) is not None
 
-    def test_unlocked_profile_receives_to_score(self, client):
+    def test_unlocked_profile_gets_deterministic_fill_not_llm_feed(self, client):
         user, pid = _member_with_profile("gate2@test.de")
         storage.confirm_insight(storage.add_insight(pid, "preference", "x", source="member"), pid)
         job = Job(title="Junior Unity Dev", company="ACME", location="Hamburg",
                   remote_flag="remote", language="de", tech_stack=["Unity"])
         fp = storage.upsert_job(job)
         out = mcp_api.pull_pending_jobs_data(user)
-        assert fp in {j["fingerprint"] for j in out["to_score"]}
+        assert "to_score" not in out
+        assert storage.get_job_score(pid, fp) is not None   # Deterministik statt LLM-Feed
+        assert out["to_rescore"] == []                        # nichts vorgemerkt

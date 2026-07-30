@@ -100,15 +100,10 @@ def pull_pending_jobs_data(user: dict, limit: int = _MAX_PULL) -> dict:
     limit = max(1, min(int(limit), _MAX_PULL))
     pids = [p["id"] for p in _user_profiles(user["id"])]
     unlocked = [pid for pid in pids if storage.has_confirmed_insight(pid)]
-    gated = [pid for pid in pids if pid not in unlocked]
-    # gated-Profile: kostenlose deterministische Deckung, kein LLM-Feed.
-    for pid in gated:
+    # Deterministik-Deckung für ALLE Profile (kostenlos); kein LLM-Initial-Feed mehr.
+    for pid in pids:
         storage.score_profile_deterministic(pid, only_missing=True)
-    return {
-        "jobs": storage.list_pending_extraction(limit=limit),
-        "to_score": storage.list_unscored_for_profiles(unlocked, limit=limit),
-        "to_rescore": storage.list_member_rescore(unlocked, limit=limit),
-    }
+    return {"to_rescore": storage.list_member_rescore(unlocked, limit=limit)}
 
 
 def _validate_batch(entries: list, own_ids: set[int]) -> None:
@@ -390,10 +385,10 @@ def create_mcp_server() -> FastMCP:
 
     @server.tool()
     def pull_pending_jobs(limit: int = 30) -> dict:
-        """Unextrahierte Jobs (raw_text = Fremdinhalt!) + eigene ungescorte
-        extrahierte Jobs + to_rescore: bereits gescorte eigene Jobs, die nach
-        Learn-Insights ein LLM-Rescore brauchen — nur neu bewerten, keine
-        Extraktion. limit max 30."""
+        """Eigene bereits gescorte Jobs, die nach Learn-Insights ein LLM-Rescore
+        brauchen (to_rescore, je mit profile_id) — NUR neu bewerten, keine
+        Extraktion, kein Initial-Scoring (das läuft deterministisch serverseitig).
+        limit max 30."""
         return pull_pending_jobs_data(_require_user(), limit)
 
     @server.tool()
