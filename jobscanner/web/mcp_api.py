@@ -11,7 +11,8 @@ from contextvars import ContextVar
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from jobscanner import config, dedup, extract, extract_rules, scan_config, scoring, search, storage
+from jobscanner import (config, crypto, dedup, extract, extract_rules, scan_config,
+                        scoring, search, storage)
 from jobscanner.models import make_fingerprint
 
 _current_user: ContextVar[dict | None] = ContextVar("mcp_current_user", default=None)
@@ -51,6 +52,18 @@ def get_my_profile_data(user: dict) -> dict:
     return {"profiles": profiles}
 
 
+def _member_queries(profiles: list[dict], max_queries: int) -> list[str]:
+    queries: list[str] = []
+    for key in ("target_roles", "skills"):
+        for p in profiles:
+            for q in (p["data"].get(key) or []):
+                if q not in queries:
+                    queries.append(q)
+        if queries:
+            break
+    return queries[:max_queries]
+
+
 def get_scan_config_data(user: dict) -> dict:
     """Baut aus dem Profil des Tokens fertige Browser-Scan-Targets: Queries aus
     target_roles (Fallback skills), Standort aus spar_modus.locations, Portal-
@@ -66,15 +79,7 @@ def get_scan_config_data(user: dict) -> dict:
     spar = storage.get_spar_modus(data0)
     caps = scan_config.browser_caps_for(spar["max_jobs"])
 
-    queries: list[str] = []
-    for key in ("target_roles", "skills"):
-        for p in profiles:
-            for q in (p["data"].get(key) or []):
-                if q not in queries:
-                    queries.append(q)
-        if queries:
-            break
-    queries = queries[:caps.max_queries]
+    queries = _member_queries(profiles, caps.max_queries)
 
     location = (spar["locations"] or [None])[0]
     chosen = storage.get_scan_portals(data0, user["id"])
@@ -266,6 +271,65 @@ def push_jobs_data(user: dict, listings: list) -> dict:
     return stats
 
 
+_AGG_LIMIT_PER_QUERY = 20
+
+
+def scan_aggregators_data(user: dict) -> dict:
+    """Adzuna/Jooble serverseitig mit den per-Member-Keys fahren (UI-Refine D2).
+    Kein Server-Key-Fallback: fehlt ein Key(-Paar), läuft die Quelle nicht.
+    Funde gehen durch den push_jobs_data-Pfad (Dedup + Insert + Det-Scoring)."""
+    profiles = _user_profiles(user["id"])
+    if not profiles:
+        return {"ran": [], "found": 0, "note": "Kein aktives Profil für diesen Token"}
+    aid_enc, akey_enc = storage.get_adzuna_keys_enc(user["id"])
+    adzuna_id = crypto.decrypt(aid_enc) if aid_enc else None
+    adzuna_key = crypto.decrypt(akey_enc) if akey_enc else None
+    j_enc = storage.get_jooble_key_enc(user["id"])
+    jooble_key = crypto.decrypt(j_enc) if j_enc else None
+
+    providers: dict[str, object] = {}
+    if adzuna_id and adzuna_key:
+        providers["adzuna"] = search.AdzunaSearchProvider(app_id=adzuna_id,
+                                                          app_key=adzuna_key)
+    if jooble_key:
+        providers["jooble"] = search.JoobleSearchProvider(api_key=jooble_key)
+    if not providers:
+        return {"ran": [], "found": 0,
+                "note": ("Keine Aggregator-Keys hinterlegt — auf der Website unter "
+                         "Einstellungen → Anbindungen eintragen")}
+
+    spar = storage.get_spar_modus(profiles[0]["data"])
+    caps = scan_config.browser_caps_for(spar["max_jobs"])
+    queries = _member_queries(profiles, caps.max_queries)
+    location = (spar["locations"] or [None])[0]
+
+    listings, seen_urls = [], set()
+    for portal in sorted(providers):
+        provider = providers[portal]
+        for q in queries:
+            for url in provider.search(q, limit=_AGG_LIMIT_PER_QUERY, location=location):
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                raw = provider.descriptions.get(url, "")
+                if not raw:
+                    continue
+                rec = provider.records.get(url, {})
+                listings.append({"url": url, "portal": portal,
+                                 "raw_text": raw[:_MAX_RAW_CHARS],
+                                 "title": rec.get("title", ""),
+                                 "company": rec.get("company", ""),
+                                 "location": rec.get("location", "")})
+
+    totals = {"inserted": 0, "duplicates_url": 0, "duplicates_content": 0, "extracted": 0}
+    for i in range(0, len(listings), _MAX_BATCH):
+        stats = push_jobs_data(user, listings[i:i + _MAX_BATCH])
+        for k in totals:
+            totals[k] += stats.get(k, 0)
+    return {"ran": sorted(providers), "queries": queries,
+            "found": len(listings), **totals}
+
+
 def get_my_votes_data(user: dict) -> dict:
     profiles = []
     for p in _user_profiles(user["id"]):
@@ -417,6 +481,13 @@ def create_mcp_server() -> FastMCP:
         dazu Caps (max_detail, throttle_ms). Queries/Standort/Portal-Auswahl
         kommen aus den Profil-Einstellungen auf der Website."""
         return get_scan_config_data(_require_user())
+
+    @server.tool()
+    def scan_aggregators() -> dict:
+        """Adzuna/Jooble-Scan serverseitig mit den eigenen, verschlüsselt hinterlegten
+        Keys (Website: Einstellungen → Anbindungen). Ohne Keys: note, kein Lauf.
+        Funde werden dedupliziert, eingefügt und sofort deterministisch gescort."""
+        return scan_aggregators_data(_require_user())
 
     @server.tool()
     def get_my_votes() -> dict:

@@ -2,7 +2,7 @@
 import pytest
 from _csrf_client import CSRFTestClient
 
-from jobscanner import storage
+from jobscanner import crypto, storage
 from jobscanner.models import Job
 from jobscanner.web.app import create_app
 
@@ -529,7 +529,7 @@ class TestMcpTransport:
         names = {t["name"] for t in resp.json()["result"]["tools"]}
         assert names == {"get_my_profile", "pull_pending_jobs", "push_batch", "push_jobs",
                           "get_scan_config", "get_my_votes", "apply_member_insights",
-                          "update_my_criteria"}
+                          "update_my_criteria", "scan_aggregators"}
 
     def test_mcp_tool_call_scoped_to_token_user(self, client, member):
         pid = storage.create_profile("Member-Sicht", {"no_gos": []},
@@ -693,3 +693,63 @@ class TestPullFeedbackGate:
         assert "to_score" not in out
         assert storage.get_job_score(pid, fp) is not None   # Deterministik statt LLM-Feed
         assert out["to_rescore"] == []                        # nichts vorgemerkt
+
+
+class TestScanAggregators:
+    def _profile(self, uid, data=None):
+        storage.create_profile("Agg", data if data is not None
+                               else {"target_roles": ["Unity Entwickler"]}, user_id=uid)
+
+    class _FakeProv:
+        def __init__(self, urls):
+            self._urls = urls
+            self.descriptions = {u: f"Beschreibung {u}" for u in urls}
+            self.records = {u: {"title": f"T {u}", "company": "ACME",
+                                "location": "Berlin"} for u in urls}
+
+        def search(self, query, limit=10, location=None):
+            return self._urls
+
+    def test_without_keys_returns_note_and_runs_nothing(self, client, member):
+        self._profile(member["id"])
+        out = mcp_api.scan_aggregators_data({"id": member["id"]})
+        assert out["ran"] == []
+        assert "Anbindungen" in out["note"]
+
+    def test_partial_adzuna_keys_do_not_run_adzuna(self, client, member, monkeypatch):
+        self._profile(member["id"])
+        storage.set_adzuna_keys(member["id"], crypto.encrypt("nur-id"), None)
+        out = mcp_api.scan_aggregators_data({"id": member["id"]})
+        assert out["ran"] == []
+
+    def test_runs_providers_with_keys_and_inserts(self, client, member, monkeypatch):
+        self._profile(member["id"])
+        storage.set_adzuna_keys(member["id"], crypto.encrypt("aid"), crypto.encrypt("akey"))
+        storage.set_jooble_key(member["id"], crypto.encrypt("jkey"))
+        seen_keys = {}
+
+        def fake_adzuna(app_id=None, app_key=None):
+            seen_keys["adzuna"] = (app_id, app_key)
+            return self._FakeProv(["https://adzuna.de/details/1"])
+
+        def fake_jooble(api_key=None):
+            seen_keys["jooble"] = api_key
+            return self._FakeProv(["https://jooble.org/desc/2"])
+
+        monkeypatch.setattr(mcp_api.search, "AdzunaSearchProvider", fake_adzuna)
+        monkeypatch.setattr(mcp_api.search, "JoobleSearchProvider", fake_jooble)
+        out = mcp_api.scan_aggregators_data({"id": member["id"]})
+        assert out["ran"] == ["adzuna", "jooble"]
+        assert seen_keys["adzuna"] == ("aid", "akey")   # entschlüsselt
+        assert seen_keys["jooble"] == "jkey"
+        assert out["inserted"] == 2
+        assert out["found"] == 2
+
+    def test_jooble_only_runs_jooble(self, client, member, monkeypatch):
+        self._profile(member["id"])
+        storage.set_jooble_key(member["id"], crypto.encrypt("jkey"))
+        monkeypatch.setattr(mcp_api.search, "JoobleSearchProvider",
+                            lambda api_key=None: self._FakeProv(["https://jooble.org/desc/7"]))
+        out = mcp_api.scan_aggregators_data({"id": member["id"]})
+        assert out["ran"] == ["jooble"]
+        assert out["inserted"] == 1
