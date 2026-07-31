@@ -159,3 +159,19 @@ def test_no_broken_internal_links_on_content_pages(member_client):
         if r.status_code >= 500 or r.status_code == 404:
             broken.append(f"{link} → {r.status_code}")
     assert not broken, "Kaputte interne Links: " + ", ".join(broken)
+
+
+# Regression (Bug-Audit Stufe 2, Browser-Walkthrough): jede Content-Seite muss
+# einen seitenspezifischen <title>-Block setzen. /benachrichtigungen fiel auf den
+# base.html-Default "Bob der Job-Bot" zurück (kein {% block title %}).
+TITLED_ROUTES = ["/benachrichtigungen", "/favoriten", "/jobs", "/einstellungen", "/scan"]
+
+
+@pytest.mark.parametrize("route", TITLED_ROUTES)
+def test_content_page_sets_specific_title(member_client, route):
+    html = member_client.get(route).text
+    m = re.search(r"<title>(.*?)</title>", html, re.S)
+    assert m, f"{route} → kein <title>"
+    title = m.group(1).strip()
+    assert title != "Bob der Job-Bot", f"{route} → generischer Default-Titel (kein seitenspezifischer Block)"
+    assert "Bob der Job-Bot" in title, f"{route} → Titel ohne Marken-Suffix: {title!r}"
