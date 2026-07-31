@@ -5,9 +5,10 @@
 
 <section class="anl-hero">
   <div class="anl-hero-text">
-    <h1>KOSTENLOSE JOB-KEYS HOLEN</h1>
-    <p>Mit eigenen Keys von Adzuna und Jooble suchst du per <code>/bob:bob-scan</code>
-      selbst neue Stellen. Beide bieten kostenlose APIs.</p>
+    <h1>MEHR PORTALE: KOSTENLOSE JOB-KEYS</h1>
+    <p>Der Standard-Scan läuft ohne Keys über deine Heim-IP. Mit eigenen Keys von
+      Adzuna und Jooble nimmt <code>/bob:bob-scan</code> zusätzlich diese beiden
+      Portale mit (optional) — beide APIs sind kostenlos.</p>
   </div>
 </section>
 
@@ -27,7 +28,7 @@
   <p>Konto auf <a class="link" href="https://developer.adzuna.com" target="_blank" rel="noopener">developer.adzuna.com</a>
     anlegen → App registrieren → App ID + App Key ablesen.</p>
   <figure class="anl-shot">
-    <img src="/static/img/keys/adzuna-landing.png" alt="Adzuna Developer-Portal Startseite">
+    <img src="/static/img/keys/adzuna-landing.png?v={{ asset_version }}" alt="Adzuna Developer-Portal Startseite">
     <figcaption>Das Adzuna-Developer-Portal. Nach dem Login findest du App ID und App Key im Dashboard.</figcaption>
   </figure>
   <ol class="anl-list">
@@ -57,8 +58,9 @@
 <section class="anl-outro">
   <h2>Keys eintragen</h2>
   <p>Trag die Werte per <code>/plugin</code> in der Bob-Konfiguration ein (Felder für
-    Adzuna App ID, Adzuna App Key und Jooble Key). Danach suchst du mit
-    <code>/bob:bob-scan</code> selbst neue Jobs und lieferst sie ein.</p>
+    Adzuna App ID, Adzuna App Key und Jooble Key). Danach nimmt
+    <code>/bob:bob-scan</code> Adzuna &amp; Jooble bei jedem Scan zusätzlich mit —
+    ohne Keys läuft der Scan ganz normal weiter über deine Heim-IP.</p>
   <p><a class="btn btn-secondary" href="/anleitung">← Zurück zur Anleitung</a></p>
 </section>
 {% endblock %}
