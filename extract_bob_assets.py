@@ -30,12 +30,21 @@ def grid(im, n, y0, y1, width=930):
     return [im.crop((round(i * width / n), y0, round((i + 1) * width / n), y1)) for i in range(n)]
 
 
+def rebuild_band():
+    """Band der Übersichtsseite: Crop aus dem committeten hero-landscape-full.png
+    (1672x941, mit f8215e0 aus einer höher aufgelösten Quelle als SRC eingespielt).
+    Bewusst eigener Schritt und NICHT Teil von main(), das hero-landscape-full.png
+    noch aus der alten, kleineren SRC schreibt."""
+    src = OUT / "hero-landscape-full.png"
+    Image.open(src).crop((0, 400, 1672, 900)).save(OUT / "hero-landscape-band.png")
+    print(f"hero-landscape-band.png neu geschnitten aus {src}")
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     im = Image.open(SRC).convert("RGBA")
 
     im.crop((0, 212, 928, 493)).save(OUT / "hero-landscape-full.png")
-    im.crop((455, 215, 928, 335)).save(OUT / "hero-landscape-band.png")
 
     poses = ["winken", "daumen-hoch", "lupe", "laptop", "rakete", "herz", "frage"]
     for name, tile in zip(poses, grid(im, 7, 510, 655)):

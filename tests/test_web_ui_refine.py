@@ -136,3 +136,12 @@ def test_sidebar_reihenfolge_system(client):
     assert "Roadmap/Patch Notes" in drawer
     assert "Patch notes" not in drawer          # altes kleines n weg
     assert drawer.index("Roadmap/Patch Notes") < drawer.index("Einstellungen")
+
+
+def test_banner_asset_zeigt_bob_und_schild():
+    """1672x500-Crop aus hero-landscape-full.png — enthält Schild, Bob und den Pfad."""
+    from pathlib import Path
+    from PIL import Image
+    band = Path("jobscanner/web/static/img/bob/hero-landscape-band.png")
+    assert band.exists()
+    assert Image.open(band).size == (1672, 500)
