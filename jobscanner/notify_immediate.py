@@ -25,9 +25,12 @@ def run_immediate_notifications(db_path: str | Path | None = None) -> dict:
         pid, uid = profile["id"], profile["user_id"]
         if uid is None:
             continue
+        # Inbox entkoppelt: läuft für jedes aktive Profil, unabhängig von der Mail-Präferenz.
+        storage.sync_inbox_notifications(pid)
+        user = storage.get_user(uid)
+        if not (user and user.get("role") == "owner"):
+            continue  # Member bekommen nur die Inbox, nie eine Mail.
         pref = storage.get_notify_pref(profile["data"])
-        if pref["inbox"]:
-            storage.sync_inbox_notifications(pid)
         if not pref.get("immediate"):
             continue
         rows = storage.list_immediate_matches(pid, IMMEDIATE_SCORE_THRESHOLD)
@@ -35,17 +38,12 @@ def run_immediate_notifications(db_path: str | Path | None = None) -> dict:
             continue
         stats["members"] += 1
         stats["matches"] += len(rows)
-        user = storage.get_user(uid)
-        if user and user.get("email"):
-            sent = False
-            for r in rows:
-                try:
-                    mailer.send_immediate_match(user["email"], pid, r, _BASE_URL)
-                    sent = True
-                except Exception as exc:  # SMTP-Fehler pro Match isolieren
-                    print(f"notify_immediate: send failed for profile {pid}: {exc}")
-            if sent:
+        if user.get("email"):
+            try:
+                mailer.send_immediate_match(user["email"], pid, rows, _BASE_URL)
                 stats["emails"] += 1
+            except Exception as exc:  # SMTP-Fehler isolieren, Marker trotzdem setzen
+                print(f"notify_immediate: send failed for profile {pid}: {exc}")
         storage.mark_notified(pid, [r["fingerprint"] for r in rows])
     return stats
 
