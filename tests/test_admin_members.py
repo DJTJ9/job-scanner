@@ -161,3 +161,33 @@ def test_loeschen_logs_audit_event_under_admin_id(app):
     assert len(rows) == 1
     assert rows[0]["user_id"] == owner["id"]
     assert "audit@test.de" in rows[0]["meta_json"]
+
+
+def test_members_page_shows_status_and_action_buttons(app):
+    uid = storage.create_user("zeile@test.de", "pw123456", role="member")
+    c = _owner_client(app)
+    page = c.get("/admin/members")
+    assert f"/admin/members/{uid}/sperren" in page.text
+    assert f"/admin/members/{uid}/loeschen" in page.text
+    assert "aktiv" in page.text
+
+
+def test_members_page_shows_entsperren_for_blocked_member(app):
+    uid = storage.create_user("gesperrt2@test.de", "pw123456", role="member")
+    storage.admin_block_user(uid)
+    c = _owner_client(app)
+    page = c.get("/admin/members")
+    assert f"/admin/members/{uid}/entsperren" in page.text
+    assert f"/admin/members/{uid}/sperren\"" not in page.text
+    assert "gesperrt" in page.text
+
+
+def test_members_page_hides_danger_actions_for_own_and_owner_rows(app):
+    owner = storage.get_user_by_email("owner@test.de")
+    other = storage.create_user("owner4@test.de", "pw123456", role="owner")
+    c = _owner_client(app)
+    page = c.get("/admin/members")
+    assert f"/admin/members/{owner['id']}/sperren" not in page.text
+    assert f"/admin/members/{owner['id']}/loeschen" not in page.text
+    assert f"/admin/members/{other}/sperren" not in page.text
+    assert f"/admin/members/{other}/loeschen" not in page.text

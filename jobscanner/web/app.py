@@ -1339,6 +1339,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return resp
         return templates.TemplateResponse(request, "admin_members.html", {
             "members": storage.admin_list_members(),
+            "session_user_id": request.session.get("user_id"),
         })
 
     @app.post("/admin/members/{user_id}/verify")

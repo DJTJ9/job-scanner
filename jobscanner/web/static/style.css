@@ -666,6 +666,15 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
   font: 600 .72rem/1.4 "IBM Plex Mono", monospace; text-transform: uppercase;
   color: var(--veto); border: 1px solid var(--veto); border-radius: 3px;
 }
+.btn-veto { background: transparent; border: 1px solid var(--veto); color: var(--veto); }
+.member-badge {
+  display: inline-block; padding: .05rem .4rem;
+  font: 600 .75rem/1.4 "IBM Plex Mono", monospace;
+  border: 1px solid currentColor; border-radius: 3px;
+}
+.member-badge-aktiv { color: var(--beute); }
+.member-badge-gesperrt { color: var(--veto); }
+.member-email-mono { font: 500 1rem/1.5 "IBM Plex Mono", monospace; }
 .link-dead { color: var(--veto); text-decoration: line-through; cursor: default; opacity: .8; }
 .error-page { max-width: 32rem; margin: 4rem auto; text-align: center; }
 .error-bob { width: 140px; height: auto; margin-bottom: 1rem; }
