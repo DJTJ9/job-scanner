@@ -1,13 +1,17 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from jobscanner import storage
+from jobscanner import config, storage
 from jobscanner.web.app import create_app
 from _csrf_client import CSRFTestClient
 
 
 @pytest.fixture
 def app(tmp_path, monkeypatch):
+    # config._load_env() schreibt die echte .env per os.environ.setdefault prozessglobal
+    # (monkeypatch nimmt das nicht zurück) — ins Leere zeigen lassen, sonst leakt diese
+    # Datei SMTP-/Base-URL-Werte in nachfolgende Tests.
+    monkeypatch.setattr(config, "_ENV_FILE", tmp_path / "none.env")
     monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "ownerpw")
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
     monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
