@@ -223,3 +223,16 @@ def test_verify_pending_no_messages_without_query_params(app):
     assert "erneut gesendet" not in resp.text
     assert "60s warten" not in resp.text
     assert "Fehler beim Senden" not in resp.text
+
+
+def test_register_mail_failure_still_creates_user_and_logs_warning(app, monkeypatch, caplog):
+    def _raise(*a, **kw):
+        raise RuntimeError("smtp boom")
+    monkeypatch.setattr("jobscanner.web.app.mailer.send_verification_email", _raise)
+    client = CSRFTestClient(app)
+    with caplog.at_level("WARNING", logger="jobscanner.web"):
+        resp = _register(client)
+    assert resp.status_code in (302, 303)
+    assert storage.get_user_by_email("m@test.de") is not None
+    assert any(r.levelname == "WARNING" and "jobscanner.web" == r.name
+               for r in caplog.records)

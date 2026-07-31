@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hmac
 import json
+import logging
 import os
 import subprocess
 import threading
@@ -25,6 +26,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from jobscanner import (browser, config, crypto, nocodb_board, precheck, scoring,
                         search, storage)
 from jobscanner.web import csrf, export, llm_refine, mailer, mcp_api, rate_limit
+
+logger = logging.getLogger("jobscanner.web")
 
 _DIR = Path(__file__).parent
 _DEFAULT_DB = Path(__file__).parent.parent.parent / "data" / "jobs.db"
@@ -403,7 +406,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             mailer.send_email_change_verification(
                 new_email.strip().lower(), token, settings["base_url"])
         except Exception:
-            pass
+            logger.warning("email change verification mail send failed", exc_info=True)
         return templates.TemplateResponse(request, "settings.html",
             {"error": None, "success": "Bestätigungs-Mail an neue Adresse gesendet",
              "api_token": None, "active_tab": "konto", **_settings_extra(uid)})
@@ -638,7 +641,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         try:
             mailer.send_verification_email(email, user["verify_token"], settings["base_url"])
         except Exception:
-            pass
+            logger.warning("registration verification mail send failed", exc_info=True)
         request.session["user_id"] = uid
         request.session["email"] = email
         request.session["username"] = username.strip()
@@ -661,7 +664,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 mailer.send_password_reset_email(
                     email.strip().lower(), token, settings["base_url"])
             except Exception:
-                pass
+                logger.warning("password reset mail send failed", exc_info=True)
         return templates.TemplateResponse(request, "forgot_password.html", {"sent": True})
 
     @app.get("/reset-password")
@@ -725,6 +728,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         try:
             mailer.send_verification_email(user["email"], token, settings["base_url"])
         except Exception:
+            logger.warning("resend verification mail send failed", exc_info=True)
             return RedirectResponse("/verify-pending?error=1", status_code=303)
         return RedirectResponse("/verify-pending?sent=1", status_code=303)
 
@@ -1364,7 +1368,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 try:
                     mailer.send_verification_email(user["email"], token, settings["base_url"])
                 except Exception:
-                    pass
+                    logger.warning("admin resend verification mail send failed", exc_info=True)
         return RedirectResponse("/admin/members", status_code=303)
 
     @app.post("/admin/members/{user_id}/reset-password")
@@ -1380,7 +1384,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 try:
                     mailer.send_password_reset_email(user["email"], token, settings["base_url"])
                 except Exception:
-                    pass
+                    logger.warning("admin password reset mail send failed", exc_info=True)
         return RedirectResponse("/admin/members", status_code=303)
 
     def _admin_target(request: Request, user_id: int):
