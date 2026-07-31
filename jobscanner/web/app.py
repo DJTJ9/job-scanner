@@ -1382,6 +1382,84 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                     pass
         return RedirectResponse("/admin/members", status_code=303)
 
+    def _admin_target(request: Request, user_id: int):
+        """Liefert (ziel_user, None) oder (None, 403-Response). Schützt den eigenen
+        Account und alle Owner-Accounts vor Sperren/Löschen."""
+        if user_id == request.session.get("user_id"):
+            return None, _error_page(
+                request, 403, "Nicht erlaubt",
+                "Der eigene Account kann nicht gesperrt oder gelöscht werden.")
+        user = storage.get_user(user_id)
+        if user is None:
+            return None, _error_page(
+                request, 404, "Mitglied nicht gefunden",
+                "Dieser Account existiert nicht (mehr).")
+        if user.get("role") == "owner":
+            return None, _error_page(
+                request, 403, "Nicht erlaubt",
+                "Owner-Accounts können nicht gesperrt oder gelöscht werden.")
+        return user, None
+
+    @app.post("/admin/members/{user_id}/sperren")
+    def admin_member_block(request: Request, user_id: int, csrf_token: str = Form("")):
+        if (resp := require_owner(request)) is not None:
+            return resp
+        if not csrf.verify(request, csrf_token):
+            return _csrf_error_page(request)
+        user, err = _admin_target(request, user_id)
+        if err is not None:
+            return err
+        storage.admin_block_user(user_id)
+        storage.log_event("admin_member_gesperrt", user_id=request.session.get("user_id"),
+                          meta={"target_id": user_id, "target_email": user["email"]})
+        return RedirectResponse("/admin/members", status_code=303)
+
+    @app.post("/admin/members/{user_id}/entsperren")
+    def admin_member_unblock(request: Request, user_id: int, csrf_token: str = Form("")):
+        if (resp := require_owner(request)) is not None:
+            return resp
+        if not csrf.verify(request, csrf_token):
+            return _csrf_error_page(request)
+        user, err = _admin_target(request, user_id)
+        if err is not None:
+            return err
+        storage.admin_unblock_user(user_id)
+        storage.log_event("admin_member_entsperrt", user_id=request.session.get("user_id"),
+                          meta={"target_id": user_id, "target_email": user["email"]})
+        return RedirectResponse("/admin/members", status_code=303)
+
+    @app.get("/admin/members/{user_id}/loeschen")
+    def admin_member_delete_form(request: Request, user_id: int):
+        if (resp := require_owner(request)) is not None:
+            return resp
+        user, err = _admin_target(request, user_id)
+        if err is not None:
+            return err
+        return templates.TemplateResponse(request, "admin_member_delete.html", {
+            "member": user, "error": None,
+        })
+
+    @app.post("/admin/members/{user_id}/loeschen")
+    def admin_member_delete_confirm(request: Request, user_id: int,
+                                    confirm_email: str = Form(""),
+                                    csrf_token: str = Form("")):
+        if (resp := require_owner(request)) is not None:
+            return resp
+        if not csrf.verify(request, csrf_token):
+            return _csrf_error_page(request)
+        user, err = _admin_target(request, user_id)
+        if err is not None:
+            return err
+        if confirm_email.strip() != user["email"]:
+            return templates.TemplateResponse(request, "admin_member_delete.html", {
+                "member": user,
+                "error": "Die Email stimmt nicht überein. Der Account wurde nicht gelöscht.",
+            }, status_code=400)
+        storage.log_event("admin_member_geloescht", user_id=request.session.get("user_id"),
+                          meta={"target_id": user_id, "target_email": user["email"]})
+        storage.delete_user(user_id)
+        return RedirectResponse("/admin/members", status_code=303)
+
     def _launch_feedback_agent(pass_name: str, analysis_id: int) -> None:
         try:
             subprocess.Popen(

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Account löschen — Bob der Job-Bot{% endblock %}
+{% block content %}
+<h1>Account löschen <a class="link" href="/admin/members">◂ zurück</a></h1>
+<div class="panel">
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <p class="member-email-mono">{{ member.email }}</p>
+  <p>Gelöscht werden: Profile, Kriterien, Bewertungen, Favoriten, Scores und Feedback
+     dieses Accounts. Unwiderruflich.</p>
+  <form method="post" action="/admin/members/{{ member.id }}/loeschen">
+    {% include "_csrf_field.html" %}
+    <label for="confirm_email">Email zur Bestätigung eintippen</label>
+    <input type="text" id="confirm_email" name="confirm_email" class="member-email-mono"
+           autocomplete="off" required>
+    <button type="submit" class="btn btn-veto">Account endgültig löschen</button>
+    <a class="link" href="/admin/members">Abbrechen</a>
+  </form>
+</div>
+{% endblock %}
