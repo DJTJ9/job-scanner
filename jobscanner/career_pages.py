@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 
 from jobscanner import browser
 from jobscanner.claude_llm import claude_json
+from jobscanner.prompt_safety import wrap_untrusted
 
 _MAX_CANDIDATES = 40
 _JOB_HINTS = ("job", "jobs", "stelle", "stellen", "karriere", "career",
@@ -60,7 +61,8 @@ def discover_job_urls(url: str, failover: bool = False,
     if not candidates:
         return []
     allowed = {href for href, _ in candidates}
-    prompt = "\n".join(f"- {href} | {text}" for href, text in candidates)
+    prompt = wrap_untrusted(
+        "\n".join(f"- {href} | {text}" for href, text in candidates), tag="links")
     confirmed = claude_json(system=_SYSTEM, prompt=prompt)
     if not isinstance(confirmed, list):
         return []
