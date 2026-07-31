@@ -273,6 +273,8 @@ def init_db(path: str | Path) -> None:
             _conn.execute(f"ALTER TABLE users ADD COLUMN {_col} TEXT")
     if "username" not in user_cols:
         _conn.execute("ALTER TABLE users ADD COLUMN username TEXT")
+    if "blocked_at" not in user_cols:
+        _conn.execute("ALTER TABLE users ADD COLUMN blocked_at TEXT")
     _conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(lower(username))")
     score_cols = {row["name"] for row in _conn.execute("PRAGMA table_info(job_scores)")}
@@ -399,15 +401,20 @@ def verify_password(email: str, password: str) -> dict | None:
 
 def verify_login(identifier: str, password: str) -> dict | None:
     """Login per Email (enthält '@') oder Benutzername. Da username kein '@'
-    enthalten darf, ist die Verzweigung eindeutig."""
+    enthalten darf, ist die Verzweigung eindeutig. Gesperrte Accounts
+    (blocked_at gesetzt) werden hier abgewiesen."""
     identifier = identifier.strip()
     if "@" in identifier:
-        return verify_password(identifier, password)
-    user = get_user_by_username(identifier)
-    if user is None:
+        user = verify_password(identifier, password)
+    else:
+        user = get_user_by_username(identifier)
+        if user is not None:
+            expected = _hash_password(password, bytes.fromhex(user["salt"]))
+            if not hmac.compare_digest(expected, user["pw_hash"]):
+                user = None
+    if user is None or user.get("blocked_at"):
         return None
-    expected = _hash_password(password, bytes.fromhex(user["salt"]))
-    return user if hmac.compare_digest(expected, user["pw_hash"]) else None
+    return user
 
 
 @_retry_on_locked
@@ -552,7 +559,10 @@ def get_user_by_api_token(token: str) -> dict | None:
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
     row = conn.execute(
         "SELECT * FROM users WHERE api_token_hash = ?", (token_hash,)).fetchone()
-    return dict(row) if row else None
+    if row is None:
+        return None
+    user = dict(row)
+    return None if user.get("blocked_at") else user
 
 
 @_retry_on_locked
@@ -945,7 +955,23 @@ def admin_list_members() -> list[dict]:
     """Admin-Support: alle User (ohne Secrets), aufsteigend nach id."""
     conn = _require_conn()
     return [dict(r) for r in conn.execute(
-        "SELECT id, email, username, role, email_verified_at FROM users ORDER BY id ASC")]
+        "SELECT id, email, username, role, email_verified_at, blocked_at "
+        "FROM users ORDER BY id ASC")]
+
+
+@_retry_on_locked
+def admin_block_user(user_id: int) -> None:
+    """Sperrt einen Account (Web-Login + API-Token). Reversibel via admin_unblock_user."""
+    conn = _require_conn()
+    conn.execute("UPDATE users SET blocked_at = datetime('now') WHERE id = ?", (user_id,))
+    conn.commit()
+
+
+@_retry_on_locked
+def admin_unblock_user(user_id: int) -> None:
+    conn = _require_conn()
+    conn.execute("UPDATE users SET blocked_at = NULL WHERE id = ?", (user_id,))
+    conn.commit()
 
 
 @_retry_on_locked
