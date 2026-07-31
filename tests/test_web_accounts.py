@@ -140,7 +140,7 @@ def test_owner_dashboard_shows_lernen_tab(app):
     c = CSRFTestClient(app)
     c.post("/login", data={"email": "owner@test.de", "password": "ownerpw"})
     pid = storage.get_profile_by_name("Tjark")["id"]
-    assert "Lernen" in c.get(f"/dashboard/{pid}").text
+    assert "Lern-Zentrum" in c.get(f"/dashboard/{pid}").text
 
 
 def test_impressum_public_without_login(app):

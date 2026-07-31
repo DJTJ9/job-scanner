@@ -103,3 +103,36 @@ def test_topbar_bob_ohne_inline_style(client):
     brand = html.split('class="brand"', 1)[1].split("</span>", 1)[0]
     assert "bob-pose-winken.png" in brand      # Bob bleibt in der Topbar
     assert "style=" not in brand               # Höhe kommt jetzt aus dem Stylesheet
+
+
+def _drawer(client):
+    """Nur die Sidebar aus dem gerenderten HTML — Home-Kacheln etc. bleiben außen vor."""
+    html = client.get("/").text
+    return html.split('<nav class="drawer', 1)[1].split("</nav>", 1)[0]
+
+
+def test_sidebar_ohne_scan_eintrag(client):
+    drawer = _drawer(client)
+    assert 'href="/scan"' not in drawer
+    assert "Scan starten" not in drawer
+
+
+def test_sidebar_reihenfolge_suche_tunen(client):
+    drawer = _drawer(client)
+    for label in ("Meine Profile", "Feintuning", "Lern-Zentrum", "Portale prüfen"):
+        assert label in drawer
+    assert (drawer.index("Meine Profile") < drawer.index("Feintuning")
+            < drawer.index("Lern-Zentrum") < drawer.index("Portale prüfen"))
+
+
+def test_sidebar_lern_zentrum_umbenannt(client):
+    drawer = _drawer(client)
+    assert "Lern-Zentrum" in drawer
+    assert ">Lernen<" not in drawer
+
+
+def test_sidebar_reihenfolge_system(client):
+    drawer = _drawer(client)
+    assert "Roadmap/Patch Notes" in drawer
+    assert "Patch notes" not in drawer          # altes kleines n weg
+    assert drawer.index("Roadmap/Patch Notes") < drawer.index("Einstellungen")
