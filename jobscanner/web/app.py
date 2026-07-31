@@ -628,6 +628,10 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return templates.TemplateResponse(
                 request, "register.html",
                 {"error": "Benutzername bereits vergeben"}, status_code=409)
+        if len(password) < 6:
+            return templates.TemplateResponse(
+                request, "register.html",
+                {"error": "Passwort muss mindestens 6 Zeichen haben"}, status_code=400)
         uid = storage.create_user(email, password, role="member", consent=True, ip=ip,
                                   username=username.strip())
         user = storage.get_user(uid)

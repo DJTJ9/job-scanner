@@ -81,6 +81,14 @@ def test_register_sets_username_in_session(client):
     assert storage.get_user_by_username("sessname") is not None
 
 
+def test_register_rejects_short_password(client):
+    from jobscanner import storage
+    resp = _reg(client, email="kurz@test.de", username="KurzUser", password="12345")
+    assert resp.status_code == 400
+    assert "Passwort muss mindestens 6 Zeichen haben" in resp.text
+    assert storage.get_user_by_email("kurz@test.de") is None
+
+
 def test_login_by_username_works(client):
     from jobscanner import storage
     storage.create_user("byname@test.de", "pw123456", username="LoginName")
