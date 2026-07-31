@@ -11,8 +11,8 @@ from contextvars import ContextVar
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from jobscanner import (config, crypto, dedup, extract, extract_rules, scan_config,
-                        scoring, search, storage)
+from jobscanner import (config, crypto, dedup, extract, extract_rules, prompt_safety,
+                        scan_config, scoring, search, storage)
 from jobscanner.models import make_fingerprint
 
 _current_user: ContextVar[dict | None] = ContextVar("mcp_current_user", default=None)
@@ -108,7 +108,8 @@ def pull_pending_jobs_data(user: dict, limit: int = _MAX_PULL) -> dict:
     # Deterministik-Deckung für ALLE Profile (kostenlos); kein LLM-Initial-Feed mehr.
     for pid in pids:
         storage.score_profile_deterministic(pid, only_missing=True)
-    return {"to_rescore": storage.list_member_rescore(unlocked, limit=limit)}
+    return {"to_rescore": [prompt_safety.wrap_job_fields(j)
+                           for j in storage.list_member_rescore(unlocked, limit=limit)]}
 
 
 def _validate_batch(entries: list, own_ids: set[int]) -> None:
@@ -336,7 +337,8 @@ def get_my_votes_data(user: dict) -> dict:
         profiles.append({
             "id": p["id"],
             "name": p["name"],
-            "votes": storage.list_feedback_with_jobs(p["id"]),
+            "votes": [prompt_safety.wrap_job_fields(v)
+                      for v in storage.list_feedback_with_jobs(p["id"])],
         })
     return {"profiles": profiles}
 
