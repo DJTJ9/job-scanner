@@ -192,6 +192,7 @@ input[type="text"], input[type="url"], input[type="password"], input[type="numbe
   gap: 1rem;
 }
 .bob-avatar { height: 64px; width: auto; display: block; }
+.brand .bob-avatar { display: inline-block; height: 28px; vertical-align: middle; }
 .bob-title { height: 1em; width: auto; display: inline; vertical-align: -0.15em; margin-right: 0.15em; }
 .onboarding-avatar-wrap .bob-avatar { height: 72px; }
 

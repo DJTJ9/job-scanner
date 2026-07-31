@@ -85,3 +85,21 @@ def test_roadmap_ohne_patches_datei_ok(client, tmp_path, monkeypatch):
 
 def test_roadmap_in_sidebar(client):
     assert '/roadmap' in client.get("/").text
+
+
+def test_brand_bob_ist_inline_block():
+    from pathlib import Path
+    css = Path("jobscanner/web/static/style.css").read_text(encoding="utf-8")
+    assert ".brand .bob-avatar" in css
+    regel = css.split(".brand .bob-avatar", 1)[1].split("}", 1)[0]
+    assert "inline-block" in regel
+    assert "28px" in regel
+    # globale Regel bleibt Block
+    assert ".bob-avatar { height: 64px; width: auto; display: block; }" in css
+
+
+def test_topbar_bob_ohne_inline_style(client):
+    html = client.get("/").text
+    brand = html.split('class="brand"', 1)[1].split("</span>", 1)[0]
+    assert "bob-pose-winken.png" in brand      # Bob bleibt in der Topbar
+    assert "style=" not in brand               # Höhe kommt jetzt aus dem Stylesheet
