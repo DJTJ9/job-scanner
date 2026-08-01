@@ -29,6 +29,18 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", () => { if (drawer) drawer.classList.add("panel-hidden"); });
   });
 
+  // Im Mobile-Layout liegt der Drawer als Overlay über der Seite (.page ohne
+  // margin-left). Ein In-Page-Sprunglink scrollt sonst auf ein Ziel, das hinter
+  // der Sidebar liegt — deshalb hier schließen.
+  const drawerHashClose = () => {
+    if (drawer && window.matchMedia("(max-width: 900px)").matches) {
+      drawer.classList.add("panel-hidden");
+    }
+  };
+  document.querySelectorAll('a[href^="#"]').forEach((link) => {
+    link.addEventListener("click", drawerHashClose);
+  });
+
   const collapseBtn = document.querySelector("[data-drawer-collapse]");
   const applyDrawerCollapsed = (collapsed) => {
     if (drawer) drawer.classList.toggle("drawer-collapsed", collapsed);

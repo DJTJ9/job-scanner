@@ -252,3 +252,12 @@ def test_app_js_hash_activation_is_generalized():
     assert 'hash === "profil" || hash === "token"' not in js
     # aktiviert Tab, dessen data-tab dem Hash entspricht
     assert "tabs.some" in js and "t.dataset.tab === hash" in js
+
+
+def test_app_js_schliesst_drawer_bei_in_page_sprunglink():
+    """Mobile-Overlay: In-Page-Anker (#…) müssen den Drawer schließen, sonst liegt
+    das Sprungziel hinter der Sidebar."""
+    from pathlib import Path
+    js = Path("jobscanner/web/static/app.js").read_text()
+    assert 'a[href^="#"]' in js
+    assert "drawerHashClose" in js
