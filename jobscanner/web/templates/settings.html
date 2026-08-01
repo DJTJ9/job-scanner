@@ -231,9 +231,7 @@
              {% if notify_pref.immediate %}checked{% endif %}>
              Sofort-Mail bei starkem Treffer (Score ≥ 90)</label>
       {% if not is_owner %}<p class="hinweis">Sofort-Mail und Email-Digest sind aktuell nicht verfügbar.</p>{% endif %}
-      <label><input type="checkbox" name="inbox"
-             {% if notify_pref.inbox %}checked{% endif %}>
-             In-App-Benachrichtigungen (Inbox)</label>
+      <p class="hinweis">Neue Treffer landen immer in deiner Benachrichtigungen-Inbox.</p>
       <button type="submit" class="btn btn-secondary">Speichern</button>
     </form>
   </section>

@@ -528,8 +528,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/einstellungen/notify")
     def notify_submit(request: Request, email_mode: str = Form("daily"),
-                      immediate: str = Form(None), inbox: str = Form(None),
-                      csrf_token: str = Form("")):
+                      immediate: str = Form(None), csrf_token: str = Form("")):
         if (redirect := require_user(request)) is not None:
             return redirect
         if not csrf.verify(request, csrf_token):
@@ -543,8 +542,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             stored = (storage.get_notify_pref(own[0]["data"]) if own
                       else dict(storage.NOTIFY_PREF_DEFAULT))
             mode, imm = stored["email_mode"], stored["immediate"]
+        # Inbox ist nicht mehr abschaltbar — Treffer landen immer im Postfach
         storage.set_notify_pref(uid, {"email_mode": mode, "immediate": imm,
-                                      "inbox": inbox is not None})
+                                      "inbox": True})
         return RedirectResponse("/einstellungen?tab=notify", status_code=303)
 
     @app.post("/einstellungen/firecrawl")

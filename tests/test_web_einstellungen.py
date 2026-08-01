@@ -340,7 +340,7 @@ def test_email_felder_ausgegraut_fuer_member(member):
     assert "feld-inaktiv" in body
     assert body.count("disabled") >= 4          # 3× email_mode-Radio + 1× immediate
     assert "nur für den Admin freigeschaltet" in body
-    assert 'name="inbox"' in body               # Inbox bleibt bedienbar
+    assert 'name="inbox"' not in body           # Inbox ist immer an, kein Toggle
 
 
 def test_email_felder_aktiv_fuer_owner(owner):
