@@ -82,3 +82,37 @@ def test_rail_css_und_scrollspy_vorhanden():
     assert "prefers-reduced-motion" in css.split(".anl-rail", 1)[1]   # Rail-Regel deckt es ab
     assert "@media print" in css
     assert "anl-rail-fill" in js and "IntersectionObserver" in js
+
+
+def test_hilfe_tabs_umbenannt(client):
+    html = client.get("/hilfe").text
+    assert ">Claude mit Bob verbinden<" in html
+    assert ">Anleitungen<" in html
+    assert ">Erste Schritte<" not in html
+    assert 'data-tab="erste-schritte"' in html        # Panel-Name bleibt (Redirect-Ziel)
+    assert 'data-tab="handbuch"' in html
+
+
+def test_hilfe_ohne_claude_code_installieren_schritt(client):
+    html = client.get("/hilfe").text
+    assert "Claude Code installieren" not in html
+    assert 'id="schritt-3"' not in html               # Block ersatzlos entfallen
+    assert 'id="schritt-4"' in html                   # Anker bleiben trotz neuer Nummern
+    assert 'id="schritt-5"' in html
+    assert 'id="schritt-6"' in html
+    assert "anl-optional" in html                     # ⟨optional⟩-Badge
+
+
+def test_hilfe_tab3_zeigt_beide_handbuecher(client):
+    html = client.get("/hilfe").text
+    assert "Das kleine Handbuch" in html
+    assert "Das große Handbuch" not in html
+    assert "Die ausführliche Anleitung" in html
+    assert '/anleitung/vollstaendig' in html
+    assert '/hilfe/handbuch' in html
+
+
+def test_handbuch_heisst_klein(client):
+    html = client.get("/hilfe/handbuch").text
+    assert "Das kleine Handbuch" in html
+    assert "Das große Handbuch" not in html

@@ -23,9 +23,10 @@ def test_anleitung_redirects_301_to_hilfe(client):
 
 
 def test_anleitung_has_all_key_commands(client):
+    # Die Claude-Code-Installationsbefehle stehen nicht mehr hier: Schritt
+    # "Claude Code installieren" ist aus dem Hilfe-Center entfallen, die
+    # Langfassung steht in /anleitung/vollstaendig (3.1).
     body = client.get("/hilfe").text
-    assert "irm https://claude.ai/install.ps1 | iex" in body
-    assert "curl -fsSL https://claude.ai/install.sh | bash" in body
     assert "/plugin marketplace add DJTJ9/bob-member-kit" in body
     assert "/plugin install bob@bob-kit" in body
     assert "/bob:bob-rescore" in body

@@ -2,12 +2,12 @@
 {% block title %}Hilfe — Bob der Job-Bot{% endblock %}
 {% block content %}
 <h1>Hilfe-Center</h1>
-<p class="hinweis">Einstieg, Antworten auf alle Funktionen, und das große Handbuch.</p>
+<p class="hinweis">Einstieg, Antworten auf alle Funktionen, und beide Handbücher.</p>
 
 <div class="tab-bar" role="tablist">
-  <button type="button" class="tab tab-active" data-tab="erste-schritte" role="tab">Erste Schritte</button>
+  <button type="button" class="tab tab-active" data-tab="erste-schritte" role="tab">Claude mit Bob verbinden</button>
   <button type="button" class="tab" data-tab="faq" role="tab">FAQ</button>
-  <button type="button" class="tab" data-tab="handbuch" role="tab">Handbuch</button>
+  <button type="button" class="tab" data-tab="handbuch" role="tab">Anleitungen</button>
 </div>
 
 {# ---------- TAB 1: ERSTE SCHRITTE ---------- #}
@@ -31,7 +31,7 @@
   <h2>So machst du mit</h2>
   <p><strong>1. Registrieren</strong> — mit dem Invite-Code aus Discord ein Konto anlegen.</p>
   <p><strong>2. Profil anlegen</strong> — Skills, Zielrollen und Wünsche eintragen; ab da bewerte ich den Job-Pool automatisch für dich, ganz ohne Installation.</p>
-  <p><strong>3. Optional: eigenes Claude-Abo anbinden</strong> — Claude Code installieren, API-Token holen, Bob-Plugin verbinden.</p>
+  <p><strong>3. Optional: eigenes Claude-Abo anbinden</strong> — API-Token holen, Bob-Plugin verbinden.</p>
   <p><strong>4. Loslegen mit <code>/bob:bob-scan</code></strong> — gratis über deine Heim-IP neue Jobs suchen, ganz ohne Keys.</p>
   <div class="onboarding-footer">
     <a class="btn btn-primary" href="/wizard/new">Profil erstellen →</a>
@@ -82,49 +82,15 @@
   <p><a class="btn btn-secondary" href="/wizard/new">→ Profil-Wizard starten</a></p>
 </section>
 
-<!-- SCHRITT 3 -->
-<section class="anl-step" id="schritt-3">
-  <div class="anl-step-head">
-    <span class="anl-step-num">3</span>
-    <h2>Claude Code installieren</h2>
-  </div>
-  <p class="anl-note">Ab hier beginnt der optionale Teil mit deinem eigenen Claude-Abo —
-    fürs Scannen und die LLM-Bewertung.</p>
-  <p>Claude Code ist das Terminal-Programm, in dem Bob als Plugin läuft. Öffne dein
-    Terminal und führe <em>einen</em> der Befehle aus — je nach Betriebssystem.</p>
-
-  <div class="anl-terminal">
-    <div class="anl-terminal-bar">
-      <span class="anl-dot"></span><span class="anl-dot"></span><span class="anl-dot"></span>
-      <span class="anl-terminal-title">Windows · PowerShell</span>
-    </div>
-    <div class="anl-terminal-body">
-      <code>irm https://claude.ai/install.ps1 | iex</code>
-      <button type="button" class="copy-btn" data-copy="irm https://claude.ai/install.ps1 | iex" aria-label="Befehl kopieren">⧉</button>
-    </div>
-  </div>
-
-  <div class="anl-terminal">
-    <div class="anl-terminal-bar">
-      <span class="anl-dot"></span><span class="anl-dot"></span><span class="anl-dot"></span>
-      <span class="anl-terminal-title">macOS / Linux · Terminal</span>
-    </div>
-    <div class="anl-terminal-body">
-      <code>curl -fsSL https://claude.ai/install.sh | bash</code>
-      <button type="button" class="copy-btn" data-copy="curl -fsSL https://claude.ai/install.sh | bash" aria-label="Befehl kopieren">⧉</button>
-    </div>
-  </div>
-
-  <p class="anl-note">💡 Nach der Installation einmal <code>claude</code> eingeben und dich
-    mit deinem Claude-Abo anmelden — Claude Code führt dich dabei durch den Login.</p>
-</section>
-
-<!-- SCHRITT 4 -->
+<!-- SCHRITT 3 (Anker bleibt schritt-4: bestehende Deep-Links aus FAQ und
+     Plugin-Texten zeigen darauf; sichtbare Nummer und ID divergieren bewusst) -->
 <section class="anl-step" id="schritt-4">
   <div class="anl-step-head">
-    <span class="anl-step-num">4</span>
-    <h2>API-Token holen</h2>
+    <span class="anl-step-num">3</span>
+    <h2>API-Token holen <span class="anl-optional">optional</span></h2>
   </div>
+  <p class="anl-note">Ab hier beginnt der optionale Teil mit deinem eigenen Claude-Abo —
+    fürs Scannen und die LLM-Bewertung. Ohne ihn funktioniert die Website vollständig.</p>
   <p>Das Token verbindet dein Claude mit Bob. Öffne in der Sidebar
     <strong>⚙ Einstellungen</strong> → Reiter <strong>„Anbindungen"</strong> →
     <strong>„API-Token erzeugen"</strong>.</p>
@@ -139,11 +105,11 @@
     dabei ungültig.</p>
 </section>
 
-<!-- SCHRITT 5 -->
+<!-- SCHRITT 4 (Anker bleibt schritt-5, siehe Kommentar oben) -->
 <section class="anl-step" id="schritt-5">
   <div class="anl-step-head">
-    <span class="anl-step-num">5</span>
-    <h2>Bob mit deinem Claude verbinden</h2>
+    <span class="anl-step-num">4</span>
+    <h2>Bob mit deinem Claude verbinden <span class="anl-optional">optional</span></h2>
   </div>
   <p>Starte <code>claude</code> und gib die beiden Befehle nacheinander ein. Der erste
     fügt Bobs Plugin-Quelle hinzu, der zweite installiert das Plugin.</p>
@@ -171,17 +137,17 @@
   </div>
 
   <p>Beim Installieren fragt Claude nach deinem <strong>API-Token</strong> (aus
-    Schritt&nbsp;4) — einfügen, fertig. Die Felder für Adzuna- und Jooble-Keys kannst du
+    Schritt&nbsp;3) — einfügen, fertig. Die Felder für Adzuna- und Jooble-Keys kannst du
     <strong>leer lassen</strong>; die braucht nur die optionale eigene Suche.</p>
   <p class="anl-note">💡 Nach dem Installieren Claude einmal neu starten, damit das Plugin
     geladen wird.</p>
 </section>
 
-<!-- SCHRITT 6 -->
+<!-- SCHRITT 5 (Anker bleibt schritt-6, siehe Kommentar oben) -->
 <section class="anl-step" id="schritt-6">
   <div class="anl-step-head">
-    <span class="anl-step-num">6</span>
-    <h2>Loslegen: dein erster Scan</h2>
+    <span class="anl-step-num">5</span>
+    <h2>Loslegen: dein erster Scan <span class="anl-optional">optional</span></h2>
   </div>
   <p>Jetzt kannst du selbst neue Jobs suchen — gratis über deine Heim-IP, ganz ohne Keys:</p>
 
@@ -318,52 +284,60 @@
 <section class="tab-panel" data-tab-panel="faq">
   <h2>Häufige Fragen — alle Funktionen</h2>
   <h3 class="faq-gruppe">Profil &amp; Kriterien</h3>
-  <details class="anl-faq"><summary>Wie lege ich ein Profil an?</summary><p>Über den <a class="link" href="/wizard/new">Profil-Wizard</a>. <a class="link" href="/hilfe/handbuch#profil">Mehr →</a></p></details>
-  <details class="anl-faq"><summary>Was macht Feintuning?</summary><p>Du justierst die Gewichte deiner Kriterien. <a class="link" href="/feintuning">Zum Feintuning</a> · <a class="link" href="/hilfe/handbuch#profil">Mehr →</a></p></details>
+  <details class="anl-faq"><summary>Wie lege ich ein Profil an?</summary><p>Über den <a class="link" href="/wizard/new">Profil-Wizard</a>. Er führt in acht Schritten durch Basics, Skills, Zielrollen, Suchbegriffe, Domänen, Ort und Umfang, No-Gos und die Startgewichte — zurückspringen kannst du jederzeit über die Fortschrittsleiste. Du darfst mehrere Profile anlegen, aber genau eines ist aktiv; Job-Angebote, Favoriten und Feintuning zeigen immer dieses eine. <a class="link" href="/hilfe/handbuch#profil">Mehr →</a></p></details>
+  <details class="anl-faq"><summary>Was macht Feintuning?</summary><p>Du justierst die Gewichte deiner Kriterien: Jedes Kriterium — etwa „Remote möglich" oder „Gehalt genannt" — hat einen Regler von 0 bis 5, und dieser Wert sagt, wie stark es in die Gesamtpassung eingeht. Ein Gewicht von 0 nimmt das Kriterium ganz aus der Rechnung. Nach dem Speichern rechnet Bob den vorhandenen Bestand sofort neu durch, ohne dass du einen Scan starten musst. <a class="link" href="/feintuning">Zum Feintuning</a> · <a class="link" href="/hilfe/handbuch#profil">Mehr →</a></p></details>
 
   <h3 class="faq-gruppe">Jobs &amp; Bewerten</h3>
-  <details class="anl-faq"><summary>Wie entsteht der Score 0–100?</summary><p>Jede Anzeige wird gegen deine Kriterien bewertet. <a class="link" href="/hilfe/handbuch#jobs">Mehr →</a></p></details>
-  <details class="anl-faq"><summary>Was bewirkt 👍 / 👎?</summary><p>Deine Votes trainieren Bobs Gewichtung. <a class="link" href="/hilfe/handbuch#jobs">Mehr →</a></p></details>
+  <details class="anl-faq"><summary>Wie entsteht der Score 0–100?</summary><p>Zuerst prüft Bob deine No-Gos: Greift eines, bekommt die Anzeige Score 0 und die Kategorie „No-Go", weitergerechnet wird nicht. Sonst bewertet jede Regel ihr Kriterium mit 0 bis 10 Punkten, multipliziert mit deinem Gewicht; die Summe wird am erreichbaren Bestwert normiert und auf 0–100 gerundet. Daraus folgt die Kategorie: ab 70 „Pass", ab 40 „Vielleicht", darunter „No-Go". Das läuft deterministisch auf dem Bob-Server, ohne Sprachmodell und ohne Kosten. <a class="link" href="/hilfe/handbuch#jobs">Mehr →</a></p></details>
+  <details class="anl-faq"><summary>Was bewirkt 👍 / 👎?</summary><p>Deine Votes trainieren Bobs Gewichtung — aber nicht sofort: Sie werden zunächst nur gesammelt und ändern keinen Score. Daumen runter nimmt die Anzeige aus „Aktiv" heraus und legt sie unter „Aussortiert → Bereits bewertet" ab, Daumen hoch lässt sie stehen und markiert sie mit „✓ bewertet". Ausgewertet wird das Ganze erst in der Lern-Analyse <code>/bob:bob-learn</code>, die daraus Gewichte und Präferenzen vorschlägt. <a class="link" href="/hilfe/handbuch#jobs">Mehr →</a></p></details>
 
   <h3 class="faq-gruppe">Scannen &amp; Befehle</h3>
   <details class="anl-faq"><summary><code>/bob:bob-rescore</code> vs. <code>/bob:bob-scan</code>?</summary><p><strong>bob-rescore</strong> bewertet gute Treffer nach dem Lernen mit dem LLM neu (Tier mittel/hoch). <strong>bob-scan</strong> findet neue Jobs über deine Heim-IP und bewertet sie sofort deterministisch (gratis, keine Keys). <a class="link" href="/anleitung/scan">Scan-Anleitung</a> · <a class="link" href="/hilfe/handbuch#scannen">Mehr →</a></p></details>
-  <details class="anl-faq"><summary>Brauche ich Keys für <code>/bob:bob-scan</code>?</summary><p>Nein — der Standard-Scan läuft ohne Keys über deine Heim-IP. Adzuna und Jooble sind optionale Zusatz-Portale. <a class="link" href="/anleitung/keys">Mehr Portale (optional)</a></p></details>
+  <details class="anl-faq"><summary>Brauche ich Keys für <code>/bob:bob-scan</code>?</summary><p>Nein — der Standard-Scan läuft ohne Keys und ohne Guthaben über deine Heim-IP und durchsucht StepStone, Indeed und deine eigenen freigeschalteten Portale. Der Umweg über deinen Rechner ist nötig, weil die großen Portale Anfragen aus Rechenzentren aussperren. Adzuna und Jooble sind optionale Zusatz-Portale: Mit kostenlosen eigenen Schlüsseln nimmt dein Scan sie zusätzlich mit. <a class="link" href="/anleitung/keys">Mehr Portale (optional)</a></p></details>
 
   <h3 class="faq-gruppe">Einstieg &amp; Fehler</h3>
 
   <details class="anl-faq">
     <summary>Fehler „401" / „Unauthorized" beim ersten Bob-Befehl</summary>
     <p>Das Token wird nicht erkannt. Erzeuge in den Einstellungen ein neues Token
-      (Schritt&nbsp;4) und trag es per <code>/plugin</code> in der Bob-Konfiguration neu
+      (Schritt&nbsp;3) und trag es per <code>/plugin</code> in der Bob-Konfiguration neu
       ein. Achte darauf, das komplette Token (<code>bob_</code> + lange Zeichenfolge)
-      ohne Leerzeichen einzufügen.</p>
+      ohne Leerzeichen einzufügen.
+      <a class="link" href="/anleitung/vollstaendig#k4-fehler">Mehr →</a></p>
   </details>
 
   <details class="anl-faq">
     <summary>Die Befehle <code>/bob:bob-rescore</code> / <code>/bob:bob-scan</code> gibt es nicht</summary>
     <p>Das Plugin ist noch nicht geladen. Beende Claude Code und starte es neu. Prüfen
       kannst du es mit <code>/plugin</code> — dort muss <code>bob</code> als installiert
-      erscheinen.</p>
+      erscheinen.
+      <a class="link" href="/anleitung/vollstaendig#k4-fehler">Mehr →</a></p>
   </details>
 
   <details class="anl-faq">
-    <summary>„Marketplace nicht gefunden" bei Schritt 4</summary>
+    <summary>„Marketplace nicht gefunden" beim Marketplace-Befehl</summary>
     <p>Tippfehler im Befehl. Er lautet exakt
       <code>/plugin marketplace add DJTJ9/bob-member-kit</code> — am besten oben den
-      Kopier-Button benutzen.</p>
+      Kopier-Button benutzen.
+      <a class="link" href="/anleitung/vollstaendig#k4-fehler">Mehr →</a></p>
   </details>
 
   <h3 class="faq-gruppe">Favoriten · Lernen · Konto · Sicherheit</h3>
-  <details class="anl-faq"><summary>Was sind Favoriten?</summary><p>Mit ★ markierte Jobs. <a class="link" href="/favoriten">Favoriten</a> · <a class="link" href="/hilfe/handbuch#jobs">Mehr →</a></p></details>
-  <details class="anl-faq"><summary>Wie lösche ich mein Konto / exportiere meine Daten?</summary><p>In den <a class="link" href="/einstellungen">Einstellungen</a>. <a class="link" href="/hilfe/handbuch#konto">Mehr →</a></p></details>
+  <details class="anl-faq"><summary>Was sind Favoriten?</summary><p>Mit ★ markierte Jobs. Der Stern sitzt an jeder Job-Karte und ist ein Schalter — ein Klick merkt die Anzeige, der nächste nimmt die Markierung wieder weg. Die Favoritenseite listet alle markierten Anzeigen nach Passung und hat einen eigenen Export mit „Nur Favoriten" als Vorauswahl. Nebenbei ist ein Favorit ein starkes Positiv-Signal: Die Lern-Analyse liest ihn zusammen mit deinen Daumen-Votes aus. <a class="link" href="/favoriten">Favoriten</a> · <a class="link" href="/hilfe/handbuch#jobs">Mehr →</a></p></details>
+  <details class="anl-faq"><summary>Wie lösche ich mein Konto / exportiere meine Daten?</summary><p>Beides in den <a class="link" href="/einstellungen">Einstellungen</a> im Reiter <strong>Konto</strong>. Unter „Meine Daten" lädst du alles, was Bob über dich gespeichert hat, als JSON-Datei herunter — das ist etwas anderes als der Export-Knopf in den Job-Angeboten, der eine Trefferliste als CSV oder PDF liefert. Ganz unten liegt die Gefahrenzone mit der Konto-Löschung; sie verlangt dein aktuelles Passwort, ist unwiderruflich und nimmt alle Profile, Kriterien, Bewertungen und Favoriten mit. <a class="link" href="/hilfe/handbuch#konto">Mehr →</a></p></details>
 </section>
 
-{# ---------- TAB 3: HANDBUCH (Landing) ---------- #}
+{# ---------- TAB 3: ANLEITUNGEN (Landing) ---------- #}
 <section class="tab-panel" data-tab-panel="handbuch">
-  <section class="panel">
-    <h2>📖 Das große Handbuch</h2>
-    <p>Alles zu jeder Funktion, sauber erklärt: Profil · Jobs · Scannen · Konto · und mehr.</p>
-    <p><a class="btn btn-primary" href="/hilfe/handbuch">Zum vollständigen Handbuch →</a></p>
-  </section>
+  <div class="cc-grid">
+    <a class="cc-card" href="/hilfe/handbuch">
+      <span class="cc-icon">📖</span><span class="cc-label">Das kleine Handbuch</span>
+      <span class="cc-desc">5 Kapitel, zum schnellen Nachschlagen</span>
+    </a>
+    <a class="cc-card" href="/anleitung/vollstaendig">
+      <span class="cc-icon">📘</span><span class="cc-label">Die ausführliche Anleitung</span>
+      <span class="cc-desc">Alles im Detail · auch als PDF</span>
+    </a>
+  </div>
 </section>
 {% endblock %}

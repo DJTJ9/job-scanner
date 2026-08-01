@@ -793,3 +793,7 @@ dialog.export-dialog::backdrop { background: rgba(5, 13, 26, 0.7); }
   .anl-rail, .anl-voll-kopf .btn { display: none; }
   .anl-voll-layout { grid-template-columns: 1fr; }
 }
+
+.anl-optional { display: inline-block; margin-left: 0.5rem; padding: 0.05rem 0.5rem;
+  border: 1px solid var(--bob-lila); border-radius: 10px; color: var(--bob-lila);
+  font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; vertical-align: middle; }
