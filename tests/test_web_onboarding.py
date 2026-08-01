@@ -261,3 +261,60 @@ def test_app_js_schliesst_drawer_bei_in_page_sprunglink():
     js = Path("jobscanner/web/static/app.js").read_text()
     assert 'a[href^="#"]' in js
     assert "drawerHashClose" in js
+
+
+# --- Onboarding-Tour: Tour-State (has_event / data-tour-auto / POST /tour/seen) ---
+
+@pytest.fixture
+def tour_member(tmp_path, monkeypatch):
+    """Wie member_client, gibt zusätzlich die User-Id zurück."""
+    monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "geheim123")
+    monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
+    monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
+    app = create_app(db_path=tmp_path / "jobs.db")
+    uid = storage.create_user("tour@test.de", "pw", role="member")
+    storage.mark_email_verified(uid)
+    c = CSRFTestClient(app)
+    c.post("/login", data={"email": "tour@test.de", "password": "pw"})
+    return c, uid
+
+
+def test_has_event_false_dann_true(tmp_path):
+    storage.init_db(tmp_path / "jobs.db")
+    try:
+        uid = storage.create_user("he@test.de", "pw", role="member")
+        assert storage.has_event(uid, "tour_seen") is False
+        storage.log_event("tour_seen", uid)
+        assert storage.has_event(uid, "tour_seen") is True
+    finally:
+        storage.close()
+
+
+def test_tour_auto_beim_erstbesuch(member_client):
+    assert "data-tour-auto" in member_client.get("/").text
+
+
+def test_tour_seen_stoppt_autostart_und_schreibt_genau_ein_event(tour_member):
+    c, uid = tour_member
+    r = c.post("/tour/seen", json={})
+    assert r.status_code == 200
+    assert "data-tour-auto" not in c.get("/").text
+    c.post("/tour/seen", json={})  # zweiter POST bleibt idempotent
+    n = storage._require_conn().execute(
+        "SELECT COUNT(*) FROM events WHERE user_id = ? AND event_type = 'tour_seen'",
+        (uid,)).fetchone()[0]
+    assert n == 1
+
+
+def test_tour_seen_ohne_gueltiges_csrf_403(tour_member):
+    c, _uid = tour_member
+    r = c.post("/tour/seen", json={}, headers={"X-CSRF-Token": "falsch"})
+    assert r.status_code == 403
+
+
+def test_tour_seen_ohne_login_401(tmp_path, monkeypatch):
+    monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
+    monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
+    c = CSRFTestClient(create_app(db_path=tmp_path / "jobs.db"))
+    r = c.post("/tour/seen", json={})
+    assert r.status_code == 401

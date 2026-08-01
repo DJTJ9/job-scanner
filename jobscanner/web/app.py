@@ -785,6 +785,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "summary": summary,
             "steps": steps,
             "steps_done": all(steps.values()),
+            "tour_pending": not storage.has_event(
+                request.session["user_id"], "tour_seen"),
         }
         if profile is not None:
             pid = profile["id"]
@@ -1328,6 +1330,17 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return RedirectResponse("/jobs", status_code=303)
 
     _FEEDBACK_CONFIRMATION = "Bob hat's notiert. Danke!"
+
+    @app.post("/tour/seen")
+    def tour_seen_route(request: Request):
+        if not csrf.verify(request, request.headers.get("x-csrf-token")):
+            return JSONResponse({"error": "csrf"}, status_code=403)
+        user_id = request.session.get("user_id")
+        if user_id is None:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        if not storage.has_event(user_id, "tour_seen"):
+            storage.log_event("tour_seen", user_id)
+        return JSONResponse({"ok": True})
 
     @app.post("/api/feedback")
     async def member_feedback_route(request: Request):

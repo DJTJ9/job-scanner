@@ -1929,6 +1929,14 @@ def log_event(event_type: str, user_id: int | None = None, meta: dict | None = N
     conn.commit()
 
 
+def has_event(user_id: int, event_type: str) -> bool:
+    conn = _require_conn()
+    row = conn.execute(
+        "SELECT 1 FROM events WHERE user_id = ? AND event_type = ? LIMIT 1",
+        (user_id, event_type)).fetchone()
+    return row is not None
+
+
 @_retry_on_locked
 def create_member_feedback(user_id: int, text: str) -> int:
     conn = _require_conn()
