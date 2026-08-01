@@ -6,6 +6,7 @@ import io
 from pathlib import Path
 
 from fpdf import FPDF
+from fpdf.fonts import TextStyle
 
 CSV_SPALTEN = ["titel", "firma", "ort", "score", "kategorie", "begruendung",
                "portal", "erstgesehen", "link", "favorit"]
@@ -115,4 +116,93 @@ def build_pdf(entries: list[dict], favorites: set[str], meta: dict) -> bytes:
             pdf.set_x(pdf.l_margin + 32)
             pdf.cell(0, 5, url[:100], link=url, new_x="LMARGIN", new_y="NEXT")
         pdf.ln(2)
+    return bytes(pdf.output())
+
+
+_KAPITEL = [
+    ("1", "Alles auf der Website"),
+    ("2", "Wie Bob funktioniert"),
+    ("3", "Claude-Anbindung ausführlich"),
+    ("4", "Troubleshooting & Sicherheit"),
+]
+
+_BOB_BILD = Path(__file__).parent / "static" / "img" / "bob" / "bob-pose-laptop.png"
+
+
+class _AnleitungPDF(FPDF):
+    """Druckfassung der ausführlichen Anleitung — Tinte/Fonts wie _MatchesPDF,
+    aber Titelseite ohne Kopf-/Fußzeile."""
+
+    def __init__(self, datum: str):
+        super().__init__(orientation="P", unit="mm", format="A4")
+        self.datum = datum
+        self.add_font("DejaVu", "", _FONT_DIR / "DejaVuSans.ttf")
+        self.add_font("DejaVu", "B", _FONT_DIR / "DejaVuSans-Bold.ttf")
+        self.add_font("DejaVu", "I", _FONT_DIR / "DejaVuSans-Oblique.ttf")
+        self.add_font("DejaVu", "BI", _FONT_DIR / "DejaVuSans-BoldOblique.ttf")
+        self.add_font("DejaVuMono", "", _FONT_DIR / "DejaVuSansMono.ttf")
+        self.set_auto_page_break(auto=True, margin=18)
+
+    def header(self):
+        if self.page_no() == 1:
+            return
+        self.set_text_color(*_TIEFE)
+        self.set_font("DejaVu", "B", 11)
+        self.cell(0, 8, "BOB · Die ausführliche Anleitung", new_x="LMARGIN", new_y="NEXT")
+        self.set_draw_color(*_TIEFE)
+        self.line(self.l_margin, self.get_y() + 1, self.w - self.r_margin, self.get_y() + 1)
+        self.ln(4)
+
+    def footer(self):
+        if self.page_no() == 1:
+            return
+        self.set_y(-14)
+        self.set_font("DejaVu", "", 8)
+        self.set_text_color(*_GRAU)
+        self.cell(90, 6, f"Seite {self.page_no()}")
+        self.cell(0, 6, "job-scanner.thinkshark.de", align="R")
+
+
+def build_anleitung_pdf(html: str, datum: str) -> bytes:
+    """Titelseite + Inhaltsverzeichnis + write_html(fragment).
+
+    `html` ist das gerenderte anleitung_voll.html — dieselbe Quelle wie die
+    Web-Fassung, damit kein Content-Drift entsteht. write_html() versteht nur ein
+    HTML-Subset (Überschriften, p, Listen, b/i, a, code/pre, table) und ignoriert
+    CSS-Klassen; font_family ist Pflicht, sonst fällt es auf einen Core-Font zurück.
+    """
+    pdf = _AnleitungPDF(datum)
+    pdf.add_page()
+    if _BOB_BILD.exists():
+        pdf.image(str(_BOB_BILD), x=(pdf.w - 35) / 2, y=55, w=35)  # 132x145px → 35mm ≈ 96dpi
+    pdf.set_y(115)
+    pdf.set_text_color(*_TIEFE)
+    pdf.set_font("DejaVu", "B", 24)
+    pdf.multi_cell(0, 12, "Die ausführliche Anleitung", align="C",
+                   new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("DejaVu", "", 12)
+    pdf.set_text_color(*_GRAU)
+    pdf.cell(0, 8, "Bob der Job-Bot · job-scanner.thinkshark.de", align="C",
+             new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, f"Stand: {datum}", align="C", new_x="LMARGIN", new_y="NEXT")
+
+    pdf.add_page()
+    pdf.set_text_color(*_TIEFE)
+    pdf.set_font("DejaVu", "B", 16)
+    pdf.cell(0, 10, "Inhalt", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+    for nr, titel in _KAPITEL:
+        pdf.set_font("DejaVu", "B", 12)
+        pdf.set_text_color(*_SIGNAL)
+        pdf.cell(10, 8, nr)
+        pdf.set_font("DejaVu", "", 12)
+        pdf.set_text_color(*_TIEFE)
+        pdf.cell(0, 8, titel, new_x="LMARGIN", new_y="NEXT")
+
+    pdf.add_page()
+    pdf.set_font("DejaVu", "", 11)
+    pdf.set_text_color(*_TIEFE)
+    pdf.write_html(html, font_family="DejaVu",
+                   tag_styles={"code": TextStyle(font_family="DejaVuMono"),
+                               "pre": TextStyle(font_family="DejaVuMono")})
     return bytes(pdf.output())
