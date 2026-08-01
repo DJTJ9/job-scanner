@@ -47,9 +47,29 @@ def test_owner_bundles_all_matches_in_single_call():
     with patch("jobscanner.notify_immediate.mailer.send_immediate_match") as send:
         notify_immediate.run_immediate_notifications()
     assert send.call_count == 1
-    rows_arg = send.call_args[0][2]  # (email, pid, rows, base_url)
-    assert len(rows_arg) == 2
+    groups_arg = send.call_args[0][1]  # (email, groups, base_url)
+    assert len(groups_arg) == 1
+    assert len(groups_arg[0]["rows"]) == 2
     assert storage.list_immediate_matches(pid, 90) == []  # alle gemarkt
+
+
+def test_user_with_two_profiles_gets_one_mail_with_two_groups():
+    uid, pid1, _fp = _member("o@test.de", "Strong", 92, role="owner")
+    pid2 = storage.create_profile("Audio", {}, user_id=uid)
+    _add_match(pid2, "Sound Designer", 91)
+    # Pref wird pro User gesetzt, aber pro Profil persistiert — nach dem zweiten
+    # Profil erneut schreiben, damit beide Profile immediate=True tragen.
+    storage.set_notify_pref(uid, {"email_mode": "daily", "immediate": True, "inbox": True})
+    with patch("jobscanner.notify_immediate.mailer.send_immediate_match") as send:
+        stats = notify_immediate.run_immediate_notifications()
+    assert send.call_count == 1
+    assert send.call_args[0][0] == "o@test.de"
+    groups = send.call_args[0][1]
+    assert len(groups) == 2
+    assert [g["profile"] for g in groups] == ["o@test.de", "Audio"]  # ORDER BY id
+    assert stats == {"members": 1, "emails": 1, "matches": 2}
+    assert storage.list_immediate_matches(pid1, 90) == []  # beide Profile gemarkt
+    assert storage.list_immediate_matches(pid2, 90) == []
 
 
 def test_member_never_mailed_even_with_immediate():
