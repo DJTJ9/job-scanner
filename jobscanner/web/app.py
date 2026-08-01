@@ -102,7 +102,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     storage.init_db(db_path or _DEFAULT_DB)
     storage.migrate_yaml_profile()
     if settings["owner_email"]:
-        storage.seed_owner(settings["owner_email"], settings["password"])
+        owner_id = storage.seed_owner(settings["owner_email"], settings["password"])
+        if owner_id:
+            storage.seed_global_portals(config.load_portale_pool(), owner_id)
 
     mcp_server = mcp_api.create_mcp_server()
     mcp_asgi = mcp_server.streamable_http_app()
@@ -235,6 +237,13 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         """True wenn der eingeloggte User Ersteller des Portals ODER Site-Admin ist."""
         return (portal["submitted_by"] == request.session.get("user_id")
                 or request.session.get("role") == "owner")
+
+    def _pool_meta() -> dict:
+        """URL → Anzeigename/Beschreibung aus portale_pool.yaml. Globale Rows ohne
+        YAML-Eintrag (vom Owner per Formular angelegt) fallen im Template auf ihre
+        URL zurück."""
+        return {p["url"]: {"label": p["label"], "beschreibung": p["beschreibung"]}
+                for p in config.load_portale_pool()}
 
     @app.get("/login")
     def login_form(request: Request):
@@ -825,6 +834,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return templates.TemplateResponse(request, "portale.html", {
             "portale": portale, "is_owner": request.session.get("role") == "owner",
             "has_firecrawl_key": bool(storage.get_firecrawl_key_enc(request.session["user_id"])),
+            "pool_meta": _pool_meta(),
             "result": None})
 
     @app.post("/portale/pruefen")
@@ -855,6 +865,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "portale": portale,
             "is_owner": request.session.get("role") == "owner",
             "has_firecrawl_key": bool(storage.get_firecrawl_key_enc(request.session["user_id"])),
+            "pool_meta": _pool_meta(),
             "result": storage.get_custom_portal(pid)})
 
     @app.post("/portale/pruefen-firecrawl/{portal_id}")
@@ -882,6 +893,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "portale": portale,
             "is_owner": request.session.get("role") == "owner",
             "has_firecrawl_key": True,
+            "pool_meta": _pool_meta(),
             "result": storage.get_custom_portal(portal_id)})
 
     @app.post("/portale/aktivieren/{portal_id}")

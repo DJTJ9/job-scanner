@@ -203,7 +203,8 @@ def test_member_cannot_create_global_portal(app):
         member.post("/portale/pruefen",
                     data={"url": "https://studio.de/jobs", "typ": "career_page",
                           "is_global": "on"})
-    assert not any(p["is_global"] for p in storage.list_custom_portals())
+    assert not any(p["is_global"] for p in storage.list_custom_portals()
+                   if p["url"] == "https://studio.de/jobs")
 
 
 def test_global_group_labeled_on_portale_page(app):
@@ -231,3 +232,22 @@ def test_scannable_portals_scoped_by_owner(app):
     assert all(cp["id"] != pid for cp in storage.list_scannable_custom_portals(owner_id=y))
     # ... aber im eigenen Feed von X schon.
     assert any(cp["id"] == pid for cp in storage.list_scannable_custom_portals(owner_id=x))
+
+
+def test_app_start_seeds_pool_as_global_active(app):
+    from jobscanner import config
+    pool_urls = {p["url"] for p in config.load_portale_pool()}
+    rows = {p["url"]: p for p in storage.list_custom_portals()}
+    assert pool_urls <= set(rows)
+    for url in pool_urls:
+        assert rows[url]["is_global"] is True
+        assert rows[url]["status"] == "active"
+
+
+def test_pool_meta_passed_to_template(app):
+    from jobscanner import config
+    eintrag = config.load_portale_pool()[0]
+    c = CSRFTestClient(app); _login(c)
+    resp = c.get("/portale")
+    assert eintrag["label"] in resp.text
+    assert eintrag["beschreibung"] in resp.text
