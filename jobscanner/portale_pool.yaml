@@ -1,8 +1,11 @@
 # Standard-Portal-Pool — nur Firecrawl-freie Portale (Gate: discover_urls + precheck, siehe Plan C2).
-- url: 'https://www.kimeta.de/'
+# Aufnahme nur nach zweistufigem Live-Gate (2026-08-01, 0 Firecrawl-Credits):
+# (1) discover_urls gegen die echte Such-URL liefert Detail-URLs, die das Muster matchen,
+# (2) precheck_portal auf gefundenen Detailseiten meldet compatible: True.
+- url: 'https://www.absolventa.de/'
   typ: portal
-  search_url_template: 'https://www.kimeta.de/stellenangebote?q={query}'
-  detail_url_pattern: 'kimeta\.de/stellenangebote/'
+  search_url_template: 'https://www.absolventa.de/jobs?text={query}'
+  detail_url_pattern: 'absolventa\.de/stellenangebote/\d'
   firecrawl_needed: false
-  label: 'kimeta'
-  beschreibung: 'Meta-Suchmaschine mit sehr großem Stellenbestand in Deutschland.'
+  label: 'Absolventa'
+  beschreibung: 'Jobbörse für Berufseinsteiger mit Junior-, Praktikums- und Werkstudentenstellen in ganz Deutschland.'
