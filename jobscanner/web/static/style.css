@@ -493,7 +493,6 @@ body.has-drawer.drawer-collapsed .startseite-hero-bg { left: 56px; }
 @media (max-width: 900px) {
   .startseite-hero-bg { background-size: cover; }
 }
-.profile-row { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
 .profile-name { color: var(--gischt); font-weight: 600; font-size: 1.15rem; text-decoration: none; }
 .profile-name:hover { color: var(--signal); }
 .profile-edit { font-size: 0.85rem; opacity: 0.7; }
@@ -710,3 +709,39 @@ dialog.export-dialog::backdrop { background: rgba(5, 13, 26, 0.7); }
 .export-option input[type="radio"] { width: auto; margin-right: 0.4rem; accent-color: var(--signal); }
 .export-formate { display: flex; gap: 0.5rem; }
 .export-formate .btn { margin-top: 0.5rem; }
+/* ---- Meine Profile: Karten-Grid ---- */
+.profile-intro { border-left: 3px solid var(--bob-lila); }
+.profile-intro p { margin: 0.4rem 0; }
+.profile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+.profile-card { display: flex; flex-direction: column; margin-bottom: 0; }
+.profile-card.is-active { border-left: 3px solid var(--signal); }
+.profile-badge {
+  margin: 0 0 0.35rem;
+  font: 0.75rem/1.4 "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  color: var(--signal);
+}
+.profile-card .profile-name { display: block; margin: 0 0 0.4rem; }
+.profile-meta { margin: 0.15rem 0; font-size: 0.9rem; opacity: 0.85; }
+.profile-treffer {
+  margin: 0.5rem 0 0.75rem;
+  font: 0.9rem/1.4 "IBM Plex Mono", monospace;
+  color: var(--beute);
+}
+.profile-body { margin-top: auto; }
+.profile-switch { width: 100%; margin-top: 0; margin-bottom: 0.6rem; }
+.profile-actions { display: flex; align-items: center; gap: 1rem; margin: 0; }
+.profile-delete, .profile-cancel {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: "IBM Plex Sans", sans-serif; font-size: 0.85rem;
+  color: var(--veto);
+}
+.profile-delete { margin-left: auto; }
+.profile-confirm {
+  margin-top: auto;
+  padding: 0.75rem;
+  border: 1px solid var(--veto);
+  border-radius: 8px;
+}
+.profile-confirm p { margin: 0 0 0.6rem; font-size: 0.9rem; }
+.profile-confirm .btn { margin-top: 0; margin-right: 0.75rem; }

@@ -184,3 +184,30 @@ window.addEventListener("load", function () {
     window.scrollTo(0, parseInt(y, 10) || 0);
   }
 });
+
+// Profil-Karte: "Löschen" blendet ein Bestätigungs-Panel in derselben Karte ein statt
+// direkt zu submitten. Ohne JS bleibt das native onsubmit-confirm des Formulars stehen;
+// mit JS wird es beim Aufklappen entfernt, damit nicht zweimal nachgefragt wird.
+document.querySelectorAll("[data-profile-delete]").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    var id = btn.dataset.profileDelete;
+    var body = document.getElementById("profile-body-" + id);
+    var panel = document.getElementById("profile-confirm-" + id);
+    if (!body || !panel) return;
+    var form = panel.querySelector("form");
+    if (form) form.removeAttribute("onsubmit");
+    body.classList.add("panel-hidden");
+    panel.classList.remove("panel-hidden");
+    panel.focus();
+  });
+});
+document.querySelectorAll("[data-profile-delete-cancel]").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    var id = btn.dataset.profileDeleteCancel;
+    var body = document.getElementById("profile-body-" + id);
+    var panel = document.getElementById("profile-confirm-" + id);
+    if (!body || !panel) return;
+    panel.classList.add("panel-hidden");
+    body.classList.remove("panel-hidden");
+  });
+});
