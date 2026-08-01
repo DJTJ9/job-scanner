@@ -23,6 +23,7 @@
 
   <section class="tab-panel{% if active_tab == 'konto' %} tab-panel-active{% endif %}"
            data-tab-panel="konto">
+    <p class="hinweis">Zugangsdaten und deine Daten. Änderungen wirken sofort.</p>
     <h2>Benutzername</h2>
     {% if username %}
       <p>Aktuell: <strong>{{ username }}</strong></p>
@@ -77,6 +78,8 @@
 
   <section class="tab-panel{% if active_tab == 'anbindungen' %} tab-panel-active{% endif %}"
            data-tab-panel="anbindungen">
+    <p class="hinweis">Verbindet Bob mit deinem Claude-Abo und optionalen Job-APIs.
+       Ohne Anbindung läuft dein Regel-Scoring trotzdem weiter.</p>
     <h2>API-Token für Claude</h2>
     {% if api_token %}
     <p><strong>Dein neues Token — nur jetzt sichtbar, kopiere es sofort:</strong></p>
@@ -91,58 +94,9 @@
       {% include "_csrf_field.html" %}
       <button type="submit" class="btn btn-secondary">API-Token erzeugen</button>
     </form>
-
-    <div class="tiefenlinie"></div>
-    <h2>Bob-Befehle</h2>
-    {% if has_claude_kit %}
-    <p>Direkt in Claude Code starten — Befehl öffnet sich vorausgefüllt, Enter drücken.</p>
-    {% else %}
-    <p>Braucht eigenes Claude-Abo — dein Regel-Scoring läuft automatisch weiter.
-       Mit Claude-Abo: erst oben ein API-Token erzeugen, dann Plugin installieren
-       (<a class="link" href="/anleitung">Anleitung</a>).</p>
-    {% endif %}
-    <div class="bob-befehle-grid">
-      <div class="panel">
-        <h3>🔍 bob-scan</h3>
-        <p class="job-meta">Neue Jobs suchen</p>
-        {% if has_claude_kit %}
-        <a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-scan">→ In Claude Code</a>
-        {% endif %}
-        <div class="copy-block"><code>/bob:bob-scan</code>
-          <button type="button" class="copy-btn" data-copy="/bob:bob-scan" aria-label="Befehl kopieren">⧉</button>
-        </div>
-      </div>
-      <div class="panel">
-        <h3>⭐ bob-rescore</h3>
-        <p class="job-meta">Rescoren nach dem Lernen</p>
-        {% if has_claude_kit %}
-        <a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-rescore">→ In Claude Code</a>
-        {% endif %}
-        <div class="copy-block"><code>/bob:bob-rescore</code>
-          <button type="button" class="copy-btn" data-copy="/bob:bob-rescore" aria-label="Befehl kopieren">⧉</button>
-        </div>
-      </div>
-      <div class="panel">
-        <h3>🧠 bob-learn</h3>
-        <p class="job-meta">Aus Votes lernen</p>
-        {% if has_claude_kit %}
-        <a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-learn">→ In Claude Code</a>
-        {% endif %}
-        <div class="copy-block"><code>/bob:bob-learn</code>
-          <button type="button" class="copy-btn" data-copy="/bob:bob-learn" aria-label="Befehl kopieren">⧉</button>
-        </div>
-      </div>
-      <div class="panel">
-        <h3>👤 bob-profil</h3>
-        <p class="job-meta">Profil per Chat schärfen</p>
-        {% if has_claude_kit %}
-        <a class="btn btn-primary" href="claude-cli://open?q=%2Fbob%3Abob-profil">→ In Claude Code</a>
-        {% endif %}
-        <div class="copy-block"><code>/bob:bob-profil</code>
-          <button type="button" class="copy-btn" data-copy="/bob:bob-profil" aria-label="Befehl kopieren">⧉</button>
-        </div>
-      </div>
-    </div>
+    <p class="hinweis">Token da? Die Bob-Befehle startest du auf
+       <a class="link" href="/scan">Scan starten</a> und im
+       <a class="link" href="/lernen">Lern-Zentrum</a>.</p>
 
     <div class="tiefenlinie"></div>
     <h2>Firecrawl-Key</h2>
@@ -206,6 +160,9 @@
 
   <section class="tab-panel{% if active_tab == 'suche' %} tab-panel-active{% endif %}"
            data-tab-panel="suche">
+    <p class="hinweis">Hier legst du fest, <strong>was</strong> gesucht wird und
+       <strong>wie viel</strong> dabei verbraucht wird. Gilt ab dem nächsten Scan —
+       schon gefundene Jobs ändern sich nicht.</p>
     <h2>Spar-Modus</h2>
     <p class="hinweis">Schützt dein Claude-Abo vor Überraschungsverbrauch — die Bob-Befehle respektieren diese Limits.</p>
     <form method="post" action="/einstellungen/spar-modus" data-confirm-save>
@@ -252,21 +209,28 @@
 
   <section class="tab-panel{% if active_tab == 'notify' %} tab-panel-active{% endif %}"
            data-tab-panel="notify">
+    <p class="hinweis">Wie du von neuen Treffern erfährst. Email-Versand ist derzeit
+       nur für den Admin freigeschaltet.</p>
     <h2>Benachrichtigung</h2>
     <form method="post" action="/einstellungen/notify" data-confirm-save>
       {% include "_csrf_field.html" %}
-      <fieldset class="notify-fieldset">
+      <fieldset class="notify-fieldset{% if not is_owner %} feld-inaktiv{% endif %}">
         <legend>Email-Digest</legend>
         <label><input type="radio" name="email_mode" value="daily"
+               {% if not is_owner %}disabled{% endif %}
                {% if notify_pref.email_mode == 'daily' %}checked{% endif %}> Täglich</label>
         <label><input type="radio" name="email_mode" value="weekly"
+               {% if not is_owner %}disabled{% endif %}
                {% if notify_pref.email_mode == 'weekly' %}checked{% endif %}> Wöchentlich (Mo)</label>
         <label><input type="radio" name="email_mode" value="off"
+               {% if not is_owner %}disabled{% endif %}
                {% if notify_pref.email_mode == 'off' %}checked{% endif %}> Aus</label>
       </fieldset>
-      <label><input type="checkbox" name="immediate"
+      <label class="{% if not is_owner %}feld-inaktiv{% endif %}"><input type="checkbox" name="immediate"
+             {% if not is_owner %}disabled{% endif %}
              {% if notify_pref.immediate %}checked{% endif %}>
              Sofort-Mail bei starkem Treffer (Score ≥ 90)</label>
+      {% if not is_owner %}<p class="hinweis">Sofort-Mail und Email-Digest sind aktuell nicht verfügbar.</p>{% endif %}
       <label><input type="checkbox" name="inbox"
              {% if notify_pref.inbox %}checked{% endif %}>
              In-App-Benachrichtigungen (Inbox)</label>

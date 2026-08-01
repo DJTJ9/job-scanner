@@ -19,6 +19,17 @@ def member(tmp_path, monkeypatch):
     return c
 
 
+@pytest.fixture
+def owner(tmp_path, monkeypatch):
+    monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "ownerpw")
+    monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
+    monkeypatch.setenv("JOBSCANNER_OWNER_EMAIL", "owner@test.de")
+    app = create_app(db_path=tmp_path / "jobs.db")
+    c = CSRFTestClient(app)
+    c.post("/login", data={"email": "owner@test.de", "password": "ownerpw"})
+    return c
+
+
 def test_settings_requires_login(tmp_path, monkeypatch):
     monkeypatch.setenv("JOBSCANNER_WEB_PASSWORD", "geheim123")
     monkeypatch.setenv("JOBSCANNER_SESSION_SECRET", "test-secret-key")
@@ -75,23 +86,6 @@ def test_settings_has_token_button(member):
     assert "API-Token erzeugen" in body
 
 
-def test_settings_has_bob_befehle_buttons(member):
-    member.post("/profiles/api-token")
-    body = member.get("/einstellungen").text
-    assert "claude-cli://open?q=%2Fbob%3Abob-scan" in body
-    assert "claude-cli://open?q=%2Fbob%3Abob-rescore" in body
-    assert "/bob:bob-scan" in body
-    assert "/bob:bob-rescore" in body
-
-
-def test_settings_bob_befehle_have_copy_fallback(member):
-    member.post("/profiles/api-token")
-    body = member.get("/einstellungen").text
-    assert body.count('class="copy-btn"') >= 2
-    assert 'data-copy="/bob:bob-scan"' in body
-    assert 'data-copy="/bob:bob-rescore"' in body
-
-
 def test_password_post_renders_settings_success(member):
     resp = member.post("/account/passwort", data={
         "current_password": "pw", "new_password": "neupw1",
@@ -126,25 +120,6 @@ def test_password_get_redirects_to_settings_when_logged_in(member):
     resp = member.get("/account/passwort", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/einstellungen"
-
-
-def test_settings_has_four_bob_command_cards(member):
-    body = member.get("/einstellungen").text
-    for cmd in ("bob-scan", "bob-rescore", "bob-learn", "bob-profil"):
-        assert f'data-copy="/bob:{cmd}"' in body
-
-
-def test_settings_without_token_shows_abo_hint_instead_of_deeplink(member):
-    body = member.get("/einstellungen").text
-    assert "Braucht eigenes Claude-Abo" in body
-    assert "claude-cli://open" not in body
-
-
-def test_settings_with_token_shows_deeplinks(member):
-    member.post("/profiles/api-token")
-    body = member.get("/einstellungen").text
-    assert "claude-cli://open?q=%2Fbob%3Abob-profil" in body
-    assert "Braucht eigenes Claude-Abo" not in body
 
 
 def test_spar_modus_form_renders_with_defaults(member):
@@ -334,3 +309,42 @@ def test_jooble_invalid_rejected(member, monkeypatch):
     monkeypatch.setattr("jobscanner.search.validate_jooble_key", lambda k: False)
     resp = member.post("/einstellungen/jooble", data={"jooble_key": "bad"})
     assert "Jooble" in resp.text and "abgelehnt" in resp.text
+
+
+def test_anbindungen_hat_keinen_bob_befehle_block(member):
+    member.post("/profiles/api-token")
+    body = member.get("/einstellungen?tab=anbindungen").text
+    assert "<h2>Bob-Befehle</h2>" not in body   # Verweiszeile nennt den Begriff weiterhin
+    assert "claude-cli://open" not in body
+    assert 'data-copy="/bob:' not in body
+    assert "bob-befehle-grid" not in body
+
+
+def test_anbindungen_verweist_auf_scan_und_lernen(member):
+    body = member.get("/einstellungen?tab=anbindungen").text
+    assert 'href="/scan"' in body
+    assert 'href="/lernen"' in body
+
+
+def test_jeder_tab_hat_einen_erklaerkopf(member):
+    body = member.get("/einstellungen").text
+    for satz in ("Zugangsdaten und deine Daten",
+                 "Verbindet Bob mit deinem Claude-Abo",
+                 "Gilt ab dem nächsten Scan",
+                 "Wie du von neuen Treffern erfährst"):
+        assert satz in body
+
+
+def test_email_felder_ausgegraut_fuer_member(member):
+    body = member.get("/einstellungen?tab=notify").text
+    assert "feld-inaktiv" in body
+    assert body.count("disabled") >= 4          # 3× email_mode-Radio + 1× immediate
+    assert "nur für den Admin freigeschaltet" in body
+    assert 'name="inbox"' in body               # Inbox bleibt bedienbar
+
+
+def test_email_felder_aktiv_fuer_owner(owner):
+    body = owner.get("/einstellungen?tab=notify").text
+    assert "feld-inaktiv" not in body
+    assert "disabled" not in body
+    assert 'name="email_mode"' in body
