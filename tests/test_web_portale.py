@@ -193,7 +193,8 @@ def test_owner_creates_global_portal(app):
         c.post("/portale/pruefen",
                data={"url": "https://studio.de/jobs", "typ": "career_page",
                      "is_global": "on"})
-    assert any(p["is_global"] for p in storage.list_custom_portals())
+    assert any(p["is_global"] for p in storage.list_custom_portals()
+               if p["url"] == "https://studio.de/jobs")
 
 
 def test_member_cannot_create_global_portal(app):
@@ -213,7 +214,7 @@ def test_global_group_labeled_on_portale_page(app):
                                  owner_uid, is_global=True)
     member = _member(app)
     resp = member.get("/portale")
-    assert "Empfohlene Firmen" in resp.text
+    assert "Bobs Standard-Portale" in resp.text
     assert "empfohlen.de" in resp.text
     # Nicht-Owner sieht keinen Lösch-Button auf dem globalen Eintrag:
     assert "/portale/loeschen/" not in resp.text
@@ -251,3 +252,31 @@ def test_pool_meta_passed_to_template(app):
     resp = c.get("/portale")
     assert eintrag["label"] in resp.text
     assert eintrag["beschreibung"] in resp.text
+
+
+def test_intro_erklaert_seitenzweck_und_legende(app):
+    c = CSRFTestClient(app); _login(c)
+    t = c.get("/portale").text
+    assert "welche Job-Seiten Bob absucht" in t
+    assert "🟢 Flachwasser" in t and "🔴 Riff" in t and "🔥 Firecrawl-Fallback" in t
+
+
+def test_status_steht_vor_aktion(app):
+    c = CSRFTestClient(app); _login(c)
+    t = c.get("/portale").text
+    assert t.index("Bobs Standard-Portale") < t.index("Meine Portale") < t.index("Lot auswerfen")
+
+
+def test_drei_url_felder_sind_erklaert(app):
+    c = CSRFTestClient(app); _login(c)
+    t = c.get("/portale").text
+    assert "Adresse der Seite" in t
+    assert "Such-URL-Vorlage" in t and "{query}" in t
+    assert "Detail-URL-Muster" in t
+    assert "Woran Bob eine einzelne Anzeige erkennt" in t
+
+
+def test_leerzustand_meine_portale_ist_einladung(app):
+    c = CSRFTestClient(app); _login(c)
+    t = c.get("/portale").text
+    assert "Noch keine eigene Seite geprüft" in t

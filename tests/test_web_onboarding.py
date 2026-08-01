@@ -226,7 +226,7 @@ def test_settings_hint_texts_use_hinweis_class(owner_client):
 def test_portale_beispiel_uses_hinweis_class(owner_client):
     resp = owner_client.get("/portale")
     assert 'class="hinweis"' in resp.text
-    assert "z.B. https://bar.de/jobs?q={query}" in resp.text
+    assert "Beispiel: https://www.beispiel.de/jobs?q={query}" in resp.text
 
 
 def test_keys_hint_box_uses_hinweis_class(owner_client):

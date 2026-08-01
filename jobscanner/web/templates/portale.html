@@ -1,18 +1,91 @@
 {% extends "base.html" %}
 {% block title %}Portale prüfen — Bob der Job-Bot{% endblock %}
 {% block content %}
-<h2>Neues Portal prüfen</h2>
+{% set globale = portale | selectattr("is_global") | list %}
+{% set eigene = portale | rejectattr("is_global") | list %}
+
+<div class="panel">
+  <h2>Portale prüfen</h2>
+  <p>Hier legst du fest, welche Job-Seiten Bob absucht. Bobs Standard-Portale laufen schon mit.
+     Eigene Seiten prüfst du unten mit dem Lot — Bob sagt dir, ob er dort ohne
+     Firecrawl-Credits ankommt.</p>
+  <ul class="kartenlegende">
+    <li>🟢 Flachwasser — Bob kommt kostenlos durch</li>
+    <li>🔴 Riff — die Seite blockt, Bob braucht Firecrawl (Credits)</li>
+    <li>🔥 Firecrawl-Fallback — läuft bereits über Firecrawl</li>
+  </ul>
+  <a class="btn btn-secondary" href="#portal-pruefen">Eigenes Portal prüfen ↓</a>
+</div>
+
+<h2>Bobs Standard-Portale <span class="hinweis">{{ globale | length }} aktiv</span></h2>
+{% if globale %}
+<div class="pool-grid">
+  {% for p in globale %}
+  {% set meta = pool_meta.get(p.url) %}
+  <div class="pool-karte">
+    <p class="pool-name">{% if p.status == 'active' %}🟢{% else %}⚪{% endif %}
+      {{ meta.label if meta else p.url }}</p>
+    <p class="pool-url">{{ p.url }}</p>
+    <p class="pool-text">{{ meta.beschreibung if meta else "Vom Betreiber empfohlen." }}</p>
+    <p class="pool-status">{% if p.status == 'active' %}läuft mit{% else %}{{ p.status }}{% endif %}
+      {% if p.firecrawl_failover %}🔥{% endif %}</p>
+    {% if p.can_manage %}{% include "_portale_aktionen.html" %}{% endif %}
+  </div>
+  {% endfor %}
+</div>
+<p class="hinweis">Einzelne abwählen: Einstellungen → Portal-Auswahl.</p>
+{% else %}
+<p class="hinweis">Noch keine Standard-Portale hinterlegt.</p>
+{% endif %}
+
+<h2>Meine Portale</h2>
+{% if eigene %}
+<table class="portale-table">
+  <tr><th>URL</th><th>Typ</th><th>Status</th><th>Aktion</th></tr>
+  {% for p in eigene %}
+  <tr>
+    <td>{{ p.url }}</td><td>{{ p.typ }}</td><td>{{ p.status }}{% if p.firecrawl_failover %} <span class="hinweis">🔥 Firecrawl-Fallback aktiv</span>{% endif %}</td>
+    <td>{% if p.can_manage %}{% include "_portale_aktionen.html" %}{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="hinweis">Noch keine eigene Seite geprüft. Wirf unten das Lot aus.</p>
+{% endif %}
+
+<h2 id="portal-pruefen">Neues Portal prüfen</h2>
 <form method="post" action="/portale/pruefen" class="panel">
   {% include "_csrf_field.html" %}
-  <label>URL
-    <input type="url" name="url" required></label>
-  <label><input type="radio" name="typ" value="career_page" checked> Career-Page (Watchlist)</label>
-  <label><input type="radio" name="typ" value="portal"> Durchsuchbares Portal</label>
-  <label>Such-URL-Vorlage (nur bei Portal) <span class="hinweis">z.B. https://bar.de/jobs?q={query}</span>
-    <input type="text" name="search_url_template"></label>
-  <label>Detail-URL-Muster (Regex, nur bei Portal)<input type="text" name="detail_url_pattern"></label>
+  <div class="feld-schritt">
+    <span class="anl-step-num">1</span>
+    <div>
+      <label>Adresse der Seite
+        <span class="hinweis">Startseite des Portals oder der Firma.</span>
+        <input type="url" name="url" placeholder="https://www.beispiel.de/" required></label>
+      <label><input type="radio" name="typ" value="career_page" checked> Career-Page (Watchlist)</label>
+      <label><input type="radio" name="typ" value="portal"> Durchsuchbares Portal</label>
+    </div>
+  </div>
+  <div class="feld-schritt">
+    <span class="anl-step-num">2</span>
+    <div>
+      <label>Such-URL-Vorlage <span class="hinweis">nur bei Portal</span>
+        <span class="hinweis">Die Trefferliste, mit {query} an der Stelle des Suchworts.
+          Beispiel: https://www.beispiel.de/jobs?q={query}</span>
+        <input type="text" name="search_url_template"></label>
+    </div>
+  </div>
+  <div class="feld-schritt">
+    <span class="anl-step-num">3</span>
+    <div>
+      <label>Detail-URL-Muster <span class="hinweis">nur bei Portal</span>
+        <span class="hinweis">Woran Bob eine einzelne Anzeige erkennt (Regex).
+          Beispiel: beispiel\.de/job/</span>
+        <input type="text" name="detail_url_pattern"></label>
+    </div>
+  </div>
   {% if is_owner %}
-  <label><input type="checkbox" name="is_global"> Als empfohlene Firma für alle Member (global)</label>
+  <label><input type="checkbox" name="is_global"> Als Standard-Portal für alle Member (global)</label>
   {% endif %}
   <button type="submit" class="btn-primary">Lot auswerfen</button>
 </form>
@@ -49,31 +122,4 @@
   </div>
   {% endif %}
 {% endif %}
-
-{% set globale = portale | selectattr("is_global") | list %}
-{% set eigene = portale | rejectattr("is_global") | list %}
-
-{% if globale %}
-<h2>Empfohlene Firmen</h2>
-<table class="portale-table">
-  <tr><th>URL</th><th>Typ</th><th>Status</th><th>Aktion</th></tr>
-  {% for p in globale %}
-  <tr>
-    <td>{{ p.url }}</td><td>{{ p.typ }}</td><td>{{ p.status }}{% if p.firecrawl_failover %} <span class="hinweis">🔥 Firecrawl-Fallback aktiv</span>{% endif %}</td>
-    <td>{% if p.can_manage %}{% include "_portale_aktionen.html" %}{% else %}<span class="hinweis">empfohlen</span>{% endif %}</td>
-  </tr>
-  {% endfor %}
-</table>
-{% endif %}
-
-<h2>Portale</h2>
-<table class="portale-table">
-  <tr><th>URL</th><th>Typ</th><th>Status</th><th>Aktion</th></tr>
-  {% for p in eigene %}
-  <tr>
-    <td>{{ p.url }}</td><td>{{ p.typ }}</td><td>{{ p.status }}{% if p.firecrawl_failover %} <span class="hinweis">🔥 Firecrawl-Fallback aktiv</span>{% endif %}</td>
-    <td>{% if p.can_manage %}{% include "_portale_aktionen.html" %}{% endif %}</td>
-  </tr>
-  {% endfor %}
-</table>
 {% endblock %}
