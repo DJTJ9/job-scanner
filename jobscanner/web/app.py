@@ -169,13 +169,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return None
 
     def require_verified_user(request: Request) -> RedirectResponse | None:
-        if (redirect := require_user(request)) is not None:
-            return redirect
-        if request.session.get("role") == "owner":
-            return None
-        if not request.session.get("email_verified"):
-            return RedirectResponse("/verify-pending", status_code=303)
-        return None
+        """Email-Verifikation ist abgeschafft (Registrierung ist invite-code-gated).
+        Name + Signatur bleiben, damit die 19 Call-Sites unberührt bleiben."""
+        return require_user(request)
 
     def _require_owned(request: Request, profile_id: int):
         """(profile, None) wenn eingeloggt UND Profil dem User gehört; sonst (None, response).

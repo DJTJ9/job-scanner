@@ -66,12 +66,11 @@ def test_login_sixth_attempt_from_same_ip_rate_limited(app):
     assert resp.status_code == 429
 
 
-def test_unverified_member_redirected_from_dashboard_and_root(app):
+def test_member_reaches_dashboard_directly_after_registration(app):
     client = CSRFTestClient(app)
     _register(client)
     resp_root = client.get("/", follow_redirects=False)
-    assert resp_root.status_code == 303
-    assert resp_root.headers["location"] == "/verify-pending"
+    assert resp_root.status_code == 200
 
 
 def test_verify_email_unlocks_dashboard_access(app):
