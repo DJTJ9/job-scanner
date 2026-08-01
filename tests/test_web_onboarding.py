@@ -318,3 +318,52 @@ def test_tour_seen_ohne_login_401(tmp_path, monkeypatch):
     c = CSRFTestClient(create_app(db_path=tmp_path / "jobs.db"))
     r = c.post("/tour/seen", json={})
     assert r.status_code == 401
+
+
+# --- Onboarding-Fortschrittsbalken (Nächste-Schritte-Panel) ---
+
+def test_balken_0_von_3_ohne_profil(member_client):
+    text = member_client.get("/").text
+    assert "0/3" in text
+    assert "width: 0%" in text
+
+
+def test_balken_1_von_3_mit_profil(tour_member):
+    c, uid = tour_member
+    storage.create_profile("Testprofil", {}, user_id=uid)
+    text = c.get("/").text
+    assert "1/3" in text
+    assert "width: 33%" in text
+
+
+def test_balken_2_von_3_nach_scan(tour_member, monkeypatch):
+    c, uid = tour_member
+    storage.create_profile("Testprofil", {}, user_id=uid)
+    echt = storage.get_home_summary
+
+    def fake(profile_id):
+        s = dict(echt(profile_id))
+        s["last_scan_ts"] = 1754000000
+        return s
+
+    monkeypatch.setattr(storage, "get_home_summary", fake)
+    text = c.get("/").text
+    assert "2/3" in text
+    assert "width: 67%" in text
+
+
+def test_balken_weg_bei_3_von_3(tour_member, monkeypatch):
+    c, uid = tour_member
+    storage.create_profile("Testprofil", {}, user_id=uid)
+    echt = storage.get_home_summary
+
+    def fake(profile_id):
+        s = dict(echt(profile_id))
+        s["last_scan_ts"] = 1754000000
+        s["vote_count"] = 5
+        return s
+
+    monkeypatch.setattr(storage, "get_home_summary", fake)
+    text = c.get("/").text
+    assert "Nächste Schritte" not in text
+    assert "schritt-balken" not in text

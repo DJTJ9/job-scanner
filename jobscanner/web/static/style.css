@@ -797,3 +797,9 @@ dialog.export-dialog::backdrop { background: rgba(5, 13, 26, 0.7); }
 .anl-optional { display: inline-block; margin-left: 0.5rem; padding: 0.05rem 0.5rem;
   border: 1px solid var(--bob-lila); border-radius: 10px; color: var(--bob-lila);
   font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; vertical-align: middle; }
+
+/* --- Onboarding-Fortschrittsbalken (Nächste Schritte) --- */
+.schritt-zaehler { float: right; font-size: 0.9rem; opacity: 0.8; }
+.schritt-balken { height: 6px; background: var(--tiefe); border-radius: 3px; overflow: hidden; margin: 0.5rem 0 0.75rem; }
+.schritt-balken-fill { height: 100%; background: var(--beute); border-radius: 3px; transition: width 0.4s ease; }
+@media (prefers-reduced-motion: reduce) { .schritt-balken-fill { transition: none; } }

@@ -79,7 +79,9 @@
 {% endif %}
 {% if not steps_done %}
 <div class="panel">
-  <h2>Nächste Schritte</h2>
+  {% set fertig = steps.values() | select | list | length %}
+  <h2>Nächste Schritte <span class="schritt-zaehler mono">{{ fertig }}/3</span></h2>
+  <div class="schritt-balken"><div class="schritt-balken-fill" style="width: {{ '%.0f' % (fertig / 3 * 100) }}%"></div></div>
   <ul class="anl-check">
     <li>{{ '✅' if steps.profil else '□' }} <a class="link" href="/wizard/new">Profil anlegen</a></li>
     <li>{{ '✅' if steps.scan else '□' }} <a class="link" href="/scan">ersten Scan starten</a></li>
