@@ -310,7 +310,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         own = storage.list_profiles(user_id=user_id)
         spar = storage.get_spar_modus(own[0]["data"]) if own else dict(storage.SPAR_MODUS_DEFAULT)
         notify_pref = storage.get_notify_pref(own[0]["data"]) if own else dict(storage.NOTIFY_PREF_DEFAULT)
-        return {"has_claude_kit": bool(user.get("api_token_hash")), "spar_modus": spar,
+        return {"is_owner": user.get("role") == "owner", "spar_modus": spar,
                 "notify_pref": notify_pref, "username": user.get("username"),
                 "has_firecrawl_key": bool(storage.get_firecrawl_key_enc(user_id)),
                 "has_adzuna_key": all(storage.get_adzuna_keys_enc(user_id)),
@@ -510,10 +510,17 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return redirect
         if not csrf.verify(request, csrf_token):
             return JSONResponse({"error": "csrf"}, status_code=403)
-        pref = {"email_mode": email_mode if email_mode in ("daily", "weekly", "off") else "daily",
-                "immediate": immediate is not None,
-                "inbox": inbox is not None}
-        storage.set_notify_pref(request.session["user_id"], pref)
+        uid = request.session["user_id"]
+        if request.session.get("role") == "owner":
+            mode = email_mode if email_mode in ("daily", "weekly", "off") else "daily"
+            imm = immediate is not None
+        else:  # Email-Felder sind ausgegraut und senden nichts — gespeicherte Werte behalten
+            own = storage.list_profiles(user_id=uid)
+            stored = (storage.get_notify_pref(own[0]["data"]) if own
+                      else dict(storage.NOTIFY_PREF_DEFAULT))
+            mode, imm = stored["email_mode"], stored["immediate"]
+        storage.set_notify_pref(uid, {"email_mode": mode, "immediate": imm,
+                                      "inbox": inbox is not None})
         return RedirectResponse("/einstellungen?tab=notify", status_code=303)
 
     @app.post("/einstellungen/firecrawl")
