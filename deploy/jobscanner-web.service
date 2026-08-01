@@ -5,7 +5,7 @@ OnFailure=jobscanner-alert@%n.service
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/jobscanner
+WorkingDirectory=/opt/jobscanner-live
 User=jobscanner
 Group=jobscanner
 EnvironmentFile=/etc/jobscanner/web.env
