@@ -51,7 +51,7 @@
   <p>Der Titel jeder Anzeige ist ein Link auf die Original-Ausschreibung beim Portal und öffnet
     sich in einem neuen Tab. Ist eine Anzeige zwischenzeitlich verschwunden, trägt die Karte
     das Kennzeichen „abgelaufen“ und der Link ist tot — die Bewertung bleibt trotzdem stehen.</p>
-  <p>An jeder Karte sitzen zwei Daumen-Knöpfe: Daumen hoch (👍) und Daumen runter (👎). Damit
+  <p>An jeder Karte sitzen zwei Daumen-Knöpfe: Daumen hoch und Daumen runter. Damit
     sagst du Bob, was du von einer Anzeige hältst. Daumen runter nimmt sie aus „Aktiv“ heraus
     und legt sie unter „Aussortiert → Bereits bewertet“ ab; Daumen hoch lässt sie stehen und
     markiert sie mit „✓ bewertet“. <b>Achtung:</b> Ein Vote ändert den Score nicht sofort. Votes
@@ -153,10 +153,275 @@
     ein anderes Gewicht für ein Kriterium oder eine Präferenz in Worten. Wirksam wird ein
     Vorschlag erst, wenn du ihn bestätigst — ein bestätigter Gewichts-Vorschlag setzt genau den
     Regler, den du hier auch von Hand ziehen könntest.</p>
+
+  <h3 id="k1-lernen">1.7 Lern-Zentrum</h3>
+  <p>Das Lern-Zentrum ist die Stelle, an der aus deinen Daumen-Bewertungen gelernte Kriterien
+    werden. Votes und Favoriten sammeln sich still im Hintergrund; erst eine Lern-Analyse liest
+    sie zusammen aus und destilliert daraus, was du an einer Anzeige eigentlich magst. Als
+    Mitglied startest du diese Analyse nicht auf der Website, sondern in deinem eigenen Claude
+    Code — die Seite hält dafür den Knopf „Öffne /bob:bob-learn in Claude Code“ und den Befehl
+    <code>/bob:bob-learn</code> zum Kopieren bereit.</p>
+  <p>In der Analyse sucht Bob getrennt nach Mustern in deinen Daumen-hoch- und deinen
+    Daumen-runter-Bewertungen: Welche Eigenschaften — Remote, Standort, Tech-Stack,
+    Anstellungsart, Seniorität, Branche — hängen mit welcher Richtung zusammen? Findet er zwei
+    sehr ähnliche Anzeigen mit gegensätzlichem Vote, fragt er dich im Gespräch einmal nach dem
+    Grund. Am Ende zeigt er dir alle Vorschläge gesammelt, und du sagst, welche übernommen
+    werden.</p>
+  <p>Eine gelernte Erkenntnis hat genau eine von zwei Formen:</p>
+  <ul>
+    <li><b>Gewicht</b> — ein bestehendes Kriterium bekommt einen neuen Wert von 0 bis 5, also
+      genau den Regler, den du im Feintuning auch von Hand ziehen könntest.</li>
+    <li><b>Präferenz</b> — ein kurzer Satz in Worten, etwa „Bevorzugt Remote, aber Hamburg ok“,
+      für alles, was sich auf kein bestehendes Kriterium abbilden lässt.</li>
+  </ul>
+  <p>Übernommene Erkenntnisse stehen anschließend auf der Seite unter <b>Aktive Erkenntnisse</b>,
+    jeweils mit Datum, und lassen sich dort auch wieder entfernen. <b>Achtung:</b> Nur
+    Gewichts-Erkenntnisse ändern die Scores sofort — sie werden ins Profil geschrieben, und der
+    Bestand wird direkt neu durchgerechnet, ohne LLM und ohne Kosten. Eine Präferenz ist Freitext
+    und wirkt erst beim nächsten <code>/bob:bob-rescore</code>-Lauf; dass sich unmittelbar danach
+    an den Zahlen nichts tut, ist also kein Fehler.</p>
+  <p>Ein erneutes Lernen lohnt sich, sobald wieder eine Handvoll neuer Bewertungen zusammengekommen
+    ist. Unter etwa fünf Votes ist die Datenlage dünn, und Bob sagt dir das auch. Ab zehn neuen
+    Votes seit der letzten Analyse setzt die Seite von sich aus den Hinweis „Neue Analyse
+    verfügbar“ mitsamt der Zahl der neuen Votes. Der erste bestätigte Vorschlag schaltet außerdem
+    das LLM-Feintuning frei — <code>/bob:bob-rescore</code> hat vorher schlicht nichts zu tun.</p>
+
+  <h3 id="k1-portale">1.8 Portale prüfen</h3>
+  <p>Hier legst du fest, welche Job-Seiten Bob absucht. Ganz oben laufen <b>Bobs
+    Standard-Portale</b> — ein kuratierter Pool, in den nur Seiten aufgenommen werden, bei denen
+    Bob ohne Firecrawl-Credits durchkommt; jede musste dafür einen echten Live-Test bestehen.
+    Diese Portale sind für alle Mitglieder aktiv, ohne dass du etwas einrichten musst; derzeit
+    steht dort Absolventa, die Jobbörse für Berufseinsteiger. Jede Kachel zeigt Anzeigename,
+    Adresse, eine Zeile dazu, wofür die Seite gut ist, und den Zustand.</p>
+  <p>Die Legende über der Liste benennt drei Zustände:</p>
+  <ul>
+    <li><b>Flachwasser (grün)</b> — Bob kommt kostenlos durch, die Seite braucht keinen
+      Zusatzdienst.</li>
+    <li><b>Riff (rot)</b> — die Seite blockt; Bob käme nur über Firecrawl hinein, und das kostet
+      Credits.</li>
+    <li><b>Firecrawl-Fallback</b> — für diese Seite läuft der Umweg über Firecrawl bereits.</li>
+  </ul>
+  <p>Darunter steht deine eigene Liste. Unter <b>Neues Portal prüfen</b> wirfst du das Lot aus: Du
+    gibst die Adresse an und sagst, um was für eine Seite es sich handelt. Eine <b>Career-Page</b>
+    ist die Stellenseite einer einzelnen Firma — Bob beobachtet sie als Watchlist und braucht
+    keine weiteren Angaben. Ein <b>durchsuchbares Portal</b> ist eine Jobbörse mit eigener Suche,
+    und dafür braucht Bob zwei Muster:</p>
+  <ul>
+    <li><b>Such-URL-Vorlage</b> — die Adresse der Trefferliste, mit <code>{query}</code> an der
+      Stelle des Suchworts, zum Beispiel
+      <code>https://www.beispiel.de/jobs?q={query}</code>.</li>
+    <li><b>Detail-URL-Muster</b> — woran Bob erkennt, dass ein Link eine einzelne Anzeige ist,
+      als regulärer Ausdruck, zum Beispiel <code>beispiel\.de/job/</code>.</li>
+  </ul>
+  <p>„Lot auswerfen“ ruft die Seite dann wirklich einmal auf. Kommt Bob durch, meldet er
+    Flachwasser — rendert, kein Anti-Bot, Jobdaten erkennbar — und du nimmst die Seite mit einem
+    Klick in die Suchliste auf. Meldet er ein Riff, kannst du sie trotzdem aufnehmen, dann aber
+    über Firecrawl. <b>Achtung:</b> Das verursacht laufende Credit-Kosten und setzt voraus, dass
+    du unter <b>Einstellungen → Anbindungen</b> einen eigenen Firecrawl-Key hinterlegt hast; ohne
+    Key weist die Seite darauf hin.</p>
+  <p>Die Standard-Portale und die freigeschalteten eigenen Seiten durchsucht der Bob-Server selbst.
+    Davon zu unterscheiden ist die <b>Portal-Auswahl</b> unter <b>Einstellungen → Suche &amp;
+    Scoring</b>: Sie steuert allein, welche Portale dein eigener Scan über die Heim-IP mitnimmt —
+    StepStone, Indeed und deine eigenen durchsuchbaren Portale.</p>
+
+  <h3 id="k1-scan">1.9 Scan</h3>
+  <p>Die Seite <b>Scan starten</b> ist die Kommandobrücke. Oben steht der Scan-Stand: wann zuletzt
+    gescannt wurde und wie viele Anzeigen gerade im Bestand liegen. Darunter stehen die Befehle,
+    die du in deinem eigenen Claude Code eingibst — jeder mit einem Kopier-Knopf, damit du dich
+    nicht vertippst.</p>
+  <ul>
+    <li><code>/bob:bob-scan</code> — neue Anzeigen finden und sofort bewerten; gratis, ohne
+      Schlüssel.</li>
+    <li><code>/bob:bob-rescore</code> — gute Treffer nach dem Lernen mit dem LLM neu bewerten,
+      wahlweise im Tier „mittel“ oder „hoch“.</li>
+    <li><code>/bob:bob-learn</code> — deine Kriterien aus den Votes schärfen (siehe 1.7).</li>
+    <li><code>/bob:bob-profil</code> — dein Profil im Gespräch nachschärfen.</li>
+  </ul>
+  <p>Beim Start fragt Bob nach der <b>Scan-Größe</b>: klein, mittel oder groß. Sie legt fest, wie
+    viele Suchbegriffe und wie viele Detailseiten ein Lauf höchstens anfasst — klein ist der
+    schnelle Kontrollblick, groß der gründliche Durchgang. Darunter zeigt die Seite, welche
+    Portale dein Scan mitnimmt, und welche sich mit eigenen Schlüsseln dazuschalten lassen:
+    Jooble und Adzuna laufen nur, wenn du unter Einstellungen einen eigenen Key hinterlegt hast.</p>
+  <p>Das Heim-IP-Prinzip in Kürze: Die großen Portale sperren Anfragen aus Rechenzentren aus,
+    deshalb läuft dieser Teil des Scans nicht auf dem Bob-Server, sondern im Browser deines
+    eigenen Rechners über deine private Internetleitung — dort kommt Bob durch, ohne Schlüssel
+    und ohne Kosten. Die Funde schickt dein Claude anschließend an den Bob-Server, wo sie sofort
+    nach Regeln bewertet werden. Was das voraussetzt und wie du es einrichtest, steht ausführlich
+    in Kapitel 3.</p>
+  <p>Ein Scan lässt sich auch automatisieren: Der Aufgabenplaner deines Betriebssystems — cron
+    unter Linux, launchd auf dem Mac, die Aufgabenplanung unter Windows — ruft dafür
+    <code>claude -p "/bob:bob-scan"</code> auf. Den Hinweis dazu klappst du auf der Seite selbst
+    auf; Beispiele stehen im README des Bob-Kits.</p>
+
+  <h3 id="k1-roadmap">1.10 Roadmap &amp; Patch Notes</h3>
+  <p>Diese Seite beantwortet zwei Fragen: Was kommt als Nächstes, und was hat sich zuletzt
+    geändert. Oben unter <b>Als Nächstes geplant</b> stehen die Vorhaben, die bereits feststehen —
+    jeweils mit Titel und einer kurzen Notiz, worum es geht. Steht dort nichts, ist gerade nichts
+    eingetragen; die Liste ist bewusst kurz gehalten und keine Wunschliste.</p>
+  <p>Darunter stehen unter <b>Zuletzt ausgeliefert</b> die Versionshinweise. Jeder Eintrag trägt
+    eine Versionsnummer und ein Datum, listet die neuen Funktionen und darunter — getrennt
+    ausgewiesen — die behobenen Fehler. Wenn dir eine Seite auf einmal anders vorkommt als beim
+    letzten Besuch, findest du die Erklärung hier.</p>
+
+  <h3 id="k1-hilfe">1.11 Hilfe-Center</h3>
+  <p>Das Hilfe-Center bündelt alles Erklärende an einer Stelle und teilt es auf drei Reiter auf:
+    <b>Claude mit Bob verbinden</b>, <b>FAQ</b> und <b>Anleitungen</b>.</p>
+  <ul>
+    <li><b>Claude mit Bob verbinden</b> — der Einstieg Schritt für Schritt: Konto anlegen, Profil
+      anlegen, Claude Code installieren, API-Token holen, das Bob-Plugin installieren und den
+      ersten eigenen Scan fahren. Die ersten beiden Schritte laufen komplett im Browser; alles
+      danach braucht ein eigenes Claude-Abo.</li>
+    <li><b>FAQ</b> — kurze Antworten auf einzelne Fragen, nach Themen gruppiert: Profil und
+      Kriterien, Jobs und Bewerten, Scannen und Befehle, Einstieg und Fehler, Favoriten, Lernen,
+      Konto und Sicherheit. Hier stehen auch die üblichen Stolpersteine, etwa ein „401“ beim
+      ersten Bob-Befehl oder ein Plugin, das nach der Installation noch nicht geladen ist.</li>
+    <li><b>Anleitungen</b> — der Einstieg zu den langen Texten: diese ausführliche Anleitung, die
+      Scan-Anleitung und die Anleitung für die optionalen Adzuna- und Jooble-Schlüssel.</li>
+  </ul>
+  <p>Die Faustregel: Der erste Reiter bringt dich einmal zum Laufen, der zweite beantwortet eine
+    konkrete Frage in ein paar Zeilen, der dritte ist zum Nachlesen, wenn du es genau wissen
+    willst.</p>
+
+  <h3 id="k1-einstellungen">1.12 Einstellungen</h3>
+  <p>Die Einstellungen sind in vier Reiter geteilt: <b>Konto</b>, <b>Anbindungen</b>,
+    <b>Suche &amp; Scoring</b> und <b>Benachrichtigung</b>. Ganz oben steht immer die
+    E-Mail-Adresse, mit der du gerade angemeldet bist.</p>
+  <p>Unter <b>Konto</b> stehen deine Zugangsdaten: Benutzername, Passwort und E-Mail-Adresse
+    lassen sich einzeln ändern, und jede Änderung wirkt sofort. Beim neuen Passwort zeigt ein
+    Balken mit, wie stark es ist, und es muss zweimal übereinstimmen. Darunter liegt
+    <b>Meine Daten</b> — ein Knopf, der dir alles, was Bob über dich gespeichert hat, als
+    JSON-Datei herunterlädt. Am Ende folgt die <b>Gefahrenzone</b> mit der Konto-Löschung.
+    <b>Achtung:</b> Die Löschung ist unwiderruflich und nimmt alle Profile, Kriterien und
+    Bewertungen mit; zur Bestätigung musst du dein aktuelles Passwort eingeben.</p>
+  <p>Unter <b>Anbindungen</b> verbindest du Bob mit deinem eigenen Claude-Abo. „API-Token
+    erzeugen“ liefert das Token, das dein Claude Code für jede Verbindung braucht.
+    <b>Achtung:</b> Es wird genau einmal angezeigt — kopier es sofort. Verloren ist trotzdem kein
+    Drama: Ein neues Token ersetzt das alte, das alte wird dabei ungültig. Darunter liegen drei
+    optionale Schlüssel, alle verschlüsselt gespeichert — der <b>Firecrawl-Key</b> für eigene
+    Portale, bei denen Bob sonst nicht durchkommt, sowie <b>Adzuna</b> (App-ID und App-Key) und
+    <b>Jooble</b>, mit denen dein Scan zwei zusätzliche Portale mitnimmt. Ohne jede Anbindung
+    läuft dein Regel-Scoring trotzdem weiter.</p>
+  <p>Unter <b>Suche &amp; Scoring</b> steht der <b>Spar-Modus</b>: wie viele Anzeigen ein
+    <code>/bob:bob-rescore</code>-Lauf höchstens verarbeiten darf, ob Bob Nachbarrollen
+    mitgeneriert und auf welche Orte und Sprachen er den Bestand eingrenzt (siehe 1.5). Daneben
+    liegt die <b>Portal-Auswahl</b> für deinen eigenen Scan über die Heim-IP. Beides gilt ab dem
+    nächsten Scan; schon gefundene Anzeigen ändern sich dadurch nicht.</p>
+  <p>Unter <b>Benachrichtigung</b> legst du fest, wie du von neuen Treffern erfährst: In-App-
+    Benachrichtigungen für den Posteingang aus 1.4, dazu ein E-Mail-Digest täglich, wöchentlich
+    oder aus und eine Sofort-Mail ab Score 90. <b>Achtung:</b> Der E-Mail-Versand ist derzeit nur
+    für das Admin-Konto freigeschaltet; für alle anderen sind diese Felder ausgegraut, und der
+    Posteingang ist der Weg, über den du von neuen Treffern erfährst.</p>
 </section>
 
 <section class="anl-kapitel" id="k2">
   <h2>2 Wie Bob funktioniert</h2>
+
+  <p>Jede Anzeige läuft bei Bob durch dieselbe Kette: <b>Scan → Dedup → Scoring → Feedback</b>.
+    Dieses Kapitel geht die vier Schritte der Reihe nach durch. Ein Punkt vorweg, weil er alles
+    Weitere erklärt: Der weitaus größte Teil dieser Kette läuft deterministisch, also nach festen
+    Regeln, und kostet nichts. Ein Sprachmodell greift an genau einer Stelle ein — und auch dort
+    nur, wenn du es selbst startest.</p>
+  <p>Zuerst die Aufstellung der Beteiligten; auf der Website steht dafür ein Diagramm aus drei
+    Kästen. Links sitzt <b>dein Claude</b>, also Claude Code auf deinem Rechner mit installiertem
+    Bob-Plugin. In der Mitte sitzt der <b>Bob-Server</b> unter job-scanner.thinkshark.de. Rechts
+    sitzt die <b>gemeinsame Job-Datenbank</b>, auf die allein der Server zugreift. Zwischen deinem
+    Claude und dem Server läuft eine verschlüsselte Verbindung über HTTPS; gesprochen wird darüber
+    das Protokoll MCP. Vom Server kommen Jobs und deine Kriterien zu dir, zurück gehen deine
+    Bewertungen. Dein API-Token authentifiziert dabei jede einzelne Verbindung, und deine
+    Bewertungen bleiben privat — andere Mitglieder sehen sie nicht.</p>
+
+  <h3 id="k2-scan">2.1 Scan: woher die Anzeigen kommen</h3>
+  <p>Anzeigen kommen auf zwei Wegen in den gemeinsamen Bestand. Der erste Weg ist der Bob-Server
+    selbst: Er durchsucht in eigenen, regelmäßigen Läufen die Standard-Portale sowie die geprüften
+    eigenen Portale und Career-Pages der Mitglieder. Der zweite Weg bist du —
+    <code>/bob:bob-scan</code> läuft in deinem eigenen Claude Code und steuert einen Browser auf
+    deinem Rechner.</p>
+  <p>Der Grund für diese Teilung ist banal: Die großen Portale sperren Anfragen aus Rechenzentren
+    aus. Vom Bob-Server aus käme man dort nicht weit, über deine private Internetleitung schon.
+    Deshalb übernimmt dein Rechner die gesperrten Portale — derzeit StepStone und Indeed —, und
+    der Server übernimmt alles, wo er ohne Sperre durchkommt. Für diesen Portal-Scan braucht es
+    weder Schlüssel noch Guthaben, und es läuft dabei kein Sprachmodell mit: Das ist stures
+    Aufrufen, Warten und Text-Einsammeln. Zwischen den Seitenaufrufen legt der Scan bewusst Pausen
+    ein, damit er die Portale nicht überrennt.</p>
+  <p>Ein Lauf holt pro Anzeige nur den Rohtext der Seite — Titel, Firma, Ort, Anforderungen, alles
+    noch unsortiert und auf eine handhabbare Länge gekürzt. Wie viel ein Lauf überhaupt anfasst,
+    bestimmt die Scan-Größe klein, mittel oder groß. Dein Claude schickt die Funde anschließend
+    gesammelt an den Bob-Server; ab dort ist es Server-Arbeit. Optional durchsucht der Server
+    zusätzlich die Aggregatoren Adzuna und Jooble — aber nur, wenn du eigene, kostenlose Schlüssel
+    dafür hinterlegt hast.</p>
+
+  <h3 id="k2-dedup">2.2 Dedup: warum du jede Stelle nur einmal siehst</h3>
+  <p>Dieselbe Stelle steht oft auf mehreren Portalen, und dasselbe Portal liefert sie bei jedem
+    Lauf erneut. Bob filtert das auf zwei Ebenen heraus, beide ohne Sprachmodell.</p>
+  <p>Die erste Ebene ist die Adresse. Bob merkt sich jede Adresse, die er schon einmal geholt hat;
+    taucht sie wieder auf, lädt er die Seite gar nicht erst neu, sondern vermerkt nur, dass die
+    Anzeige heute noch online war. Damit das trägt, räumt er Adressen vorher auf: Indeed hängt
+    zum Beispiel wechselnde Zähl-Parameter an, die dieselbe Stelle wie eine neue aussehen lassen —
+    Bob schneidet sie weg und behält nur den stabilen Anzeigen-Schlüssel.</p>
+  <p>Die zweite Ebene ist der Inhalt. Aus Firma, Titel und Ort baut Bob einen Fingerabdruck und
+    normalisiert dabei genau das weg, was zwischen zwei Portalen typischerweise abweicht:
+    Rechtsformen wie „GmbH“, die Geschlechtszusätze (m/w/d), Postleitzahlen, Länderangaben und
+    Zusätze wie „Remote“ im Ortsfeld. Zwei Anzeigen mit demselben Fingerabdruck sind für Bob
+    dieselbe Stelle; die zweite legt sich nicht als neue Zeile an, sondern hängt ihre Fundstelle
+    an die bestehende an. So siehst du eine Karte, auch wenn die Stelle auf drei Portalen steht.</p>
+  <p>Ein Nebeneffekt davon ist in den Job-Angeboten sichtbar: Beim Wiederfund bleibt der Zeitpunkt
+    des ersten Fundes stehen, und nur der letzte Fund wird aktualisiert. Deshalb kann Bob
+    „Frisch &amp; stark“ sortieren und Anzeigen, die nicht mehr auftauchen, als abgelaufen
+    kennzeichnen.</p>
+
+  <h3 id="k2-scoring">2.3 Scoring: wie der Score 0–100 entsteht</h3>
+  <p>Das Scoring läuft in zwei Stufen. Zuerst prüft Bob deine <b>No-Gos</b>. Jedes aktivierte
+    No-Go ist eine feste Regel — Zeitarbeit, Crunch, provisionsbasierte Vergütung, Präsenzpflicht
+    an fünf Tagen und so weiter. Greift eine davon, ist die Sache entschieden: Die Anzeige bekommt
+    den Score 0, die Kategorie „No-Go“ und den Namen der Regel als Begründung. Weitergerechnet
+    wird dann gar nicht mehr.</p>
+  <p>Sonst wird jedes Kriterium mit einem Gewicht über 0 einzeln geprüft. Hinter jedem Kriterium
+    steht eine Regel, die im Text der Anzeige nach konkreten Anhaltspunkten sucht und daraus
+    Punkte von 0 bis 10 plus eine kurze Begründung macht — „voll remote“, „Gehalt genannt“,
+    „Standort passt“, „3 Tech-Überschneidungen“. Findet eine Regel gar keinen Anhaltspunkt, fällt
+    das Kriterium für diese eine Anzeige komplett heraus und zieht den Score weder hoch noch
+    runter.</p>
+  <p>Aus den Einzelpunkten wird der Gesamtscore als normierte gewichtete Summe:</p>
+  <ul>
+    <li>Für jedes bewertbare Kriterium: Punkte mal Gewicht, alles aufsummiert.</li>
+    <li>Dieselbe Summe noch einmal mit dem Höchstwert 10 statt der tatsächlichen Punkte — das ist
+      der theoretisch erreichbare Bestwert.</li>
+    <li>Die erste Summe geteilt durch die zweite, mal 100, gerundet: das ist der Score.</li>
+  </ul>
+  <p>Bleibt kein einziges bewertbares Kriterium übrig, bekommt die Anzeige gar keinen Score und
+    landet unter „Wartet auf Score“. Aus dem Score folgt die Kategorie: ab 70 „Pass“, ab 40
+    „Vielleicht“, darunter „No-Go“. Das ganze Verfahren ist deterministisch und kostenlos —
+    dieselbe Anzeige ergibt mit denselben Gewichten immer denselben Score, es ist kein
+    Sprachmodell beteiligt, und es läuft auf dem Bob-Server. Frisch eingelieferte Anzeigen werden
+    auf diesem Weg sofort bewertet, und wenn du im Feintuning einen Regler verschiebst, wird der
+    gesamte Bestand auf demselben Weg neu durchgerechnet.</p>
+
+  <h3 id="k2-feedback">2.4 Feedback-Loop: wie Bob dazulernt</h3>
+  <p>Der Regel-Score kennt nur, was in deinem Profil steht. Was du tatsächlich anklickst, weiß er
+    nicht — und genau dafür gibt es die Daumen. Jede Bewertung mit Daumen hoch oder Daumen runter
+    und jeder gesetzte Favorit wird gespeichert, ändert aber zunächst keinen Score. Votes sind
+    Rohmaterial, kein Regler.</p>
+  <p>Ausgewertet wird dieses Rohmaterial erst, wenn du <code>/bob:bob-learn</code> startest. Der
+    Befehl holt deine Votes vom Server, sucht getrennt nach Mustern in den Daumen-hoch- und den
+    Daumen-runter-Entscheidungen, fragt bei Widersprüchen einmal nach und schlägt dir daraus
+    Gewichte und Präferenzen vor (siehe 1.7). Bestätigst du einen Gewichts-Vorschlag, schreibt Bob
+    ihn ins Profil und rechnet deinen Bestand sofort neu durch — deterministisch, ohne
+    Sprachmodell, ohne Kosten.</p>
+  <p>Erst danach greift die einzige Stelle der Kette, an der wirklich ein Sprachmodell arbeitet:
+    <code>/bob:bob-rescore</code>. Es nimmt sich ausschließlich deine aussichtsreichen Treffer vor
+    — Anzeigen der Kategorien „Pass“ und „Vielleicht“ sowie von dir bewertete und favorisierte
+    Anzeigen — und lässt sie im Licht deiner gelernten Erkenntnisse noch einmal lesen. Ein
+    Sprachmodell kann dabei würdigen, was keine Regel greifen kann: dass eine Anzeige zwar die
+    richtigen Stichworte enthält, das beschriebene Team aber nicht zu deiner Präferenz passt. Der
+    Lauf kennt zwei Stufen — „mittel“ arbeitet mit einem festgelegten, günstigeren Modell, „hoch“
+    mit dem Modell deiner eigenen Sitzung. <b>Achtung:</b> Dieser Schritt läuft über dein eigenes
+    Claude-Abo und verbraucht dessen Kontingent; deshalb startest du ihn selbst, und deshalb
+    begrenzt der Spar-Modus, wie viele Anzeigen ein Lauf anfasst. Vor der ersten bestätigten
+    Lern-Erkenntnis ist die Liste leer und der Befehl hat schlicht nichts zu tun.</p>
+  <p>Zusammengefasst — deterministisch und gratis laufen: der Portal-Scan über deine Heim-IP, die
+    Dedup, das Regel-Scoring samt No-Gos, die Neuberechnung nach dem Feintuning und das Übernehmen
+    einer Gewichts-Erkenntnis. Ein Sprachmodell brauchen nur zwei Dinge: die Lern-Analyse, die als
+    Gespräch in deinem Claude Code stattfindet, und das Rescore der guten Treffer.</p>
 </section>
 
 <section class="anl-kapitel" id="k3">
