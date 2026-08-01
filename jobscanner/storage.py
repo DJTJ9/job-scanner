@@ -1097,6 +1097,24 @@ def get_job_score(profile_id: int, fingerprint: str) -> dict | None:
     return d
 
 
+def count_matches_per_profile(profile_ids: list[int]) -> dict[int, int]:
+    """Treffer (Pass + Vielleicht) je Profil — ein gruppierter Query, kein N+1.
+
+    Profile ohne bewertete Anzeigen fehlen im Dict; Aufrufer rendert dann 0."""
+    if not profile_ids:
+        return {}
+    conn = _require_conn()
+    marks = ",".join("?" * len(profile_ids))
+    rows = conn.execute(
+        f"""SELECT profile_id, COUNT(*) AS n FROM job_scores
+            WHERE profile_id IN ({marks})
+              AND score IS NOT NULL AND category != 'No-Go'
+            GROUP BY profile_id""",
+        profile_ids,
+    )
+    return {r["profile_id"]: r["n"] for r in rows}
+
+
 def list_unnotified_top_matches(profile_id: int) -> list[dict]:
     """Pass-Matches des Profils, die noch nicht gemeldet wurden (notified_at IS NULL).
     Gejoint mit jobs für title/company/score im Digest."""

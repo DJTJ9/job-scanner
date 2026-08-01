@@ -76,3 +76,29 @@ def test_edit_submit_updates_instead_of_creating(member):
     after = storage.list_profiles(user_id=uid)
     assert len(after) == before  # kein neues Profil
     assert storage.get_profile(pid)["name"] == "Umbenannt"
+
+
+def test_count_matches_per_profile_zaehlt_pass_und_vielleicht(member):
+    _c, uid = member
+    a = storage.create_profile("A", {}, user_id=uid)
+    b = storage.create_profile("B", {}, user_id=uid)
+    storage.upsert_job_score(a, "fp1", 90, "gut", "Pass", {})
+    storage.upsert_job_score(a, "fp2", 60, "mittel", "Vielleicht", {})
+    storage.upsert_job_score(a, "fp3", 10, "schlecht", "No-Go", {})
+    storage.upsert_job_score(b, "fp4", 88, "gut", "Pass", {})
+    assert storage.count_matches_per_profile([a, b]) == {a: 2, b: 1}
+
+
+def test_count_matches_per_profile_ohne_scores_und_leere_liste(member):
+    _c, uid = member
+    pid = storage.create_profile("Leer", {}, user_id=uid)
+    assert storage.count_matches_per_profile([pid]) == {}
+    assert storage.count_matches_per_profile([]) == {}
+
+
+def test_count_matches_per_profile_ignoriert_unbewertete(member):
+    _c, uid = member
+    pid = storage.create_profile("Teilweise", {}, user_id=uid)
+    storage.upsert_job_score(pid, "fp1", None, "", None, {})
+    storage.upsert_job_score(pid, "fp2", 91, "gut", "Pass", {})
+    assert storage.count_matches_per_profile([pid]) == {pid: 1}
