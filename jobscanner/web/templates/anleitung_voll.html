@@ -426,8 +426,235 @@
 
 <section class="anl-kapitel" id="k3">
   <h2>3 Claude-Anbindung ausführlich</h2>
+
+  <p>Dieses Kapitel ist die Langfassung der Kurzschritte aus dem Hilfe-Center. Es beschreibt,
+    wie du dein eigenes Claude-Abo mit Bob verbindest, was die vier Bob-Befehle tun und welche
+    optionalen Schlüssel es daneben gibt.</p>
+
+  <h3 id="k3-voraussetzungen">3.1 Was du brauchst</h3>
+  <p><b>Achtung:</b> Der gesamte Claude-Teil ist optional. Die Website bleibt ohne ihn
+    vollständig nutzbar — du legst Profile an, siehst die bewerteten Anzeigen, setzt Favoriten,
+    bewertest mit Daumen hoch und Daumen runter, ziehst die Regler im Feintuning und exportierst
+    als CSV oder PDF. Der Bob-Server durchsucht die Standard-Portale von sich aus und bewertet
+    den Bestand für dein Profil, ohne dass du irgendetwas installierst. Wenn du diesen Teil
+    überspringst, verlierst du nichts von dem, was in Kapitel 1 steht.</p>
+  <p>Drei Dinge brauchen dein eigenes Claude: der Portal-Scan über deine Heim-IP
+    (<code>/bob:bob-scan</code>), die Lern-Analyse (<code>/bob:bob-learn</code>) und die
+    LLM-Neubewertung (<code>/bob:bob-rescore</code>). Der Grund steht in 2.1: StepStone und
+    Indeed sperren Anfragen aus Rechenzentren aus, und die Lern- und Rescore-Läufe sollen über
+    dein Kontingent gehen, nicht über ein fremdes.</p>
+  <p>Die Voraussetzungen sind entsprechend kurz:</p>
+  <ul>
+    <li><b>Ein Konto bei Bob</b> mit bestätigter E-Mail-Adresse und mindestens einem aktiven
+      Profil. Ohne aktives Profil hat ein Scan nichts, wogegen er suchen könnte.</li>
+    <li><b>Ein Claude-Abo.</b> Claude Pro reicht aus.</li>
+    <li><b>Claude Code auf deinem Rechner</b> — das Terminal-Programm, in dem Bob als Plugin
+      läuft.</li>
+  </ul>
+  <p>Claude Code installierst du mit einem einzigen Befehl, je nach Betriebssystem:</p>
+  <pre><code>irm https://claude.ai/install.ps1 | iex          # Windows, PowerShell
+curl -fsSL https://claude.ai/install.sh | bash   # macOS und Linux</code></pre>
+  <p>Danach gibst du einmal <code>claude</code> ein und meldest dich mit deinem Claude-Abo an;
+    Claude Code führt dich durch den Login. Erst wenn das steht, lohnt sich der nächste Schritt.
+    Für die Schritte 1 und 2 — Konto und Profil — brauchst du rund zwei Minuten, für den
+    kompletten Weg mit Claude etwa fünf bis zehn.</p>
+
+  <h3 id="k3-token">3.2 API-Token erzeugen und einsetzen</h3>
+  <p>Das API-Token ist der Ausweis, mit dem sich dein Claude beim Bob-Server meldet. Jede
+    einzelne Verbindung wird damit authentifiziert, und alles, was dein Claude vom Server holt
+    oder dorthin schickt, ist auf genau dein Konto bezogen — deine Profile, deine Kriterien,
+    deine Bewertungen.</p>
+  <p>Erzeugt wird es auf der Website: <b>Einstellungen → Anbindungen → „API-Token erzeugen“</b>.
+    Ein Token beginnt mit <code>bob_</code>, danach folgt eine lange Zeichenfolge.
+    <b>Achtung:</b> Es wird genau einmal angezeigt, nämlich direkt nach dem Erzeugen. Kopier es
+    sofort und leg es an einer Stelle ab, an der du es wiederfindest.</p>
+  <p>Verloren ist trotzdem kein Drama: Du erzeugst einfach ein neues. Dabei wird das alte
+    ungültig — es gibt immer nur ein gültiges Token je Konto. Wenn du also ein neues erzeugst,
+    musst du es auch in deiner Bob-Konfiguration nachtragen, sonst meldet der nächste Befehl
+    einen Fehler „401“ (siehe 4.1).</p>
+  <p>Eingesetzt wird das Token bei der Plugin-Installation im nächsten Abschnitt: Claude fragt
+    dabei danach, und du fügst es ein. Achte darauf, die komplette Zeichenfolge ohne führende
+    oder angehängte Leerzeichen einzufügen.</p>
+
+  <h3 id="k3-plugin">3.3 Plugin installieren</h3>
+  <p>Bob läuft in deinem Claude Code als Plugin. Starte <code>claude</code> und gib die beiden
+    folgenden Befehle nacheinander ein. Der erste meldet Bobs Plugin-Quelle an, der zweite
+    installiert daraus das Plugin:</p>
+  <pre><code>/plugin marketplace add DJTJ9/bob-member-kit
+/plugin install bob@bob-kit</code></pre>
+  <p>Beim Installieren fragt Claude nach deinem API-Token aus 3.2 — einfügen, fertig. Danach
+    fragt es noch nach Adzuna- und Jooble-Schlüsseln: Diese Felder kannst du <b>leer lassen</b>.
+    Sie gehören zu den optionalen Zusatzportalen aus 3.5 und haben mit der Grundverbindung
+    nichts zu tun.</p>
+  <p><b>Achtung:</b> Nach dem Installieren musst du Claude Code einmal beenden und neu starten,
+    damit das Plugin geladen wird. Solange das nicht passiert ist, kennt Claude die Bob-Befehle
+    noch nicht. Prüfen kannst du den Stand mit <code>/plugin</code> — dort muss <code>bob</code>
+    als installiert auftauchen.</p>
+  <p>Dass alles sitzt, merkst du an drei Dingen: <code>/plugin install bob@bob-kit</code> lief
+    durch und hat nach dem Token gefragt, <code>/bob:bob-scan</code> startet ohne „401“ und läuft
+    durch, und in deinem Dashboard erscheinen neue, bewertete Anzeigen.</p>
+
+  <h3 id="k3-befehle">3.4 Bobs Befehle im Detail</h3>
+  <p>Das Plugin bringt vier Befehle mit. Alle vier startest du in deinem eigenen Claude Code;
+    auf der Website findest du sie mit Kopier-Knopf unter <b>Scan starten</b> und im
+    <b>Lern-Zentrum</b>.</p>
+  <ul>
+    <li><code>/bob:bob-scan</code> — der Portal-Scan. Bob fragt zuerst nach der Scan-Größe
+      (klein, mittel oder groß), steuert dann einen Browser auf deinem Rechner und durchsucht
+      StepStone, Indeed und deine eigenen freigeschalteten Portale über deine Heim-IP. Die Funde
+      gehen an den Bob-Server und werden dort sofort nach Regeln bewertet. Der Lauf braucht keine
+      Schlüssel und kostet nichts außer der Laufzeit deiner Sitzung.</li>
+    <li><code>/bob:bob-learn</code> — die Lern-Analyse. Der Befehl holt deine Daumen-Votes und
+      Favoriten vom Server und sucht darin getrennt nach Mustern für „passt“ und „passt nicht“.
+      Bei zwei sehr ähnlichen Anzeigen mit gegensätzlichem Vote fragt er im Gespräch einmal nach
+      dem Grund. Am Ende legt er dir Vorschläge vor — Gewichte oder Präferenzen —, und nur was
+      du bestätigst, wird übernommen (siehe 1.7).</li>
+    <li><code>/bob:bob-rescore</code> — die LLM-Neubewertung. Sie nimmt sich nur deine
+      aussichtsreichen Anzeigen vor und liest sie im Licht deiner gelernten Erkenntnisse noch
+      einmal. Du wählst zwischen Tier „mittel“ (festgelegtes, günstigeres Modell) und „hoch“
+      (das Modell deiner eigenen Sitzung). <b>Achtung:</b> Das ist der einzige Befehl, der
+      wirklich Kontingent deines Claude-Abos verbraucht — und vor der ersten bestätigten
+      Lern-Erkenntnis hat er schlicht nichts zu tun.</li>
+    <li><code>/bob:bob-profil</code> — das Profil im Gespräch nachschärfen. Statt den Wizard
+      durchzuklicken, beschreibst du im Chat, was sich geändert hat, und Bob übernimmt es in
+      dein Profil. Praktisch für kleine Korrekturen an Zielrollen, Skills oder No-Gos, für die
+      sich der Weg über die Website nicht lohnt.</li>
+  </ul>
+  <p>Ein Scan lässt sich auch automatisieren: Der Aufgabenplaner deines Betriebssystems — cron
+    unter Linux, launchd auf dem Mac, die Aufgabenplanung unter Windows — ruft dafür
+    <code>claude -p "/bob:bob-scan"</code> auf. Beispiele dazu stehen im README des Bob-Kits.</p>
+
+  <h3 id="k3-keys">3.5 Mehr Portale: Adzuna- und Jooble-Keys</h3>
+  <p>Adzuna und Jooble sind Job-Aggregatoren mit kostenloser Programmierschnittstelle. Mit
+    eigenen Schlüsseln nimmt dein Scan diese beiden Quellen zusätzlich mit — mehr Portale, mehr
+    Treffer. Beides ist rein optional: Ohne Schlüssel läuft dein Scan ganz normal über die
+    Heim-IP weiter, und an der Bewertung ändert sich nichts.</p>
+  <p>Die Schlüssel besorgst du dir direkt bei den Anbietern:</p>
+  <ul>
+    <li><b>Adzuna</b> — Konto auf <code>developer.adzuna.com</code> anlegen, eine Application
+      registrieren, dann <b>App ID</b> und <b>App Key</b> ablesen. Du brauchst also zwei
+      Werte.</li>
+    <li><b>Jooble</b> — auf <code>jooble.org/api/about</code> das API-Key-Formular ausfüllen;
+      den persönlichen <b>API-Key</b> bekommst du zugeschickt. Hier ist es nur ein Wert.</li>
+  </ul>
+  <p>Eintragen kannst du sie an zwei Stellen, und die unterscheiden sich. In der
+    <b>Bob-Konfiguration deines Plugins</b> (über <code>/plugin</code>) füllst du die Felder für
+    Adzuna App ID, Adzuna App Key und Jooble Key aus; danach nimmt <code>/bob:bob-scan</code>
+    beide Portale bei jedem Lauf mit. Alternativ hinterlegst du sie unter
+    <b>Einstellungen → Anbindungen</b> auf der Website — dort werden sie verschlüsselt
+    gespeichert, und der Bob-Server durchsucht die Aggregatoren mit deinem Kontingent
+    serverseitig mit.</p>
+  <p><b>Achtung:</b> Trägst du die Schlüssel in der Plugin-Konfiguration ein, landen sie im
+    Klartext in deiner Datei <code>~/.claude/settings.json</code>. Das ist ein bewusster
+    Kompromiss, damit die eigene Suche ohne Umwege funktioniert. Es sind kostenlose Schlüssel
+    ohne Zugriff auf Bob-Daten — leg an derselben Stelle nichts Wertvolleres ab.</p>
+
+  <h3 id="k3-sparmodus">3.6 Spar-Modus und Firecrawl</h3>
+  <p>Der <b>Spar-Modus</b> steht unter <b>Einstellungen → Suche &amp; Scoring</b> und schützt
+    dein Claude-Abo vor Überraschungsverbrauch. Er gilt für alle deine Profile gemeinsam und
+    wirkt ab dem nächsten Lauf; bereits gefundene Anzeigen ändern sich dadurch nicht. Die
+    Bob-Befehle halten sich an diese Grenzen, du musst also beim Start nichts extra angeben.</p>
+  <p>Vier Stellschrauben stehen dort:</p>
+  <ul>
+    <li><b>Unbegrenzt oder sparsam</b> — im Sparmodus verarbeitet ein
+      <code>/bob:bob-rescore</code>-Lauf höchstens 10, 25, 50 oder 100 Anzeigen. Das ist die
+      wirksamste Bremse, weil nur dieser Befehl wirklich Kontingent kostet.</li>
+    <li><b>Entdecker-Nachbarrollen</b> — ist der Haken gesetzt, generiert
+      <code>/bob:bob-scan</code> zusätzlich Suchbegriffe für verwandte Rollen. Das findet mehr,
+      dauert aber länger.</li>
+    <li><b>Standort-Filter</b> — eine Liste von Orten, etwa „Berlin, Remote“. Leer bedeutet:
+      keine Einschränkung.</li>
+    <li><b>Sprachen</b> — Deutsch und Englisch lassen sich einzeln an- und abwählen. Anzeigen in
+      einer abgewählten Sprache fallen aus deinem Suchrahmen und verschwinden dann auch aus dem
+      Posteingang (siehe 1.4).</li>
+  </ul>
+  <p><b>Firecrawl</b> ist ein anderes Thema und hat mit dem Verbrauch deines Claude-Abos nichts
+    zu tun. Es ist ein Dienst, der Seiten abruft, an denen Bobs eigener Browser scheitert — weil
+    sie sich nicht sauber rendern lassen oder eine Anti-Bot-Sperre haben. Gebraucht wird er nur
+    für <b>eigene Portale und Career-Pages</b>, die du unter <b>Portale prüfen</b> hinzufügst und
+    bei denen das Lot ein „Riff“ meldet (siehe 1.8).</p>
+  <p><b>Achtung:</b> Firecrawl kostet Credits aus deinem eigenen Kontingent, und der Key ist
+    Voraussetzung dafür, dass eine Riff-Seite überhaupt gescannt wird. Hinterlegt wird er unter
+    <b>Einstellungen → Anbindungen</b> und dort verschlüsselt gespeichert. Für Bobs
+    Standard-Portale brauchst du ihn nie: In den kuratierten Pool kommen ausdrücklich nur Seiten,
+    bei denen Bob ohne Firecrawl durchkommt.</p>
 </section>
 
 <section class="anl-kapitel" id="k4">
   <h2>4 Troubleshooting &amp; Sicherheit</h2>
+
+  <p>Zum Schluss die Stolpersteine, die in der Praxis am häufigsten auftreten, und eine ehrliche
+    Auskunft darüber, wo deine Zugangsdaten liegen und was Bob über dich speichert.</p>
+
+  <h3 id="k4-fehler">4.1 Wenn etwas nicht klappt</h3>
+  <p><b>„401“ oder „Unauthorized“ beim ersten Bob-Befehl.</b> Der Server erkennt dein Token
+    nicht. Die häufigste Ursache ist ein unvollständig eingefügtes Token oder ein altes, das
+    durch ein neu erzeugtes ungültig geworden ist. Erzeuge unter
+    <b>Einstellungen → Anbindungen</b> ein neues Token und trag es per <code>/plugin</code> in
+    der Bob-Konfiguration neu ein. Achte darauf, die komplette Zeichenfolge zu erwischen —
+    <code>bob_</code> plus die lange Kette dahinter, ohne Leerzeichen davor oder danach.</p>
+  <p><b>Die Bob-Befehle gibt es angeblich nicht.</b> Wenn Claude bei
+    <code>/bob:bob-scan</code> oder <code>/bob:bob-rescore</code> meldet, den Befehl nicht zu
+    kennen, ist das Plugin zwar installiert, aber noch nicht geladen. Claude Code liest Plugins
+    beim Start ein, deshalb hilft hier nur: beenden und neu starten. Danach mit
+    <code>/plugin</code> nachsehen — <code>bob</code> muss dort als installiert erscheinen. Steht
+    es nicht in der Liste, ist die Installation nicht durchgelaufen, und du wiederholst 3.3.</p>
+  <p><b>„Marketplace nicht gefunden“.</b> Fast immer ein Tippfehler in der Plugin-Quelle. Der
+    Befehl lautet exakt <code>/plugin marketplace add DJTJ9/bob-member-kit</code> — mit großem
+    DJTJ9, mit Bindestrichen und ohne Leerzeichen im Namen. Am zuverlässigsten nimmst du den
+    Kopier-Knopf im Hilfe-Center statt abzutippen.</p>
+  <p><b>Der Scan lief durch, aber es kommen keine Treffer an.</b> Zwei Ursachen sind
+    wahrscheinlich. Erstens: Es ist kein Profil aktiv. Anzeigen werden immer gegen ein aktives
+    Profil bewertet — leg unter <b>Meine Profile</b> eines an und setz es mit „→ Zu diesem
+    Profil wechseln“ aktiv, dann rechnet Bob den Bestand durch. Zweitens: Die Kriterien sind zu
+    eng. Prüfe den Standort-Filter und die Sprachauswahl im Spar-Modus (3.6), die No-Gos im
+    Profil und den Mindest-Score in der Filterzeile der Job-Angebote. Sieh außerdem im Reiter
+    <b>Wartet auf Score</b> nach: Stehen dort Anzeigen, sind sie eingesammelt worden und nur
+    noch nicht bewertet.</p>
+  <p><b>Die Bestätigungs-E-Mail ist nicht angekommen.</b> Schau zuerst im Spam-Ordner nach und
+    prüfe, ob du die Adresse bei der Registrierung richtig geschrieben hast. Auf der Seite
+    „Fast geschafft!“ steht der Knopf <b>„Email erneut senden“</b>. <b>Achtung:</b> Nach einem
+    Versand ist der Knopf 60 Sekunden gesperrt — das ist kein Fehler, sondern eine Bremse gegen
+    Mehrfachversand; die Restzeit steht auf dem Knopf. Ohne bestätigte Adresse bleiben Scan und
+    Dashboard gesperrt.</p>
+
+  <h3 id="k4-sicherheit">4.2 Sicherheit — kurz und ehrlich</h3>
+  <p><b>Dein API-Token ist persönlich.</b> Es ist der Schlüssel zu deinem Bob-Konto: Wer es hat,
+    kann deine Profile und Bewertungen lesen und Daten in deinem Namen einliefern. Gib es nicht
+    weiter, poste es nicht in Discord und committe es nicht in ein Repository. Claude Code legt
+    es geschützt ab — im Schlüsselbund deines Systems beziehungsweise in seiner
+    Credentials-Datei —, nicht in einem öffentlich lesbaren Ordner. Falls es doch einmal irgendwo
+    gelandet ist, erzeugst du unter <b>Einstellungen → Anbindungen</b> ein neues; das alte wird
+    dabei sofort ungültig.</p>
+  <p><b>Adzuna- und Jooble-Keys liegen im Klartext.</b> Trägst du sie in der Bob-Konfiguration
+    deines Plugins ein, stehen sie unverschlüsselt in <code>~/.claude/settings.json</code> auf
+    deinem Rechner. Das ist ein bewusster Kompromiss, damit die eigene Suche ohne Zusatzaufwand
+    läuft. Beide sind kostenlose Schlüssel für öffentliche Job-Aggregatoren und haben keinerlei
+    Zugriff auf Bob-Daten. <b>Achtung:</b> Leg an derselben Stelle nichts ab, was mehr wert ist.
+    Wer die Klartext-Ablage vermeiden will, hinterlegt die Schlüssel stattdessen unter
+    <b>Einstellungen → Anbindungen</b>, wo sie verschlüsselt gespeichert werden.</p>
+  <p><b>Die Plugin-Quelle ist öffentlich einsehbar.</b> Das komplette Bob-Kit, das du dir mit
+    <code>/plugin install</code> auf den Rechner holst, liegt offen lesbar unter
+    <a href="https://github.com/DJTJ9/bob-member-kit">github.com/DJTJ9/bob-member-kit</a>. Du
+    kannst also vor der Installation nachlesen, was die Befehle tun, welche Adressen sie
+    aufrufen und was sie an den Server schicken. Nichts davon läuft verdeckt.</p>
+
+  <h3 id="k4-daten">4.3 Deine Daten</h3>
+  <p>Bob speichert nur, was er zum Bewerten braucht: dein Konto (Benutzername und E-Mail-Adresse),
+    deine Profile mit Skills, Zielrollen, Suchbegriffen, Domänen, Orten, No-Gos und Gewichten,
+    deine gelernten Erkenntnisse sowie deine Daumen-Bewertungen und Favoriten. Die Anzeigen
+    selbst liegen in der gemeinsamen Job-Datenbank; sie gehören keinem einzelnen Konto und werden
+    für jedes Profil getrennt bewertet.</p>
+  <p><b>Deine Bewertungen sind privat.</b> Andere Mitglieder sehen weder deine Daumen-Votes noch
+    deine Favoriten, deine Scores oder deine Kriterien. Geteilt wird ausschließlich der
+    Anzeigenbestand — wenn du einen Scan fährst, profitieren alle von den gefundenen Stellen,
+    aber nicht von deinen Urteilen darüber.</p>
+  <p><b>Export.</b> Unter <b>Einstellungen → Konto → Meine Daten</b> lädst du alles, was Bob
+    über dich gespeichert hat, als JSON-Datei herunter. Davon zu unterscheiden ist der
+    <b>Export</b>-Knopf in den Job-Angeboten und bei den Favoriten: Der liefert eine
+    Trefferliste als CSV oder PDF, nicht deine Kontodaten.</p>
+  <p><b>Konto löschen.</b> Ganz unten im Reiter <b>Konto</b> liegt die Gefahrenzone. Zur
+    Bestätigung musst du dein aktuelles Passwort eingeben. <b>Achtung:</b> Die Löschung ist
+    unwiderruflich und nimmt alle Profile, Kriterien, Bewertungen und Favoriten mit. Wenn du
+    deine Daten behalten willst, lade sie vorher als JSON herunter.</p>
 </section>
