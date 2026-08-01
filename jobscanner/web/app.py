@@ -1825,9 +1825,12 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     async def _server_error_handler(request: Request, exc: Exception):
         if _wants_json(request):
             return JSONResponse({"detail": "Internal Server Error"}, status_code=500)
-        return _error_page(request, 500, "Etwas ist schiefgelaufen",
-                           "Ein interner Fehler ist aufgetreten. Bitte später erneut.",
-                           home_only=True)
+        return _error_page(
+            request, 500, "Hier ist etwas schiefgelaufen",
+            "Das lag an uns, nicht an dir — deine Daten sind unverändert. "
+            "Versuch es gleich noch einmal; bleibt es dabei, meld es über den "
+            "Feedback-Knopf unten rechts, dann sehen wir uns das an.",
+            home_only=True)
 
     app.add_exception_handler(StarletteHTTPException, _not_found_handler)
     app.add_exception_handler(Exception, _server_error_handler)

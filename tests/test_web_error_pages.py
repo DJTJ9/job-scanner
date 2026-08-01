@@ -1,4 +1,6 @@
 """Globale HTML-Fehlerseiten (404/500) — API-Pfade und Accept: json bleiben JSON."""
+import re
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -51,6 +53,41 @@ def test_500_page_renders_html_no_stacktrace(app, monkeypatch):
     assert "text/html" in resp.headers["content-type"]
     assert "schiefgelaufen" in resp.text
     assert "kaboom-secret" not in resp.text
+
+
+def test_error_page_bild_ist_eine_ganze_figur(app):
+    """Das Bild der Fehlerseite muss eine echte Bob-Figur sein.
+
+    Die `bob-emotion-*.png` sind 116x55 grosse Sprite-Paare (Augen/Mund) — auf
+    die 140px der `.error-bob`-Regel gezogen sehen sie aus wie ein kaputtes Icon.
+    """
+    from pathlib import Path
+
+    from PIL import Image
+
+    resp = TestClient(app).get("/gibt-es-nicht")
+    treffer = re.search(r'class="error-bob" src="(/static/[^"?]+)"', resp.text)
+    assert treffer, "Fehlerseite ohne error-bob-Bild"
+    datei = Path("jobscanner/web/static") / treffer.group(1)[len("/static/"):]
+    assert datei.exists(), datei
+    assert Image.open(datei).size[1] >= 100, "Sprite-Fragment statt ganzer Figur"
+
+
+def test_500_seite_nennt_ursache_und_naechsten_schritt(app, monkeypatch):
+    login = CSRFTestClient(app)
+    login.post("/login", data={"email": "owner@test.de", "password": "geheim123"})
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("kaboom")
+
+    monkeypatch.setattr(storage, "get_home_summary", boom)
+    client = TestClient(app, raise_server_exceptions=False)
+    client.cookies.update(login.cookies)
+    resp = client.get("/", headers={"accept": "text/html"})
+
+    assert resp.status_code == 500
+    assert "nicht an dir" in resp.text          # sagt, wer schuld ist
+    assert "noch einmal" in resp.text           # sagt, was man tun kann
 
 
 def test_verify_invalid_token_renders_html(app):
