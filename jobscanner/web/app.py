@@ -303,6 +303,21 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def handbuch_view(request: Request):
         return templates.TemplateResponse(request, "handbuch.html", {})
 
+    @app.get("/anleitung/vollstaendig")
+    def anleitung_voll_view(request: Request):
+        return templates.TemplateResponse(request, "anleitung.html",
+                                          {"kapitel": export._KAPITEL})
+
+    @app.get("/anleitung/vollstaendig.pdf")
+    def anleitung_voll_pdf(request: Request):
+        """PDF-Fassung derselben Kapiteldatei. GET ohne CSRF — read-only, Muster /export."""
+        fragment = templates.get_template("anleitung_voll.html").render()
+        heute = date.today()
+        inhalt = export.build_anleitung_pdf(fragment, heute.strftime("%d.%m.%Y"))
+        return Response(content=inhalt, media_type="application/pdf",
+                        headers={"Content-Disposition":
+                                 f'attachment; filename="bob-anleitung-{heute.isoformat()}.pdf"'})
+
     @app.get("/onboarding")
     def onboarding_view(request: Request):
         return RedirectResponse("/hilfe#erste-schritte", status_code=301)

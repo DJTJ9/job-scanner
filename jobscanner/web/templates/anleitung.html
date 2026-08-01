@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Die ausführliche Anleitung — Bob der Job-Bot{% endblock %}
+{% block content %}
+<div class="anl-voll-kopf">
+  <h1>Die ausführliche Anleitung</h1>
+  <a class="btn btn-secondary" href="/anleitung/vollstaendig.pdf">⬇ Als PDF</a>
+</div>
+<p class="hinweis">Alle Funktionen, Bobs Arbeitsweise, die Claude-Anbindung und
+  Troubleshooting an einem Ort. Die Kurzfassung zum Nachschlagen ist
+  <a class="link" href="/hilfe/handbuch">das kleine Handbuch</a>.</p>
+
+<div class="anl-voll-layout">
+  <nav class="anl-rail" aria-label="Kapitel">
+    <div class="anl-rail-lot" aria-hidden="true"><span class="anl-rail-fill"></span></div>
+    <ul class="anl-rail-list">
+      {% for nr, titel in kapitel %}
+      <li><a class="anl-rail-link" href="#k{{ nr }}">{{ nr }} {{ titel }}</a></li>
+      {% endfor %}
+    </ul>
+  </nav>
+  <article class="anl-voll-text">
+    {% include "anleitung_voll.html" %}
+  </article>
+</div>
+{% endblock %}
