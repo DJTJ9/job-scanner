@@ -220,10 +220,14 @@
     über Firecrawl. <b>Achtung:</b> Das verursacht laufende Credit-Kosten und setzt voraus, dass
     du unter <b>Einstellungen → Anbindungen</b> einen eigenen Firecrawl-Key hinterlegt hast; ohne
     Key weist die Seite darauf hin.</p>
-  <p>Die Standard-Portale und die freigeschalteten eigenen Seiten durchsucht der Bob-Server selbst.
-    Davon zu unterscheiden ist die <b>Portal-Auswahl</b> unter <b>Einstellungen → Suche &amp;
-    Scoring</b>: Sie steuert allein, welche Portale dein eigener Scan über die Heim-IP mitnimmt —
-    StepStone, Indeed und deine eigenen durchsuchbaren Portale.</p>
+  <p>Zwei Dinge laufen hier unabhängig voneinander, und es lohnt sich, sie auseinanderzuhalten. Der
+    Bob-Server durchsucht täglich um sechs Uhr morgens von sich aus die fest eingebauten Portale
+    Arbeitsagentur und Stellenanzeigen.de, dazu die Standard-Portale aus dem Pool und die
+    freigeschalteten durchsuchbaren Portale der Mitglieder. Die <b>Portal-Auswahl</b> unter
+    <b>Einstellungen → Suche &amp; Scoring</b> steuert dagegen allein deinen eigenen Scan über die
+    Heim-IP — StepStone, Indeed und deine eigenen durchsuchbaren Portale.</p>
+  <p><b>Achtung:</b> Nimmst du dort ein Portal heraus, betrifft das nur deinen eigenen Lauf. Die
+    Standard-Portale durchsucht der Server weiterhin — für sie braucht er deine Leitung nicht.</p>
 
   <h3 id="k1-scan">1.9 Scan</h3>
   <p>Die Seite <b>Scan starten</b> ist die Kommandobrücke. Oben steht der Scan-Stand: wann zuletzt
@@ -333,7 +337,8 @@
 
   <h3 id="k2-scan">2.1 Scan: woher die Anzeigen kommen</h3>
   <p>Anzeigen kommen auf zwei Wegen in den gemeinsamen Bestand. Der erste Weg ist der Bob-Server
-    selbst: Er durchsucht in eigenen, regelmäßigen Läufen die Standard-Portale sowie die geprüften
+    selbst: Er läuft täglich um sechs Uhr morgens los und durchsucht die fest eingebauten Portale
+    Arbeitsagentur und Stellenanzeigen.de, die Standard-Portale aus dem Pool sowie die geprüften
     eigenen Portale und Career-Pages der Mitglieder. Der zweite Weg bist du —
     <code>/bob:bob-scan</code> läuft in deinem eigenen Claude Code und steuert einen Browser auf
     deinem Rechner.</p>
