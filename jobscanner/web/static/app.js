@@ -127,6 +127,35 @@ document.addEventListener("DOMContentLoaded", () => {
     if (hash && tabs.some(t => t.dataset.tab === hash)) activate(hash);
   }
 
+  // /anleitung/vollstaendig: Lotleine — aktives Kapitel + Scrollfortschritt
+  const rail = document.querySelector(".anl-rail");
+  if (rail) {
+    const fill = rail.querySelector(".anl-rail-fill");
+    const links = Array.from(rail.querySelectorAll(".anl-rail-link"));
+    const kapitel = Array.from(document.querySelectorAll(".anl-kapitel"));
+    const schmal = () => window.matchMedia("(max-width: 900px)").matches;
+    const setzeAktiv = id => links.forEach(a =>
+      a.classList.toggle("anl-rail-link-active", a.getAttribute("href") === "#" + id));
+    if (kapitel.length) {
+      const beobachter = new IntersectionObserver(eintraege => {
+        const sichtbar = eintraege.filter(e => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (sichtbar) setzeAktiv(sichtbar.target.id);
+      }, { rootMargin: "-20% 0px -70% 0px" });
+      kapitel.forEach(k => beobachter.observe(k));
+      setzeAktiv(kapitel[0].id);
+    }
+    const fortschritt = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const anteil = max > 0 ? Math.min(1, window.scrollY / max) : 0;
+      if (schmal()) { fill.style.width = (anteil * 100) + "%"; fill.style.height = "100%"; }
+      else { fill.style.height = (anteil * 100) + "%"; fill.style.width = "100%"; }
+    };
+    window.addEventListener("scroll", fortschritt, { passive: true });
+    window.addEventListener("resize", fortschritt);
+    fortschritt();
+  }
+
   document.querySelectorAll("[data-profile-switcher]").forEach((sel) => {
     sel.addEventListener("change", () => sel.form.submit());
   });

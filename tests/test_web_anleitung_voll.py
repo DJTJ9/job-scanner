@@ -70,3 +70,15 @@ def test_anleitung_pdf_download_header_und_magic(client):
             in resp.headers["content-disposition"])
     assert resp.content.startswith(b"%PDF")
     assert len(resp.content) > 5000
+
+
+def test_rail_css_und_scrollspy_vorhanden():
+    from pathlib import Path
+    css = Path("jobscanner/web/static/style.css").read_text(encoding="utf-8")
+    js = Path("jobscanner/web/static/app.js").read_text(encoding="utf-8")
+    assert ".anl-rail" in css
+    assert ".anl-rail-fill" in css
+    assert "anl-rail-link-active" in css
+    assert "prefers-reduced-motion" in css.split(".anl-rail", 1)[1]   # Rail-Regel deckt es ab
+    assert "@media print" in css
+    assert "anl-rail-fill" in js and "IntersectionObserver" in js
