@@ -664,16 +664,12 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 {"error": "Passwort muss mindestens 6 Zeichen haben"}, status_code=400)
         uid = storage.create_user(email, password, role="member", consent=True, ip=ip,
                                   username=username.strip())
-        user = storage.get_user(uid)
-        try:
-            mailer.send_verification_email(email, user["verify_token"], settings["base_url"])
-        except Exception:
-            logger.warning("registration verification mail send failed", exc_info=True)
+        storage.mark_email_verified(uid)
         request.session["user_id"] = uid
         request.session["email"] = email
         request.session["username"] = username.strip()
         request.session["role"] = "member"
-        request.session["email_verified"] = False
+        request.session["email_verified"] = True
         return RedirectResponse("/", status_code=303)
 
     @app.get("/forgot-password")

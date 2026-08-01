@@ -25,6 +25,15 @@ def _register(client, email="m@test.de", consent="on", username="hardening"):
     return client.post("/register", data=data, follow_redirects=False)
 
 
+def _register_unverified(client, email="unver@test.de", username="unverif"):
+    """User im Vor-Feature-Zustand: unbestaetigt, mit verify_token.
+    Muss ueber storage laufen — /register verifiziert jetzt sofort."""
+    uid = storage.create_user(email, "pw123456", role="member", consent=True,
+                              username=username)
+    client.post("/login", data={"email": email, "password": "pw123456"})
+    return uid
+
+
 def test_register_without_consent_rejected_400(app):
     client = CSRFTestClient(app)
     resp = _register(client, consent=None)
@@ -32,14 +41,14 @@ def test_register_without_consent_rejected_400(app):
     assert storage.get_user_by_email("m@test.de") is None
 
 
-def test_register_with_consent_creates_user_with_verify_token(app):
+def test_register_with_consent_creates_verified_user(app):
     client = CSRFTestClient(app)
     _register(client)
     user = storage.get_user_by_email("m@test.de")
     assert user is not None
     assert user["consent_at"] is not None
-    assert user["verify_token"]
-    assert user["email_verified_at"] is None
+    assert user["email_verified_at"] is not None
+    assert user["verify_token"] is None
 
 
 def test_register_stores_registering_ip(app):
@@ -75,11 +84,11 @@ def test_member_reaches_dashboard_directly_after_registration(app):
 
 def test_verify_email_unlocks_dashboard_access(app):
     client = CSRFTestClient(app)
-    _register(client)
-    token = storage.get_user_by_email("m@test.de")["verify_token"]
+    _register_unverified(client)
+    token = storage.get_user_by_email("unver@test.de")["verify_token"]
     resp = client.get(f"/verify-email?token={token}", follow_redirects=False)
     assert resp.status_code == 303
-    user = storage.get_user_by_email("m@test.de")
+    user = storage.get_user_by_email("unver@test.de")
     assert user["email_verified_at"] is not None
     resp_root = client.get("/")
     assert resp_root.status_code == 200
@@ -100,7 +109,7 @@ def test_owner_bypasses_hard_lock_without_verification(app):
 
 def test_verify_email_resend_sends_mail_and_redirects_sent(app, monkeypatch):
     client = CSRFTestClient(app)
-    _register(client)
+    _register_unverified(client)
     calls = []
     monkeypatch.setattr(
         "jobscanner.web.app.mailer.send_verification_email",
@@ -108,13 +117,13 @@ def test_verify_email_resend_sends_mail_and_redirects_sent(app, monkeypatch):
     resp = client.post("/verify-email/resend", data={}, follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/verify-pending?sent=1"
-    user = storage.get_user_by_email("m@test.de")
+    user = storage.get_user_by_email("unver@test.de")
     assert calls == [(user["email"], user["verify_token"], "https://job-scanner.thinkshark.de")]
 
 
 def test_verify_email_resend_second_call_within_cooldown_redirects_cooldown(app, monkeypatch):
     client = CSRFTestClient(app)
-    _register(client)
+    _register_unverified(client)
     monkeypatch.setattr(
         "jobscanner.web.app.mailer.send_verification_email", lambda *a: None)
     client.post("/verify-email/resend", data={})
@@ -125,7 +134,7 @@ def test_verify_email_resend_second_call_within_cooldown_redirects_cooldown(app,
 
 def test_verify_email_resend_smtp_failure_redirects_error(app, monkeypatch):
     client = CSRFTestClient(app)
-    _register(client)
+    _register_unverified(client)
 
     def _raise(*a):
         raise RuntimeError("smtp down")
@@ -145,8 +154,8 @@ def test_verify_email_resend_requires_login(app):
 
 def test_verify_email_resend_after_already_verified_redirects_home(app):
     client = CSRFTestClient(app)
-    _register(client)
-    token = storage.get_user_by_email("m@test.de")["verify_token"]
+    _register_unverified(client)
+    token = storage.get_user_by_email("unver@test.de")["verify_token"]
     client.get(f"/verify-email?token={token}")
     resp = client.post("/verify-email/resend", data={}, follow_redirects=False)
     assert resp.status_code == 303
@@ -157,8 +166,8 @@ def test_verify_email_resend_generates_token_when_missing(app, monkeypatch):
     """Accounts von vor Einführung der Email-Verifizierung haben verify_token=NULL.
     Resend muss trotzdem funktionieren (Token frisch erzeugen), statt still ins Leere zu laufen."""
     client = CSRFTestClient(app)
-    _register(client)
-    user = storage.get_user_by_email("m@test.de")
+    _register_unverified(client)
+    user = storage.get_user_by_email("unver@test.de")
     # Token nachträglich löschen (simuliert Pre-Migration-Account)
     conn = storage._require_conn()
     conn.execute("UPDATE users SET verify_token = NULL WHERE id = ?", (user["id"],))
@@ -170,15 +179,15 @@ def test_verify_email_resend_generates_token_when_missing(app, monkeypatch):
     resp = client.post("/verify-email/resend", data={}, follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/verify-pending?sent=1"
-    fresh = storage.get_user_by_email("m@test.de")
+    fresh = storage.get_user_by_email("unver@test.de")
     assert fresh["verify_token"]  # neuer Token persistiert
     assert calls == [(fresh["email"], fresh["verify_token"], "https://job-scanner.thinkshark.de")]
 
 
 def test_ensure_verify_token_keeps_existing(app):
     client = CSRFTestClient(app)
-    _register(client)
-    user = storage.get_user_by_email("m@test.de")
+    _register_unverified(client)
+    user = storage.get_user_by_email("unver@test.de")
     existing = user["verify_token"]
     assert existing
     assert storage.ensure_verify_token(user["id"]) == existing
@@ -222,16 +231,3 @@ def test_verify_pending_no_messages_without_query_params(app):
     assert "erneut gesendet" not in resp.text
     assert "60s warten" not in resp.text
     assert "Fehler beim Senden" not in resp.text
-
-
-def test_register_mail_failure_still_creates_user_and_logs_warning(app, monkeypatch, caplog):
-    def _raise(*a, **kw):
-        raise RuntimeError("smtp boom")
-    monkeypatch.setattr("jobscanner.web.app.mailer.send_verification_email", _raise)
-    client = CSRFTestClient(app)
-    with caplog.at_level("WARNING", logger="jobscanner.web"):
-        resp = _register(client)
-    assert resp.status_code in (302, 303)
-    assert storage.get_user_by_email("m@test.de") is not None
-    assert any(r.levelname == "WARNING" and "jobscanner.web" == r.name
-               for r in caplog.records)
