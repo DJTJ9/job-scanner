@@ -102,3 +102,51 @@ def test_count_matches_per_profile_ignoriert_unbewertete(member):
     storage.upsert_job_score(pid, "fp1", None, "", None, {})
     storage.upsert_job_score(pid, "fp2", 91, "gut", "Pass", {})
     assert storage.count_matches_per_profile([pid]) == {pid: 1}
+
+
+def test_karte_zeigt_wechsel_button_nur_bei_inaktivem_profil(member):
+    c, uid = member
+    aktiv = _make_profile(uid)
+    inaktiv = storage.create_profile("Zweitprofil", {}, user_id=uid)
+    c.post("/profil/aktiv", data={"profile_id": aktiv})
+    html = c.get("/profil").text
+    assert "Zu diesem Profil wechseln" in html
+    assert html.count("Zu diesem Profil wechseln") == 1      # nur die inaktive Karte
+    assert f'value="{inaktiv}"' in html                       # und zwar für das inaktive
+    assert 'class="panel profile-card is-active"' in html     # aktive Karte markiert
+
+
+def test_karte_zeigt_treffer_und_profildaten(member):
+    c, uid = member
+    pid = storage.create_profile(
+        "Remote-Suche", {"target_roles": ["Audio Programming"], "cities": ["Remote"]},
+        user_id=uid)
+    storage.upsert_job_score(pid, "fp1", 90, "gut", "Pass", {})
+    storage.upsert_job_score(pid, "fp2", 10, "schlecht", "No-Go", {})
+    html = c.get("/profil").text
+    assert "1 Treffer" in html                 # No-Go nicht mitgezählt
+    assert "Audio Programming" in html
+    assert "Remote" in html
+
+
+def test_karte_ohne_zielrollen_rendert_keine_leere_zeile(member):
+    c, uid = member
+    storage.create_profile("Nackt", {}, user_id=uid)
+    html = c.get("/profil").text
+    assert '<p class="profile-meta"></p>' not in html
+    assert "0 Treffer" in html
+
+
+def test_standard_marker_verschwunden(member):
+    c, uid = member
+    _make_profile(uid)
+    assert "(Standard)" not in c.get("/profil").text
+
+
+def test_confirm_panel_vorhanden_und_initial_versteckt(member):
+    c, uid = member
+    pid = _make_profile(uid)
+    html = c.get("/profil").text
+    assert f'id="profile-confirm-{pid}"' in html
+    assert f'class="profile-confirm panel-hidden" id="profile-confirm-{pid}"' in html
+    assert f'data-profile-delete="{pid}"' in html

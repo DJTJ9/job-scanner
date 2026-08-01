@@ -50,4 +50,5 @@ def test_dashboard_redirect_setzt_aktives_profil_wenn_eigenes(client):
     pid2 = storage.create_profile("Zweit", {"skills": []}, user_id=uid)
     client.get(f"/dashboard/{pid2}", follow_redirects=False)
     resp = client.get("/profil")
-    assert "Zweit</span> <span class=\"job-meta\">(aktiv)" in resp.text.replace("\n", "")
+    assert 'class="panel profile-card is-active"' in resp.text   # eine Karte ist aktiv
+    assert f'value="{pid2}"' not in resp.text                    # Zweit: kein Wechsel-Button

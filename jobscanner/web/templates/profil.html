@@ -2,28 +2,56 @@
 {% block title %}Meine Profile — Bob der Job-Bot{% endblock %}
 {% block content %}
 <h1><img class="bob-title" src="/static/img/bob/bob-pose-winken.png" alt=""> Meine Profile</h1>
-<div class="panel">
-  {% for p in profiles %}
-    <p class="profile-row">
-      <span class="profile-name">{{ p.name }}</span>{% if p.id == request.session.get("active_profile_id") %} <span class="job-meta">(aktiv)</span>{% endif %}{% if p.is_default %} <span class="job-meta">(Standard)</span>{% endif %}
-      <a class="link profile-edit" href="/wizard/edit/{{ p.id }}">Bearbeiten</a>
-      {% if p.id != request.session.get("active_profile_id") %}
-      <form method="post" action="/profil/aktiv" style="display:inline">
-        {% include "_csrf_field.html" %}
-        <input type="hidden" name="profile_id" value="{{ p.id }}">
-        <button type="submit" class="link">Aktiv setzen</button>
-      </form>
-      {% endif %}
-      <form method="post" action="/profiles/{{ p.id }}/delete" style="display:inline"
-            onsubmit="return confirm('Profil „{{ p.name }}“ wirklich löschen?');">
-        {% include "_csrf_field.html" %}
-        <button type="submit" class="link">Löschen</button>
-      </form>
-    </p>
-  {% endfor %}
-  {% if not profiles %}
-    <p class="job-meta">Noch kein Profil — leg eins an, dann bewertet Bob den Job-Pool für dich.</p>
-  {% endif %}
-  <a class="btn btn-primary" href="/wizard/new">+ Neues Profil</a>
+<div class="panel profile-intro">
+  <p>Ein Profil sagt Bob, wonach er suchen soll: Zielrollen, Orte, Skills. Du kannst mehrere
+     anlegen — zum Beispiel eins für Festanstellung und eins für Remote.</p>
+  <p>Bob bewertet den Job-Pool immer für dein <strong>aktives</strong> Profil: Job-Angebote,
+     Treffer und Feintuning zeigen genau dieses eine Profil. Ein Klick auf „Zu diesem Profil
+     wechseln“ schaltet alles um.</p>
 </div>
+<div class="profile-grid">
+  {% for p in profiles %}
+    {% set is_active = p.id == request.session.get("active_profile_id") %}
+    <div class="panel profile-card{% if is_active %} is-active{% endif %}">
+      {% if is_active %}<p class="profile-badge">● AKTIV</p>{% endif %}
+      <p class="profile-name">{{ p.name }}</p>
+      {% if p.data.get("target_roles") %}
+        <p class="profile-meta">{{ p.data["target_roles"] | join(", ") }}</p>
+      {% endif %}
+      {% if p.data.get("cities") %}
+        <p class="profile-meta">{{ p.data["cities"] | join(" · ") }}</p>
+      {% endif %}
+      <p class="profile-treffer">{{ treffer.get(p.id, 0) }} Treffer</p>
+      <div class="profile-body" id="profile-body-{{ p.id }}">
+        {% if not is_active %}
+        <form method="post" action="/profil/aktiv">
+          {% include "_csrf_field.html" %}
+          <input type="hidden" name="profile_id" value="{{ p.id }}">
+          <button type="submit" class="btn btn-secondary profile-switch">→ Zu diesem Profil wechseln</button>
+        </form>
+        {% endif %}
+        <p class="profile-actions">
+          <a class="link profile-edit" href="/wizard/edit/{{ p.id }}">Bearbeiten</a>
+          <button type="button" class="profile-delete" data-profile-delete="{{ p.id }}">Löschen</button>
+        </p>
+      </div>
+      <div class="profile-confirm panel-hidden" id="profile-confirm-{{ p.id }}" tabindex="-1">
+        <p>Profil „{{ p.name }}“ wirklich löschen? Bewertungen und Favoriten dieses Profils
+           gehen mit verloren.</p>
+        <form method="post" action="/profiles/{{ p.id }}/delete"
+              onsubmit="return confirm('Profil „{{ p.name }}“ wirklich löschen?');">
+          {% include "_csrf_field.html" %}
+          <button type="submit" class="btn btn-veto">Ja, löschen</button>
+          <button type="button" class="profile-cancel" data-profile-delete-cancel="{{ p.id }}">Abbrechen</button>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% if not profiles %}
+  <div class="panel">
+    <p class="job-meta">Noch kein Profil — leg eins an, dann bewertet Bob den Job-Pool für dich.</p>
+  </div>
+{% endif %}
+<p><a class="btn btn-primary" href="/wizard/new">+ Neues Profil</a></p>
 {% endblock %}

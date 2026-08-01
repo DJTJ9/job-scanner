@@ -1177,9 +1177,11 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     def profil_view(request: Request):
         if (redirect := require_verified_user(request)) is not None:
             return redirect
+        profiles = storage.list_profiles(active_only=True,
+                                         user_id=request.session.get("user_id"))
         return templates.TemplateResponse(request, "profil.html", {
-            "profiles": storage.list_profiles(active_only=True,
-                                              user_id=request.session.get("user_id")),
+            "profiles": profiles,
+            "treffer": storage.count_matches_per_profile([p["id"] for p in profiles]),
         })
 
     @app.get("/roadmap")
