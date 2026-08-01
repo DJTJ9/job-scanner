@@ -803,3 +803,21 @@ dialog.export-dialog::backdrop { background: rgba(5, 13, 26, 0.7); }
 .schritt-balken { height: 6px; background: var(--tiefe); border-radius: 3px; overflow: hidden; margin: 0.5rem 0 0.75rem; }
 .schritt-balken-fill { height: 100%; background: var(--beute); border-radius: 3px; transition: width 0.4s ease; }
 @media (prefers-reduced-motion: reduce) { .schritt-balken-fill { transition: none; } }
+/* --- Onboarding-Tour: Sonar-Spotlight --- */
+.tour-start-btn { background: transparent; border: 1px solid var(--signal); color: var(--signal); border-radius: 50%; width: 28px; height: 28px; line-height: 1; cursor: pointer; font-family: "IBM Plex Mono", monospace; font-size: 0.95rem; }
+.tour-spot { position: fixed; z-index: 100; border: 1px solid var(--signal); border-radius: 8px; box-shadow: 0 0 0 9999px rgba(5, 13, 26, 0.78); pointer-events: none; transition: top 0.2s ease, left 0.2s ease, width 0.2s ease, height 0.2s ease; }
+.tour-spot::after { content: ""; position: absolute; inset: -1px; border: 2px solid var(--signal); border-radius: 8px; opacity: 0; pointer-events: none; }
+.tour-spot.tour-ping::after { animation: tour-sweep 0.7s ease-out; }
+@keyframes tour-sweep { from { opacity: 0.8; transform: scale(1); } to { opacity: 0; transform: scale(1.3); } }
+.tour-bubble { position: fixed; z-index: 101; background: var(--wasser); border-radius: 8px; padding: 1rem; max-width: 320px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5); }
+.tour-bubble h3 { margin: 0 0 0.4rem; font-family: "Chakra Petch", sans-serif; }
+.tour-bubble p { margin: 0; font-size: 0.95rem; }
+.tour-bubble .bob-avatar { width: 36px; height: 36px; float: left; margin-right: 0.6rem; }
+.tour-fuss { display: flex; gap: 0.6rem; align-items: center; margin-top: 0.75rem; }
+.tour-zaehler { font-family: "IBM Plex Mono", monospace; opacity: 0.7; margin-right: auto; }
+.tour-beenden { background: none; border: none; color: var(--gischt); opacity: 0.6; cursor: pointer; font-size: 0.85rem; padding: 0; margin-top: 0.5rem; display: block; }
+@media (max-width: 600px) { .tour-bubble { left: 0.5rem !important; right: 0.5rem; bottom: 0.5rem; top: auto !important; max-width: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .tour-spot { transition: none; }
+  .tour-spot.tour-ping::after { animation: none; }
+}

@@ -252,3 +252,122 @@ document.querySelectorAll("[data-profile-delete-cancel]").forEach(function (btn)
     body.classList.remove("panel-hidden");
   });
 });
+// --- Onboarding-Tour: Sonar-Spotlight über der Übersicht ---
+// Auto-Start bei data-tour-auto am <body> (Erstbesuch), Wiederholung über
+// [data-tour-start]. Schritte ohne sichtbares Ziel werden übersprungen.
+(() => {
+  const TOUR = [
+    { sel: "#drawer", titel: "Dein Menü", text: "Hier kommst du überall hin: Job-Angebote, Favoriten, dein Profil und das Feintuning." },
+    { sel: "[data-drawer-open]", titel: "Dein Menü", text: "Hinter dem ☰ steckt alles: Job-Angebote, Favoriten, dein Profil und das Feintuning." },
+    { sel: ".bob-intro", titel: "Wer ich bin", text: "Kurz vorgestellt: was ich kann und wie ich arbeite. Aufklappen lohnt sich." },
+    { sel: ".anl-check", titel: "Deine To-do-Liste", text: "Drei Schritte, dann suche ich für dich: Profil anlegen, Scan starten, fünf Jobs bewerten." },
+    { sel: ".sonar-band", titel: "Mein Sonar", text: "Hier siehst du, wann ich zuletzt gescannt habe und wie viele Anzeigen im Netz sind." },
+    { sel: ".job-card", titel: "Dein Treffer", text: "So sieht ein Treffer aus — mit Passung von 0 bis 100 und Begründung pro Kriterium." },
+    { sel: "[data-vote-btn]", titel: "Bewerten", text: "👍 oder 👎 — jede Bewertung schärft meine Suche für dich." },
+  ];
+  const reduziert = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let schritte = [], idx = 0, spot = null, bubble = null, letzterFokus = null;
+
+  const sichtbar = (el) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  };
+
+  const positioniere = () => {
+    const r = schritte[idx].el.getBoundingClientRect();
+    const pad = 6;
+    spot.style.top = `${r.top - pad}px`;
+    spot.style.left = `${r.left - pad}px`;
+    spot.style.width = `${r.width + 2 * pad}px`;
+    spot.style.height = `${r.height + 2 * pad}px`;
+    if (window.innerWidth > 600) {
+      const bh = bubble.offsetHeight, bw = bubble.offsetWidth;
+      let top = r.bottom + pad + 12;
+      if (top + bh > window.innerHeight - 8) top = Math.max(8, r.top - pad - bh - 12);
+      bubble.style.top = `${top}px`;
+      bubble.style.left = `${Math.min(Math.max(8, r.left), window.innerWidth - bw - 8)}px`;
+    }
+  };
+
+  const zeige = (i) => {
+    idx = i;
+    const s = schritte[i];
+    s.el.scrollIntoView({ block: "center", behavior: reduziert ? "auto" : "smooth" });
+    spot.classList.remove("tour-ping");
+    void spot.offsetWidth;  // Reflow, damit der Sweep bei jedem Schritt neu läuft
+    if (!reduziert) spot.classList.add("tour-ping");
+    bubble.querySelector("h3").textContent = s.titel;
+    bubble.querySelector("p").textContent = s.text;
+    bubble.querySelector(".tour-zaehler").textContent = `${i + 1}/${schritte.length}`;
+    bubble.querySelector("[data-tour-prev]").disabled = i === 0;
+    bubble.querySelector("[data-tour-next]").textContent =
+      i === schritte.length - 1 ? "Fertig" : "Weiter";
+    positioniere();
+  };
+
+  const beende = () => {
+    document.removeEventListener("keydown", tastatur, true);
+    window.removeEventListener("scroll", positioniere, true);
+    window.removeEventListener("resize", positioniere);
+    spot.remove(); bubble.remove();
+    spot = bubble = null;
+    if (document.body.hasAttribute("data-tour-auto")) {
+      document.body.removeAttribute("data-tour-auto");
+      fetch("/tour/seen", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: "{}",
+      });
+    }
+    if (letzterFokus) letzterFokus.focus();
+  };
+
+  const tastatur = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); beende(); return; }
+    if (e.key !== "Tab") return;
+    const foki = bubble.querySelectorAll("button:not(:disabled)");
+    const erste = foki[0], letzte = foki[foki.length - 1];
+    if (e.shiftKey && document.activeElement === erste) { e.preventDefault(); letzte.focus(); }
+    else if (!e.shiftKey && document.activeElement === letzte) { e.preventDefault(); erste.focus(); }
+  };
+
+  const starte = () => {
+    if (spot) return;  // läuft schon
+    schritte = TOUR
+      .map((s) => ({ ...s, el: document.querySelector(s.sel) }))
+      .filter((s) => s.el && sichtbar(s.el));
+    if (!schritte.length) return;
+    letzterFokus = document.activeElement;
+    spot = document.createElement("div");
+    spot.className = "tour-spot";
+    bubble = document.createElement("div");
+    bubble.className = "tour-bubble";
+    bubble.setAttribute("role", "dialog");
+    bubble.setAttribute("aria-modal", "true");
+    bubble.setAttribute("aria-label", "Onboarding-Tour");
+    bubble.innerHTML =
+      '<img class="bob-avatar" src="/static/img/bob/bob-pose-winken.png" alt="">' +
+      '<h3></h3><p aria-live="polite"></p>' +
+      '<div class="tour-fuss"><span class="tour-zaehler mono"></span>' +
+      '<button type="button" class="btn btn-secondary" data-tour-prev>Zurück</button>' +
+      '<button type="button" class="btn btn-primary" data-tour-next>Weiter</button></div>' +
+      '<button type="button" class="tour-beenden" data-tour-exit>Tour beenden</button>';
+    document.body.append(spot, bubble);
+    bubble.querySelector("[data-tour-prev]").addEventListener("click", () => zeige(idx - 1));
+    bubble.querySelector("[data-tour-next]").addEventListener("click", () => {
+      if (idx === schritte.length - 1) beende(); else zeige(idx + 1);
+    });
+    bubble.querySelector("[data-tour-exit]").addEventListener("click", beende);
+    document.addEventListener("keydown", tastatur, true);
+    window.addEventListener("scroll", positioniere, true);
+    window.addEventListener("resize", positioniere);
+    zeige(0);
+    bubble.querySelector("[data-tour-next]").focus();
+  };
+
+  document.querySelectorAll("[data-tour-start]").forEach((b) => b.addEventListener("click", starte));
+  if (document.body.hasAttribute("data-tour-auto")) starte();
+})();

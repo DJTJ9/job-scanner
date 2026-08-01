@@ -188,7 +188,7 @@ def test_onboarding_dead_css_removed():
 
 def test_onboarding_css_reuses_ping_keyframes_only():
     css = Path("jobscanner/web/static/style.css").read_text()
-    assert css.count("@keyframes") == 2   # ping-pulse + feedback-fab-pulse (Sag's-Bob-Widget)
+    assert css.count("@keyframes") == 3   # ping-pulse + feedback-fab-pulse + tour-sweep (Onboarding-Tour)
 
 
 # --- Unabhängig von diesem Feature, unverändert übernommen ---
@@ -367,3 +367,28 @@ def test_balken_weg_bei_3_von_3(tour_member, monkeypatch):
     text = c.get("/").text
     assert "Nächste Schritte" not in text
     assert "schritt-balken" not in text
+
+
+# --- Onboarding-Tour: Frontend-Anker ---
+
+def test_tour_start_button_auf_uebersicht(member_client):
+    assert "data-tour-start" in member_client.get("/").text
+
+
+def test_tour_start_button_nicht_auf_anderen_seiten(member_client):
+    assert "data-tour-start" not in member_client.get("/hilfe").text
+
+
+def test_tour_engine_in_app_js():
+    js = Path("jobscanner/web/static/app.js").read_text(encoding="utf-8")
+    assert "data-tour-start" in js
+    assert "/tour/seen" in js
+    assert "X-CSRF-Token" in js
+
+
+def test_tour_sweep_keyframes_ohne_ping_kollision():
+    css = Path("jobscanner/web/static/style.css").read_text(encoding="utf-8")
+    assert "@keyframes tour-sweep" in css
+    # bestehende Keyframes nicht dupliziert (Kaskaden-Kollision, siehe echo-ping-Learning)
+    assert css.count("@keyframes ping-pulse") == 1
+    assert css.count("@keyframes feedback-fab-pulse") == 1
