@@ -10,7 +10,6 @@
   <meta name="csrf-token" content="{{ csrf_token(request) }}">
 </head>
 <body{% if request.session.get("user_id") %} class="has-drawer"{% endif %}>
-<!-- frozen-probe-marker -->
   <header class="topbar">
     <span class="topbar-left">
       {% if request.session.get("user_id") %}
