@@ -10,9 +10,11 @@ _DIR = Path(__file__).parent
 _PROFILES_DIR = _DIR / "profiles"
 _QUERIES_FILE = _DIR / "queries.yaml"
 _PORTALS_FILE = _DIR / "portals.yaml"
+_PORTALE_POOL_FILE = _DIR / "portale_pool.yaml"
 _ENV_FILE = Path("/root/projekte/telegram-bot-army/.env")
 
 _PORTAL_REQUIRED = ("name", "site", "detail_url_pattern", "search_type")
+_POOL_REQUIRED = ("url", "typ", "label", "beschreibung")
 
 
 def _load(path: Path):
@@ -39,6 +41,22 @@ def load_portals() -> list[dict]:
         if missing:
             raise ValueError(f"Portal {p.get('name', '?')}: Pflichtfelder fehlen: {missing}")
     return portals
+
+
+def load_portale_pool() -> list[dict]:
+    """Standard-Portal-Pool (C2) — wird beim App-Start in custom_portals geseedet.
+    Fail-hard bei fehlenden Pflichtfeldern: ein halb befüllter Pool soll den Start
+    abbrechen, nicht still ein Portal überspringen."""
+    pool = _load(_PORTALE_POOL_FILE)
+    for p in pool:
+        missing = [k for k in _POOL_REQUIRED if not p.get(k)]
+        if p.get("typ") == "portal":
+            missing += [k for k in ("search_url_template", "detail_url_pattern")
+                        if not p.get(k)]
+        if missing:
+            raise ValueError(
+                f"Pool-Portal {p.get('url', '?')}: Pflichtfelder fehlen: {missing}")
+    return pool
 
 
 def _load_env() -> None:

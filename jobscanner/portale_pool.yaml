@@ -1,0 +1,8 @@
+# Standard-Portal-Pool — nur Firecrawl-freie Portale (Gate: discover_urls + precheck, siehe Plan C2).
+- url: 'https://www.kimeta.de/'
+  typ: portal
+  search_url_template: 'https://www.kimeta.de/stellenangebote?q={query}'
+  detail_url_pattern: 'kimeta\.de/stellenangebote/'
+  firecrawl_needed: false
+  label: 'kimeta'
+  beschreibung: 'Meta-Suchmaschine mit sehr großem Stellenbestand in Deutschland.'

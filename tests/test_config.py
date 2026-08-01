@@ -107,3 +107,52 @@ def test_load_env_tolerates_unreadable_env_file(monkeypatch):
 
     monkeypatch.setattr(config, "_ENV_FILE", _Unreadable())
     config._load_env()  # darf nicht werfen
+
+
+def test_load_portale_pool_returns_entries_with_meta():
+    pool = config.load_portale_pool()
+    assert pool, "Pool darf nicht leer sein"
+    for p in pool:
+        assert p["url"].startswith("https://"), p
+        assert p["typ"] in ("portal", "career_page"), p
+        assert p["label"], p
+        assert p["beschreibung"], p
+        assert p.get("firecrawl_needed", False) is False, \
+            f"Pool ist Firecrawl-frei: {p['url']}"
+
+
+def test_load_portale_pool_portal_requires_search_fields(tmp_path, monkeypatch):
+    bad = tmp_path / "pool.yaml"
+    bad.write_text(
+        "- url: 'https://x.de'\n"
+        "  typ: portal\n"
+        "  label: 'X'\n"
+        "  beschreibung: 'Test'\n",
+        encoding="utf-8")
+    monkeypatch.setattr(config, "_PORTALE_POOL_FILE", bad)
+    with pytest.raises(ValueError, match="https://x.de"):
+        config.load_portale_pool()
+
+
+def test_load_portale_pool_career_page_needs_no_search_fields(tmp_path, monkeypatch):
+    ok = tmp_path / "pool.yaml"
+    ok.write_text(
+        "- url: 'https://y.de/jobs'\n"
+        "  typ: career_page\n"
+        "  label: 'Y'\n"
+        "  beschreibung: 'Test'\n",
+        encoding="utf-8")
+    monkeypatch.setattr(config, "_PORTALE_POOL_FILE", ok)
+    assert config.load_portale_pool()[0]["label"] == "Y"
+
+
+def test_load_portale_pool_missing_label_raises(tmp_path, monkeypatch):
+    bad = tmp_path / "pool.yaml"
+    bad.write_text(
+        "- url: 'https://z.de'\n"
+        "  typ: career_page\n"
+        "  beschreibung: 'Test'\n",
+        encoding="utf-8")
+    monkeypatch.setattr(config, "_PORTALE_POOL_FILE", bad)
+    with pytest.raises(ValueError, match="label"):
+        config.load_portale_pool()
