@@ -347,4 +347,6 @@ def test_email_felder_aktiv_fuer_owner(owner):
     body = owner.get("/einstellungen?tab=notify").text
     assert "feld-inaktiv" not in body
     assert "disabled" not in body
+    assert "nur für den Admin freigeschaltet" not in body
+    assert "Wie du von neuen Treffern erfährst" in body
     assert 'name="email_mode"' in body

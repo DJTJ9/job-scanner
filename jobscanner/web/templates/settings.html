@@ -209,8 +209,8 @@
 
   <section class="tab-panel{% if active_tab == 'notify' %} tab-panel-active{% endif %}"
            data-tab-panel="notify">
-    <p class="hinweis">Wie du von neuen Treffern erfährst. Email-Versand ist derzeit
-       nur für den Admin freigeschaltet.</p>
+    <p class="hinweis">Wie du von neuen Treffern erfährst.{% if not is_owner %} Email-Versand ist
+       derzeit nur für den Admin freigeschaltet.{% endif %}</p>
     <h2>Benachrichtigung</h2>
     <form method="post" action="/einstellungen/notify" data-confirm-save>
       {% include "_csrf_field.html" %}
