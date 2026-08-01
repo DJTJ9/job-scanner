@@ -9,6 +9,22 @@ SQLite-Datenmodell und spiegelt neue Jobs in das NocoDB-Board "Job Scanner Jobs"
 - `jobscanner/storage.py` — SQLite-Schicht (`data/jobs.db`, Quelle der Wahrheit)
 - `jobscanner/nocodb_board.py` — NocoDB-Anzeige-Board (Credentials aus `telegram-bot-army/.env`)
 
+## Deploy-Verzeichnisse
+
+- `/opt/jobscanner` — Arbeits-Checkout (Branch `master`). Hier wird entwickelt; **kein** Dienst
+  liest von hier. Nur hier liegt `data/` (gitignored, Quelle der Wahrheit).
+- `/opt/jobscanner-live` — detached Git-Worktree desselben Repos, `WorkingDirectory` von
+  `jobscanner-web.service`. Code, Templates und Static stammen immer aus einem Commit und
+  wechseln ausschließlich beim Deploy. `data` darin ist ein Symlink auf den Arbeits-Checkout.
+
+Deploy:
+
+    bash deploy/deploy_web.sh [<hash>]      # ohne Argument: master-HEAD
+
+Nicht umgestellt: die Timer-Dienste (`discover`, `notify`, `notify-immediate`, `availability`,
+`backup`, `healthcheck`) und `deploy/run_feedback_agent.sh` (hartes `cd /opt/jobscanner`)
+laufen weiter aus dem Arbeits-Checkout, also ggf. gegen uncommitteten Code.
+
 ## Tests
 
     python3 -m pytest tests/ -v
