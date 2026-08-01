@@ -2065,6 +2065,33 @@ def create_custom_portal(url: str, typ: str, submitted_by: int,
     return cur.lastrowid
 
 
+@_retry_on_locked
+def seed_global_portals(pool: list[dict], owner_id: int) -> int:
+    """Legt fehlende Pool-Portale als globale, aktive custom_portals an (C2).
+    Idempotent und nicht-überschreibend: eine vorhandene Row bleibt unangetastet —
+    auch eine von Hand deaktivierte oder gelöschte. Gibt die Anzahl neu angelegter
+    Rows zurück."""
+    conn = _require_conn()
+    angelegt = 0
+    for eintrag in pool:
+        vorhanden = conn.execute(
+            "SELECT id FROM custom_portals WHERE url = ?", (eintrag["url"],)).fetchone()
+        if vorhanden is not None:
+            continue
+        pid = create_custom_portal(
+            eintrag["url"], eintrag["typ"], owner_id,
+            search_url_template=eintrag.get("search_url_template"),
+            detail_url_pattern=eintrag.get("detail_url_pattern"),
+            is_global=True)
+        conn.execute(
+            """UPDATE custom_portals SET status = 'active', firecrawl_needed = ?,
+               activated_at = datetime('now') WHERE id = ?""",
+            (int(bool(eintrag.get("firecrawl_needed"))), pid))
+        angelegt += 1
+    conn.commit()
+    return angelegt
+
+
 def get_custom_portal(portal_id: int) -> dict | None:
     conn = _require_conn()
     row = conn.execute("SELECT * FROM custom_portals WHERE id = ?", (portal_id,)).fetchone()

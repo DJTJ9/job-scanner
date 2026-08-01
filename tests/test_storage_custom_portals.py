@@ -177,3 +177,57 @@ def test_create_with_is_global_true_roundtrips(db):
         "https://studio.de/jobs", "career_page", db, is_global=True)
     assert storage.get_custom_portal(pid)["is_global"] is True
     assert any(p["is_global"] for p in storage.list_custom_portals())
+
+
+_POOL = [
+    {"url": "https://pool-a.de/", "typ": "portal", "label": "A",
+     "beschreibung": "Erstes Pool-Portal.",
+     "search_url_template": "https://pool-a.de/s?q={query}",
+     "detail_url_pattern": r"pool-a\.de/job/", "firecrawl_needed": False},
+    {"url": "https://pool-b.de/jobs", "typ": "career_page", "label": "B",
+     "beschreibung": "Zweites Pool-Portal."},
+]
+
+
+def test_seed_creates_global_active_rows(db):
+    assert storage.seed_global_portals(_POOL, db) == 2
+    rows = {p["url"]: p for p in storage.list_custom_portals()}
+    a = rows["https://pool-a.de/"]
+    assert a["is_global"] is True
+    assert a["status"] == "active"
+    assert a["activated_at"] is not None
+    assert a["firecrawl_needed"] is False
+    assert a["submitted_by"] == db
+    assert a["search_url_template"] == "https://pool-a.de/s?q={query}"
+    assert rows["https://pool-b.de/jobs"]["typ"] == "career_page"
+
+
+def test_seed_is_idempotent(db):
+    storage.seed_global_portals(_POOL, db)
+    assert storage.seed_global_portals(_POOL, db) == 0
+    assert len(storage.list_custom_portals()) == 2
+
+
+def test_seed_leaves_deactivated_row_untouched(db):
+    storage.seed_global_portals(_POOL, db)
+    pid = [p for p in storage.list_custom_portals()
+           if p["url"] == "https://pool-a.de/"][0]["id"]
+    storage.deactivate_custom_portal(pid)
+    assert storage.seed_global_portals(_POOL, db) == 0
+    assert storage.get_custom_portal(pid)["status"] == "inactive"
+
+
+def test_seed_does_not_resurrect_deleted_row(db):
+    storage.seed_global_portals(_POOL, db)
+    pid = [p for p in storage.list_custom_portals()
+           if p["url"] == "https://pool-b.de/jobs"][0]["id"]
+    storage.soft_delete_custom_portal(pid)
+    assert storage.seed_global_portals(_POOL, db) == 0
+    assert storage.get_custom_portal(pid)["status"] == "deleted"
+
+
+def test_seed_makes_portal_scannable(db):
+    storage.seed_global_portals(_POOL, db)
+    urls = {cp["url"] for cp in storage.list_scannable_custom_portals()}
+    assert "https://pool-a.de/" in urls
+    assert "https://pool-b.de/jobs" not in urls  # career_page ohne Suchvorlage
