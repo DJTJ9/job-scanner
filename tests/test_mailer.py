@@ -119,27 +119,50 @@ def test_digest_is_multipart_with_html_and_plaintext():
 
 
 def test_immediate_mail_contains_single_match_and_score():
-    rows = [{"title": "Senior Unity", "company": "StudioX", "score": 92}]
-    raw = _captured_message(mailer.send_immediate_match, "m@test.de", 7, rows,
+    groups = [{"profile": "Game Dev Berlin",
+               "rows": [{"title": "Senior Unity", "company": "StudioX", "score": 92}]}]
+    raw = _captured_message(mailer.send_immediate_match, "m@test.de", groups,
                             "https://job-scanner.thinkshark.de")
     assert "text/html" in raw
     assert "Senior Unity" in raw and "92" in raw
 
 
 def test_immediate_mail_bundles_all_matches_in_one_message():
-    rows = [{"title": "Senior Unity", "company": "StudioX", "score": 92},
-            {"title": "Backend Lead", "company": "ACME", "score": 95}]
-    raw = _captured_message(mailer.send_immediate_match, "m@test.de", 7, rows,
+    groups = [{"profile": "Game Dev Berlin",
+               "rows": [{"title": "Senior Unity", "company": "StudioX", "score": 92},
+                        {"title": "Backend Lead", "company": "ACME", "score": 95}]}]
+    raw = _captured_message(mailer.send_immediate_match, "m@test.de", groups,
                             "https://job-scanner.thinkshark.de")
     assert "Senior Unity" in raw and "Backend Lead" in raw
     assert "multipart/alternative" in raw
 
 
 def test_immediate_mail_umlaut_title_serializes_without_error():
-    rows = [{"title": "Buerokraft Kaelte & Waerme", "company": "ACME", "score": 91}]
+    groups = [{"profile": "Buero",
+               "rows": [{"title": "Bürokraft", "company": "ACME", "score": 91}]}]
     # Umlaut-Titel darf msg.as_string() NICHT sprengen (Bug: cte=7bit auf UTF-8):
-    rows[0]["title"] = "Bürokraft"
-    raw = _captured_message(mailer.send_immediate_match, "m@test.de", 7, rows,
+    raw = _captured_message(mailer.send_immediate_match, "m@test.de", groups,
                             "https://job-scanner.thinkshark.de")
     assert raw  # keine UnicodeDecodeError-Exception
+    assert "91" in raw
+
+
+def test_immediate_mail_shows_profile_name_per_group():
+    groups = [{"profile": "Game Dev Berlin",
+               "rows": [{"title": "Senior Unity", "company": "StudioX", "score": 92}]},
+              {"profile": "Audio Engineering",
+               "rows": [{"title": "Sound Designer", "company": "Beep", "score": 91}]}]
+    raw = _captured_message(mailer.send_immediate_match, "m@test.de", groups,
+                            "https://job-scanner.thinkshark.de")
+    # je einmal im text/plain- und einmal im text/html-Teil
+    assert raw.count("Game Dev Berlin") == 2
+    assert raw.count("Audio Engineering") == 2
+    assert "Bob: 2 starke Treffer" in raw
+
+
+def test_digest_umlaut_title_serializes_without_error():
+    rows = [{"title": "Bürokraft", "company": "ACME", "score": 91}]
+    raw = _captured_message(mailer.send_match_digest, "m@test.de", 7, rows,
+                            "https://job-scanner.thinkshark.de")
+    assert raw  # keine UnicodeDecodeError-Exception (cte=7bit raus)
     assert "91" in raw

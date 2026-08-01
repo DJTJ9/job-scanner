@@ -8,6 +8,12 @@ import smtplib
 from email.message import EmailMessage
 
 
+def _cte(content: str) -> str:
+    """7bit fuer reines ASCII (kein =3D-Escaping, keine Soft-Umbrueche in langen
+    HTML-Zeilen), sonst quoted-printable — cte='7bit' auf UTF-8 sprengt as_string()."""
+    return "7bit" if content.isascii() else "quoted-printable"
+
+
 def send_verification_email(email: str, token: str, base_url: str) -> None:
     host = os.environ.get("SMTP_HOST", "")
     if not host:
@@ -103,7 +109,7 @@ def send_match_digest(email: str, profile_id: int, rows: list[dict], base_url: s
     msg["Subject"] = f"Bob: {len(rows)} neue Top-Treffer"
     msg["From"] = from_addr
     msg["To"] = email
-    msg.set_content(body, cte="7bit")
+    msg.set_content(body, cte=_cte(body))
 
     rows_html = "".join(
         f'<tr><td style="padding:6px 12px">{r["title"]} @ {r["company"]}</td>'
@@ -118,7 +124,7 @@ def send_match_digest(email: str, profile_id: int, rows: list[dict], base_url: s
         f'<div style="padding:16px 20px"><a href="{base_url}/benachrichtigungen" '
         'style="background:#1E88A8;color:#fff;padding:10px 16px;border-radius:6px;'
         'text-decoration:none">Alle im Portal ansehen &rarr;</a></div></div>')
-    msg.add_alternative(html, subtype="html", cte="7bit")
+    msg.add_alternative(html, subtype="html", cte=_cte(html))
 
     with smtplib.SMTP(host, port) as server:
         server.starttls()
@@ -126,7 +132,8 @@ def send_match_digest(email: str, profile_id: int, rows: list[dict], base_url: s
         server.sendmail(from_addr, [email], msg.as_string())
 
 
-def send_immediate_match(email: str, profile_id: int, rows: list[dict], base_url: str) -> None:
+def send_immediate_match(email: str, groups: list[dict], base_url: str) -> None:
+    """Eine Mail pro Member: groups = [{"profile": str, "rows": [...]}, ...]."""
     host = os.environ.get("SMTP_HOST", "")
     if not host:
         raise RuntimeError("SMTP nicht konfiguriert (SMTP_HOST fehlt)")
@@ -135,31 +142,40 @@ def send_immediate_match(email: str, profile_id: int, rows: list[dict], base_url
     password = os.environ.get("SMTP_PASS", "")
     from_addr = os.environ.get("SMTP_FROM", user)
 
-    lines = [f"- {r['title']} @ {r['company']}  (Score {r['score']})" for r in rows]
+    total = sum(len(g["rows"]) for g in groups)
+    blocks = []
+    for g in groups:
+        lines = [f"- {r['title']} @ {r['company']}  (Score {r['score']})" for r in g["rows"]]
+        blocks.append(g["profile"] + "\n" + "\n".join(lines))
     body = (
-        f"Starke Treffer fuer dich ({len(rows)}):\n\n"
-        + "\n".join(lines)
+        f"Starke Treffer fuer dich ({total}):\n\n"
+        + "\n\n".join(blocks)
         + f"\n\nIm Portal ansehen: {base_url}/benachrichtigungen\n")
 
     msg = EmailMessage()
-    msg["Subject"] = f"Bob: {len(rows)} starke Treffer"
+    msg["Subject"] = f"Bob: {total} starke Treffer"
     msg["From"] = from_addr
     msg["To"] = email
-    msg.set_content(body)
+    msg.set_content(body, cte=_cte(body))
 
-    rows_html = "".join(
-        f'<div style="padding:8px 20px;font-size:16px"><strong>{r["title"]}</strong> '
-        f'@ {r["company"]} <span style="font-weight:600">&middot; Score {r["score"]}</span></div>'
-        for r in rows)
-    msg.add_alternative(
+    groups_html = ""
+    for g in groups:
+        groups_html += (
+            '<div style="padding:14px 20px 2px;font-size:14px;font-weight:700;color:#0B2A3A">'
+            f'{g["profile"]}</div>')
+        groups_html += "".join(
+            f'<div style="padding:8px 20px;font-size:16px"><strong>{r["title"]}</strong> '
+            f'@ {r["company"]} <span style="font-weight:600">&middot; Score {r["score"]}</span></div>'
+            for r in g["rows"])
+    html = (
         '<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto">'
         '<div style="background:#0B2A3A;color:#fff;padding:16px 20px;border-radius:8px">'
         '<strong>Bob der Job-Bot &middot; Starke Treffer</strong></div>'
-        f'{rows_html}'
+        f'{groups_html}'
         f'<div style="padding:16px 20px"><a href="{base_url}/benachrichtigungen" '
         'style="background:#1E88A8;color:#fff;padding:10px 16px;border-radius:6px;'
-        'text-decoration:none">Im Portal ansehen &rarr;</a></div></div>',
-        subtype="html")
+        'text-decoration:none">Im Portal ansehen &rarr;</a></div></div>')
+    msg.add_alternative(html, subtype="html", cte=_cte(html))
 
     with smtplib.SMTP(host, port) as server:
         server.starttls()
