@@ -128,6 +128,21 @@ _KAPITEL = [
 
 _BOB_BILD = Path(__file__).parent / "static" / "img" / "bob" / "bob-pose-laptop.png"
 
+_STATIC_DIR = Path(__file__).parent / "static"
+
+
+def _static_src(src: str) -> str:
+    """`<img src>` aus dem Template auf einen echten Dateipfad mappen.
+
+    Das Template schreibt `/static/img/…?v=<hash>` — im PDF-Render ist das kein
+    Dateipfad. Query abschneiden, `/static/`-Präfix auf das reale Verzeichnis
+    mappen. Fremde Quellen sind ein Template-Fehler und werden laut.
+    """
+    pfad = src.split("?", 1)[0]
+    if not pfad.startswith("/static/"):
+        raise ValueError(f"Bildquelle ausserhalb von /static/: {src}")
+    return str(_STATIC_DIR / pfad[len("/static/"):])
+
 
 class _AnleitungPDF(FPDF):
     """Druckfassung der ausführlichen Anleitung — Tinte/Fonts wie _MatchesPDF,
@@ -202,7 +217,7 @@ def build_anleitung_pdf(html: str, datum: str) -> bytes:
     pdf.add_page()
     pdf.set_font("DejaVu", "", 11)
     pdf.set_text_color(*_TIEFE)
-    pdf.write_html(html, font_family="DejaVu",
+    pdf.write_html(html, font_family="DejaVu", image_map=_static_src,
                    tag_styles={"code": TextStyle(font_family="DejaVuMono"),
                                "pre": TextStyle(font_family="DejaVuMono")})
     return bytes(pdf.output())

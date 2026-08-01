@@ -1,5 +1,7 @@
 # tests/test_export.py
 """Tests für Match-Export: CSV/PDF-Builder, /export-Route, Dialog-Präsenz."""
+from pathlib import Path
+
 import pytest
 
 from jobscanner import storage
@@ -186,3 +188,32 @@ def test_favoriten_seite_dialog_favoriten_vorgewaehlt_ohne_ansicht(client):
     assert 'value="favoriten"\n      checked' in resp.text.replace("\r", "") or \
            'value="favoriten" checked' in resp.text
     assert 'value="ansicht"' not in resp.text
+
+
+def test_static_src_schneidet_query_und_mappt_auf_static_dir():
+    pfad = export._static_src("/static/img/anleitung/01-register.png?v=abc123")
+    assert pfad == str(export._STATIC_DIR / "img" / "anleitung" / "01-register.png")
+    assert Path(pfad).exists()
+
+
+def test_static_src_ohne_query_bleibt_gueltig():
+    pfad = export._static_src("/static/img/anleitung/01-register.png")
+    assert Path(pfad).exists()
+
+
+def test_static_src_fremde_quelle_wirft_valueerror():
+    with pytest.raises(ValueError):
+        export._static_src("https://example.com/fremd.png")
+
+
+def test_build_anleitung_pdf_bettet_bild_ein():
+    fragment = (
+        '<h2>1 Test</h2><p>Ein Absatz.</p>'
+        '<figure class="anl-shot">'
+        '<img src="/static/img/anleitung/01-register.png?v=abc123" width="480"'
+        ' alt="Registrierungs-Formular">'
+        '<figcaption>Bildunterschrift.</figcaption></figure>'
+    )
+    daten = export.build_anleitung_pdf(fragment, "01.08.2026")
+    assert daten[:5] == b"%PDF-"
+    assert b"/Subtype /Image" in daten
