@@ -193,19 +193,25 @@ class TestJoobleSearchProvider:
         assert "Junior AI Engineer" in provider.descriptions["https://jooble.org/desc/456"]
         assert post.call_args[0][0].endswith("guid789")
 
-    def test_sends_deutschland_as_location_filter(self, monkeypatch):
+    def test_sends_target_countries_as_location(self, monkeypatch):
         from jobscanner.search import JoobleSearchProvider
         monkeypatch.setenv("JOOBLE_API_KEY", "guid789")
         with patch("jobscanner.search.requests.post", return_value=self._resp()) as post:
             JoobleSearchProvider().search("AI Engineer", limit=5)
-        assert post.call_args.kwargs["json"]["location"] == "Deutschland"
+        gesendet = [c.kwargs["json"]["location"] for c in post.call_args_list]
+        assert gesendet == ["Germany", "Austria", "Netherlands"]
 
-    def test_uses_location_param_not_hardcoded(self, monkeypatch):
+    def test_ignores_city_location_param(self, monkeypatch):
+        # Die API wertet nur das Land aus (live gemessen) — Stadt wird verworfen
         from jobscanner.search import JoobleSearchProvider
         monkeypatch.setenv("JOOBLE_API_KEY", "guid789")
         with patch("jobscanner.search.requests.post", return_value=self._resp()) as post:
-            JoobleSearchProvider().search("AI Engineer", limit=5, location="Berlin")
-        assert post.call_args.kwargs["json"]["location"] == "Berlin"
+            urls = JoobleSearchProvider().search("AI Engineer", limit=5, location="Berlin")
+        gesendet = [c.kwargs["json"]["location"] for c in post.call_args_list]
+        assert "Berlin" not in gesendet
+        assert gesendet == ["Germany", "Austria", "Netherlands"]
+        # Dieselbe URL aus drei Länder-Abfragen darf nur einmal zurückkommen
+        assert urls == ["https://jooble.org/desc/456"]
 
     def test_empty_without_key(self, monkeypatch):
         from jobscanner.search import JoobleSearchProvider

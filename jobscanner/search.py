@@ -25,6 +25,10 @@ _ARBEITSAGENTUR_API = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service
 _ARBEITSAGENTUR_HEADERS = {"X-API-Key": "jobboerse-jobsuche"}
 _ADZUNA_API = "https://api.adzuna.com/v1/api/jobs/de/search/1"
 _JOOBLE_API = "https://jooble.org/api/"
+# Jooble wertet ausschließlich das Land aus und braucht den englischen Landesnamen
+# (live gemessen 2026-08-02: "Deutschland" → 0 Treffer, "Germany" → 19-58,
+# "Hamburg, Germany" == "Germany"). Stadt-Präzision ist über diese API nicht erreichbar.
+_JOOBLE_COUNTRIES = ("Germany", "Austria", "Netherlands")
 ENV_FILE = Path("/root/projekte/telegram-bot-army/.env")
 
 _PLZ_RE = re.compile(r"\b\d{5}\b")
@@ -236,7 +240,9 @@ class AdzunaSearchProvider:
 
 
 class JoobleSearchProvider:
-    """Jooble-Aggregator-API — POST mit Key in URL, Description-Cache wie Adzuna."""
+    """Jooble-Aggregator-API — POST mit Key in URL, Description-Cache wie Adzuna.
+    Fragt pro Zielland (DE/AT/NL) einmal ab und vereinigt die Treffer URL-dedupliziert;
+    ein übergebener `location`-Wert wird verworfen (die API wertet nur das Land aus)."""
 
     def __init__(self, api_key: str | None = None):
         self.descriptions: dict[str, str] = {}
@@ -251,27 +257,30 @@ class JoobleSearchProvider:
             key = os.environ.get("JOOBLE_API_KEY", "")
         if not key:
             return []
-        try:
-            resp = requests.post(_JOOBLE_API + key,
-                                 json={"keywords": query, "location": location or "Deutschland"},
-                                 timeout=_TIMEOUT)
-            resp.raise_for_status()
-        except requests.RequestException:
-            return []
-        urls = []
-        for j in resp.json().get("jobs", []):
-            url = j.get("link")
-            if not url:
+        urls: list[str] = []
+        seen: set[str] = set()
+        for country in _JOOBLE_COUNTRIES:
+            try:
+                resp = requests.post(_JOOBLE_API + key,
+                                     json={"keywords": query, "location": country},
+                                     timeout=_TIMEOUT)
+                resp.raise_for_status()
+            except requests.RequestException:
                 continue
-            if not is_target_location(j.get("location", "")):
-                continue
-            self.descriptions[url] = "\n".join(filter(None, [
-                j.get("title", ""), j.get("company", ""),
-                j.get("location", ""), j.get("snippet", "")]))
-            self.records[url] = {"title": j.get("title", ""),
-                                 "company": j.get("company", ""),
-                                 "location": j.get("location", "")}
-            urls.append(url)
+            for j in resp.json().get("jobs", []):
+                url = j.get("link")
+                if not url or url in seen:
+                    continue
+                if not is_target_location(j.get("location", "")):
+                    continue
+                seen.add(url)
+                self.descriptions[url] = "\n".join(filter(None, [
+                    j.get("title", ""), j.get("company", ""),
+                    j.get("location", ""), j.get("snippet", "")]))
+                self.records[url] = {"title": j.get("title", ""),
+                                     "company": j.get("company", ""),
+                                     "location": j.get("location", "")}
+                urls.append(url)
         return urls[:limit]
 
 
