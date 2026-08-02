@@ -284,6 +284,24 @@ class TestClassifyLocation:
     def test_foreign_country_is_ausland(self):
         assert classify_location("London, United Kingdom") is True
 
+    def test_de_remote_stays_de(self):
+        # 'Remote' pur oder mit DE-Bezug bleibt aktiv (im Zweifel nicht verstecken)
+        assert classify_location("Remote") is False
+        assert classify_location("Deutschland (remote)") is False
+        assert classify_location("Germany (remote)") is False
+        assert classify_location("Berlin / Konstanz / Remote") is False
+        assert classify_location("Home Office") is False
+
+    def test_foreign_remote_is_ausland(self):
+        # Explizites Ausland-Land schlägt 'Remote' — darf NICHT im Aktiv-Pool landen
+        assert classify_location("USA (100% Remote)") is True
+        assert classify_location("Remote (USA)") is True
+        assert classify_location("Ohio, USA (Remote)") is True
+        assert classify_location("100 % Remote (Alaska, USA)") is True
+        assert classify_location("Remote (Südafrika)") is True
+        assert classify_location("Maryland Heights, MO, USA (Remote)") is True
+        assert classify_location("Los Angeles, CA") is True
+
 
 def test_is_german_location_accepts_de():
     assert is_german_location("Berlin") is True
