@@ -12,7 +12,7 @@ from pathlib import Path
 
 from jobscanner.search import classify_location
 
-DEFAULT_DB = Path("/opt/jobscanner/jobs.db")
+DEFAULT_DB = Path(__file__).parent.parent / "data" / "jobs.db"
 
 
 def backfill(db_path: str | Path, dry_run: bool = False) -> list[tuple[str, str, int, int]]:
