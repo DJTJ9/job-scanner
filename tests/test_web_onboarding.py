@@ -320,53 +320,62 @@ def test_tour_seen_ohne_login_401(tmp_path, monkeypatch):
     assert r.status_code == 401
 
 
-# --- Onboarding-Fortschrittsbalken (Nächste-Schritte-Panel) ---
+# --- Nächste Schritte: vier Grundschritte ohne eigenes Claude-Abo ---
 
-def test_balken_0_von_3_ohne_profil(member_client):
+def test_balken_0_von_4_ohne_profil(member_client):
     text = member_client.get("/").text
-    assert "0/3" in text
+    assert "0/4" in text
     assert "width: 0%" in text
 
 
-def test_balken_1_von_3_mit_profil(tour_member):
+def test_balken_1_von_4_mit_profil(tour_member):
     c, uid = tour_member
     storage.create_profile("Testprofil", {}, user_id=uid)
     text = c.get("/").text
-    assert "1/3" in text
-    assert "width: 33%" in text
+    assert "1/4" in text
+    assert "width: 25%" in text
 
 
-def test_balken_2_von_3_nach_scan(tour_member, monkeypatch):
+def test_jobs_view_loggt_jobs_gesehen_genau_einmal(tour_member):
     c, uid = tour_member
     storage.create_profile("Testprofil", {}, user_id=uid)
-    echt = storage.get_home_summary
-
-    def fake(profile_id):
-        s = dict(echt(profile_id))
-        s["last_scan_ts"] = 1754000000
-        return s
-
-    monkeypatch.setattr(storage, "get_home_summary", fake)
-    text = c.get("/").text
-    assert "2/3" in text
-    assert "width: 67%" in text
+    c.get("/jobs")
+    c.get("/jobs")
+    n = storage._require_conn().execute(
+        "SELECT COUNT(*) FROM events WHERE user_id = ? AND event_type = 'jobs_gesehen'",
+        (uid,)).fetchone()[0]
+    assert n == 1
+    assert "2/4" in c.get("/").text
 
 
-def test_balken_weg_bei_3_von_3(tour_member, monkeypatch):
+def test_feintuning_speichern_loggt_criteria_gespeichert(tour_member):
+    c, uid = tour_member
+    pid = storage.create_profile("Testprofil", {}, user_id=uid)
+    r = c.post(f"/dashboard/{pid}/criteria", data={})
+    assert r.status_code in (200, 303)
+    assert storage.has_event(uid, "criteria_gespeichert") is True
+    assert "Feintuning anpassen" in c.get("/").text
+
+
+def test_tour2_auto_start_nach_profil(tour_member):
+    c, uid = tour_member
+    c.post("/tour/seen", json={"tour": "tour_seen"})
+    assert "data-tour-auto" not in c.get("/").text
+    storage.create_profile("Testprofil", {}, user_id=uid)
+    assert 'data-tour-auto="3"' in c.get("/").text
+
+
+def test_tour2_seen_stoppt_zweiten_autostart(tour_member):
     c, uid = tour_member
     storage.create_profile("Testprofil", {}, user_id=uid)
-    echt = storage.get_home_summary
-
-    def fake(profile_id):
-        s = dict(echt(profile_id))
-        s["last_scan_ts"] = 1754000000
-        s["vote_count"] = 5
-        return s
-
-    monkeypatch.setattr(storage, "get_home_summary", fake)
-    text = c.get("/").text
-    assert "Nächste Schritte" not in text
-    assert "schritt-balken" not in text
+    c.post("/tour/seen", json={"tour": "tour_seen"})
+    c.post("/tour/seen", json={"tour": "tour2_seen"})
+    c.post("/tour/seen", json={"tour": "tour2_seen"})  # idempotent
+    assert "data-tour-auto" not in c.get("/").text
+    n = storage._require_conn().execute(
+        "SELECT COUNT(*) FROM events WHERE user_id = ? AND event_type = 'tour2_seen'",
+        (uid,)).fetchone()[0]
+    assert n == 1
 
 
 # --- Onboarding-Tour: Frontend-Anker ---

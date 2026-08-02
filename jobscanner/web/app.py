@@ -775,18 +775,20 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if resp is not None:
             return resp
         summary = storage.get_home_summary(profile["id"]) if profile else None
+        uid = request.session["user_id"]
         steps = {
             "profil": profile is not None,
-            "scan": bool(summary and summary["last_scan_ts"]),
+            "jobs": storage.has_event(uid, "jobs_gesehen"),
             "votes": bool(summary and summary["vote_count"] >= 5),
+            "feintuning": storage.has_event(uid, "criteria_gespeichert"),
         }
         ctx = {
             "profile": profile,
             "summary": summary,
             "steps": steps,
-            "steps_done": all(steps.values()),
-            "tour_pending": not storage.has_event(
-                request.session["user_id"], "tour_seen"),
+            "tour_pending": not storage.has_event(uid, "tour_seen"),
+            "tour2_pending": profile is not None
+            and not storage.has_event(uid, "tour2_seen"),
         }
         if profile is not None:
             pid = profile["id"]
@@ -1038,6 +1040,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             return resp
         if profile is None:
             return RedirectResponse("/", status_code=303)
+        uid = request.session.get("user_id")
+        if uid is not None and not storage.has_event(uid, "jobs_gesehen"):
+            storage.log_event("jobs_gesehen", uid)
         profile_id = profile["id"]
         if tab not in _DASHBOARD_TABS:
             tab = "aktiv"
@@ -1277,6 +1282,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             for c in existing
         ]
         storage.save_criteria(profile_id, updated)
+        uid = request.session.get("user_id")
+        if uid is not None and not storage.has_event(uid, "criteria_gespeichert"):
+            storage.log_event("criteria_gespeichert", uid)
         if request.session.get("role") == "owner":
             changed = storage.rescore_profile(profile_id)
             if changed:
@@ -1332,14 +1340,18 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     _FEEDBACK_CONFIRMATION = "Bob hat's notiert. Danke!"
 
     @app.post("/tour/seen")
-    def tour_seen_route(request: Request):
+    async def tour_seen_route(request: Request):
         if not csrf.verify(request, request.headers.get("x-csrf-token")):
             return JSONResponse({"error": "csrf"}, status_code=403)
         user_id = request.session.get("user_id")
         if user_id is None:
             return JSONResponse({"error": "unauthorized"}, status_code=401)
-        if not storage.has_event(user_id, "tour_seen"):
-            storage.log_event("tour_seen", user_id)
+        body = await request.json()
+        name = body.get("tour")
+        if name not in ("tour_seen", "tour2_seen"):
+            name = "tour_seen"
+        if not storage.has_event(user_id, name):
+            storage.log_event(name, user_id)
         return JSONResponse({"ok": True})
 
     @app.post("/api/feedback")
