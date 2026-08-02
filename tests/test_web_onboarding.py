@@ -490,3 +490,10 @@ def test_bob_intro_neue_css_regeln():
     assert "list-style: none" in css.split(".bob-liste {")[1].split("}")[0]
     # keine neue Animation eingeschleppt
     assert css.count("@keyframes") == 3
+
+
+def test_tour_schritt_intro_nennt_mitmachen():
+    js = Path("jobscanner/web/static/app.js").read_text(encoding="utf-8")
+    zeile = [z for z in js.splitlines() if 'titel: "Wer ich bin"' in z]
+    assert len(zeile) == 1
+    assert "mitmachen" in zeile[0].lower()

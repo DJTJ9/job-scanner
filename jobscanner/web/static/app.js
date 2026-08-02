@@ -259,7 +259,7 @@ document.querySelectorAll("[data-profile-delete-cancel]").forEach(function (btn)
   const TOUR = [
     { sel: "#drawer", titel: "Dein Menü", text: "Hier kommst du überall hin: Job-Angebote, Favoriten, dein Profil und das Feintuning." },
     { sel: "[data-drawer-open]", titel: "Dein Menü", text: "Hinter dem ☰ steckt alles: Job-Angebote, Favoriten, dein Profil und das Feintuning." },
-    { sel: ".bob-intro", titel: "Wer ich bin", text: "Kurz vorgestellt: was ich kann und wie ich arbeite. Aufklappen lohnt sich." },
+    { sel: ".bob-intro", titel: "Wer ich bin", text: "Kurz vorgestellt: was ich kann, wie ich arbeite und wie du beim Mitmachen hilfst. Aufklappen lohnt sich." },
     { sel: ".anl-check", titel: "Deine To-do-Liste", text: "Vier Schritte, ganz ohne eigenes Claude-Abo: Profil anlegen, Job-Angebote ansehen, fünf Jobs bewerten, Feintuning anpassen." },
     { sel: ".sonar-band", titel: "Mein Sonar", text: "Hier siehst du, wann ich zuletzt gescannt habe und wie viele Anzeigen im Netz sind.", extra: '.drawer-item[href="/jobs"]' },
     { sel: ".job-card", titel: "Dein Treffer", text: "So sieht ein Treffer aus — mit Passung von 0 bis 100 und Begründung pro Kriterium.", extra: '.drawer-item[href="/jobs"]' },
