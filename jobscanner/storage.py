@@ -15,7 +15,7 @@ from pathlib import Path
 
 from jobscanner import config, scoring
 from jobscanner.models import Job, match_key
-from jobscanner.search import classify_location
+from jobscanner.search import classify_location, expand_location_filters
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -1165,9 +1165,11 @@ def sync_inbox_notifications(profile_id: int) -> int:
              "jobs.extraction_status = 'extracted'"]
     params: list = [profile_id]
     if langs:
-        where.append("jobs.language IN (%s)" % ",".join("?" * len(langs)))
+        where.append("(jobs.language IN (%s) OR jobs.is_ausland = 0)"
+                     % ",".join("?" * len(langs)))
         params += list(langs)
     if locs:
+        locs = expand_location_filters(locs)
         where.append("(" + " OR ".join("jobs.location LIKE ?" for _ in locs) + ")")
         params += [f"%{loc}%" for loc in locs]
     rows = conn.execute(
@@ -1465,18 +1467,25 @@ def list_jobs_with_scores(profile_id: int, locations: list[str] | None = None,
     """Jobs mit Score/Begründung/Breakdown des gegebenen Profils, höchster Score zuerst
     (ungescorte Jobs ans Ende). Optionale Pool-Filter: Sprache (exakt IN), Standort
     (Substring-OR, LIKE %x%); leere/None-Liste = kein Filter. include_expired=True nimmt
-    zusätzlich Jobs mit status='expired' auf (Default: ausgeblendet)."""
+    zusätzlich Jobs mit status='expired' auf (Default: ausgeblendet).
+
+    Der Sprachfilter verwirft nichts im Zielraum (is_ausland = 0) — der Standort
+    entscheidet, die Sprache filtert nur noch Auslands-Jobs. Der Standortfilter wird um
+    die Länder-Terme des Zielraums erweitert (expand_location_filters), weil die
+    Aggregator-APIs den Standort nur auf Landesebene liefern."""
     conn = _require_conn()
     where = ["jobs.extraction_status = 'extracted'"]
     if not include_expired:
         where.append("jobs.status != 'expired'")
     params: list = [profile_id]
     if languages:
-        where.append("jobs.language IN (%s)" % ",".join("?" * len(languages)))
+        where.append("(jobs.language IN (%s) OR jobs.is_ausland = 0)"
+                     % ",".join("?" * len(languages)))
         params += list(languages)
     if locations:
-        where.append("(" + " OR ".join("jobs.location LIKE ?" for _ in locations) + ")")
-        params += [f"%{loc}%" for loc in locations]
+        locs = expand_location_filters(locations)
+        where.append("(" + " OR ".join("jobs.location LIKE ?" for _ in locs) + ")")
+        params += [f"%{loc}%" for loc in locs]
     rows = conn.execute(
         """SELECT jobs.*, job_scores.score AS profile_score,
                   job_scores.reason AS profile_reason,
@@ -1764,11 +1773,13 @@ def enqueue_member_rescore(profile_id: int, max_jobs: int | None = None,
     ]
     params: list = [profile_id, profile_id, profile_id]
     if languages:
-        where.append("jobs.language IN (%s)" % ",".join("?" * len(languages)))
+        where.append("(jobs.language IN (%s) OR jobs.is_ausland = 0)"
+                     % ",".join("?" * len(languages)))
         params += list(languages)
     if locations:
-        where.append("(" + " OR ".join("jobs.location LIKE ?" for _ in locations) + ")")
-        params += [f"%{loc}%" for loc in locations]
+        locs = expand_location_filters(locations)
+        where.append("(" + " OR ".join("jobs.location LIKE ?" for _ in locs) + ")")
+        params += [f"%{loc}%" for loc in locs]
     sql = (
         "INSERT OR IGNORE INTO member_rescore_queue (profile_id, fingerprint, created_at) "
         "SELECT job_scores.profile_id, job_scores.fingerprint, datetime('now') "

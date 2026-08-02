@@ -67,7 +67,8 @@ def test_list_jobs_with_scores_sorted_by_score_desc_nulls_last():
 def test_list_jobs_with_scores_filters_language():
     pid = storage.create_profile("Testi", {"skills": []})
     de_fp = storage.upsert_job(_mk_job(company="DeCo", language="de"))
-    en_fp = storage.upsert_job(_mk_job(company="EnCo", language="en"))
+    en_fp = storage.upsert_job(_mk_job(company="EnCo", language="en",
+                                       location="Austin, TX"))
     rows = storage.list_jobs_with_scores(pid, languages=["de"])
     fps = {r["job"].fingerprint for r in rows}
     assert de_fp in fps and en_fp not in fps
@@ -110,3 +111,28 @@ def test_list_unscored_extracted_respects_limit():
     for i in range(3):
         storage.upsert_job(_mk_job(title=f"Job {i}", company=f"C{i}"))
     assert len(storage.list_unscored_extracted(limit=2)) == 2
+
+
+def test_list_jobs_with_scores_zeigt_englische_de_jobs_trotz_sprachfilter():
+    pid = storage.create_profile("Testi", {"skills": []})
+    storage.upsert_job(_mk_job(title="EN DE Job", location="Hamburg", language="en"))
+    storage.upsert_job(_mk_job(title="Ohne Sprache", location="Hamburg", language=""))
+    titel = {e["job"].title
+             for e in storage.list_jobs_with_scores(pid, languages=["de"])}
+    assert titel == {"EN DE Job", "Ohne Sprache"}
+
+
+def test_list_jobs_with_scores_sprachfilter_greift_weiter_bei_ausland():
+    pid = storage.create_profile("Testi", {"skills": []})
+    storage.upsert_job(_mk_job(title="EN US Job", location="Austin, TX", language="en"))
+    titel = {e["job"].title
+             for e in storage.list_jobs_with_scores(pid, languages=["de"])}
+    assert titel == set()
+
+
+def test_list_jobs_with_scores_standortfilter_akzeptiert_landesnamen():
+    pid = storage.create_profile("Testi", {"skills": []})
+    storage.upsert_job(_mk_job(title="Jooble Job", location="Germany"))
+    titel = {e["job"].title
+             for e in storage.list_jobs_with_scores(pid, locations=["Hamburg", "München"])}
+    assert titel == {"Jooble Job"}

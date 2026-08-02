@@ -149,7 +149,7 @@ def test_set_spar_modus_persists_location_language():
 def test_enqueue_filters_by_language():
     _uid, pid = _member_profile("m", "m@x.de")
     de_fp = _extracted_scored_job(pid, "de", language="de")
-    en_fp = _extracted_scored_job(pid, "en", language="en")
+    en_fp = _extracted_scored_job(pid, "en", location="Austin, TX", language="en")
     storage.enqueue_member_rescore(pid, languages=["de"])
     queued = {i["fingerprint"] for i in storage.list_member_rescore([pid])}
     assert de_fp in queued and en_fp not in queued
@@ -202,3 +202,14 @@ def test_enqueue_includes_pass_band():
     _uid, pid = _member_profile("passband", "passband@test.de")
     _scored_job(pid, "p", 85, "Pass")
     assert storage.enqueue_member_rescore(pid) == 1
+
+
+def test_enqueue_member_rescore_nimmt_englische_de_jobs_und_landesnamen():
+    _uid, pid = _member_profile()
+    job = Job(title="EN DE Job", company="ACME", location="Germany", language="en",
+              sources=[{"portal": "jooble", "url": "https://t.test/en-de"}],
+              first_seen="2026-08-01", last_seen="2026-08-01")
+    storage.upsert_job(job)
+    storage.upsert_job_score(pid, job.fingerprint, 80, "passt", "Pass", {})
+    assert storage.enqueue_member_rescore(pid, locations=["Hamburg"],
+                                          languages=["de"]) == 1

@@ -178,7 +178,7 @@ def _member_profile(spar, email="m@test.de"):
 def test_sync_inbox_language_filter_excludes_out_of_scope():
     uid, pid = _member_profile({"languages": ["de"], "locations": []})
     _pass_job(pid, "Deutscher Job", 90, language="de")
-    _pass_job(pid, "English Job", 88, language="en")
+    _pass_job(pid, "English Job", 88, language="en", location="Seattle")
     storage.sync_inbox_notifications(pid)
     titles = [r["title"] for r in storage.list_inbox(uid)]
     assert titles == ["Deutscher Job"]
@@ -203,7 +203,7 @@ def test_sync_inbox_no_filter_when_scope_empty():
 
 def test_sync_inbox_prunes_out_of_scope_existing_row():
     uid, pid = _member_profile({"languages": [], "locations": []})
-    _pass_job(pid, "EN Job", 88, language="en")
+    _pass_job(pid, "EN Job", 88, language="en", location="Seattle")
     storage.sync_inbox_notifications(pid)
     assert storage.count_unread(uid) == 1
     # Scope auf de einengen → EN-Zeile muss beim Re-Sync verschwinden
@@ -221,3 +221,9 @@ def test_sync_inbox_keeps_in_scope_and_inserts_new_returns_count():
     assert storage.sync_inbox_notifications(pid) == 1  # nur der neue zählt
     titles = {r["title"] for r in storage.list_inbox(uid)}
     assert titles == {"Erst", "Zweit"}
+
+
+def test_sync_inbox_nimmt_englische_de_jobs_und_landesnamen_auf():
+    _uid, pid = _member_profile({"languages": ["de"], "locations": ["Hamburg"]})
+    _pass_job(pid, "EN DE Job", 90, language="en", location="Germany")
+    assert storage.sync_inbox_notifications(pid) == 1
