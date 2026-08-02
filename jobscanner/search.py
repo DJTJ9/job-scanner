@@ -106,12 +106,15 @@ def classify_location(location: str) -> bool:
     return True
 
 
-def is_german_location(loc: str) -> bool:
-    """Strikt: True nur bei eindeutig deutschem Standort (PLZ / DE-Stadt /
-    'deutschland'|'germany'). 'Remote'/leer/Ausland → False (verwerfen).
+def is_target_location(loc: str) -> bool:
+    """Strikt: True nur bei eindeutigem Standort im Zielraum DE/AT/NL
+    (PLZ / 'deutschland'|'germany' / DE-Stadt / AT / NL). 'Remote'/leer/Ausland → False
+    (verwerfen). Ausland-Signal gewinnt vor der PLZ, sonst passiert eine US-ZIP den Filter.
     Gegenstück zum lenienten classify_location — nur für Adzuna/Jooble."""
     norm = (loc or "").strip().lower()
     if not norm:
+        return False
+    if _FOREIGN_RE.search(norm) or _US_STATE_ABBR_RE.search(norm):
         return False
     if _PLZ_RE.search(norm):
         return True
@@ -119,7 +122,7 @@ def is_german_location(loc: str) -> bool:
         return True
     if any(city in norm for city in _DE_CITIES):
         return True
-    return False
+    return bool(_AT_RE.search(norm) or _NL_RE.search(norm))
 
 
 def _load_env() -> None:
@@ -217,7 +220,7 @@ class AdzunaSearchProvider:
             if not url:
                 continue
             loc = (r.get("location") or {}).get("display_name", "")
-            if not is_german_location(loc):
+            if not is_target_location(loc):
                 continue
             self.descriptions[url] = "\n".join(filter(None, [
                 r.get("title", ""),
@@ -260,7 +263,7 @@ class JoobleSearchProvider:
             url = j.get("link")
             if not url:
                 continue
-            if not is_german_location(j.get("location", "")):
+            if not is_target_location(j.get("location", "")):
                 continue
             self.descriptions[url] = "\n".join(filter(None, [
                 j.get("title", ""), j.get("company", ""),

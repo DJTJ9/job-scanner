@@ -5,7 +5,7 @@ import requests
 
 from jobscanner.search import (PortalSearchProvider, ArbeitsagenturSearchProvider,
                                discover_urls, provider_for, classify_location,
-                               build_search_url, is_german_location,
+                               build_search_url, is_target_location,
                                AdzunaSearchProvider, JoobleSearchProvider)
 from jobscanner import browser, search
 
@@ -317,18 +317,20 @@ def test_classify_location_at_nl_sind_zielraum():
     assert classify_location("Eindhoven") is False
 
 
-def test_is_german_location_accepts_de():
-    assert is_german_location("Berlin") is True
-    assert is_german_location("50667 Köln") is True
-    assert is_german_location("Deutschland") is True
-    assert is_german_location("Munich, Germany") is True
+def test_is_target_location_accepts_de_at_nl():
+    assert is_target_location("Berlin") is True
+    assert is_target_location("50667 Köln") is True
+    assert is_target_location("Deutschland") is True
+    assert is_target_location("Munich, Germany") is True
+    assert is_target_location("Wien, Österreich") is True
+    assert is_target_location("Amsterdam, Netherlands") is True
 
 
-def test_is_german_location_rejects_foreign_and_remote():
-    assert is_german_location("Remote") is False
-    assert is_german_location("") is False
-    assert is_german_location("London, UK") is False
-    assert is_german_location("New York") is False
+def test_is_target_location_rejects_foreign_and_remote():
+    assert is_target_location("Remote") is False
+    assert is_target_location("") is False
+    assert is_target_location("Paris, France") is False
+    assert is_target_location("New York, NY 10001") is False
 
 
 def _adzuna_result(loc):
