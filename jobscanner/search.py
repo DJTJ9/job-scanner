@@ -34,8 +34,8 @@ _DE_TOKEN_RE = re.compile(r"\bde\b")
 _FOREIGN_RE = re.compile(
     r"\b("
     r"usa|united states|vereinigte staaten|canada|kanada|australia|australien|"
-    r"netherlands|niederlande|spanien|spain|bulgarien|bulgaria|malaysia|"
-    r"t[üu]rkei|turkey|schweiz|switzerland|[öo]sterreich|austria|"
+    r"spanien|spain|bulgarien|bulgaria|malaysia|"
+    r"t[üu]rkei|turkey|schweiz|switzerland|"
     r"s[üu]dafrika|south africa|frankreich|france|italien|italy|polen|poland|"
     r"united kingdom|england|ireland|irland|india|indien|china|japan|"
     r"singapore|singapur|portugal|belgien|belgium|"
@@ -46,6 +46,12 @@ _FOREIGN_RE = re.compile(
     r"utah|virginia|washington|wisconsin"
     r")\b"
 )
+# Zielraum neben Deutschland: Österreich + Niederlande (kein Ausland mehr).
+_AT_RE = re.compile(
+    r"\b([öo]sterreich|austria|wien|vienna|graz|linz|salzburg|innsbruck)\b")
+_NL_RE = re.compile(
+    r"\b(niederlande|netherlands|nederland|amsterdam|rotterdam|utrecht|"
+    r"eindhoven|den haag|the hague|groningen)\b")
 _US_STATE_ABBR_RE = re.compile(
     r",\s*(tx|ca|ny|oh|nc|ga|fl|pa|va|wa|co|mo|mn|mi|al|ri|sc|or|in|tn|ks|nv|"
     r"ut|md|nj|az|ma|il|wi|ky|ok)\b"
@@ -76,12 +82,15 @@ def validate_query_template(template: str) -> bool:
 
 
 def classify_location(location: str) -> bool:
-    """True = eindeutig nicht Deutschland ('Ausland'), False = DE oder uneindeutig.
-    Reihenfolge: starke DE-Signale (PLZ/'Deutschland'/DE-Stadt) gewinnen zuerst,
-    dann schlägt ein explizites Ausland-Land/US-Bundesstaat die 'Remote'-Leniency
-    ('USA (Remote)' → Ausland), sonst bleiben 'Remote'/leer aktiv (im Zweifel nicht
-    verstecken); ein sonstiger benannter, nicht-deutscher Ort → Ausland."""
+    """True = eindeutig außerhalb des Zielraums ('Ausland'), False = DE/AT/NL oder
+    uneindeutig. Reihenfolge: ein explizites Ausland-Land/US-Bundesstaat gewinnt zuerst
+    (sonst liest die 5-stellige PLZ-Regex eine US-ZIP als deutsche PLZ und schlägt die
+    'Remote'-Leniency nicht), dann die starken Zielraum-Signale (PLZ/'Deutschland'/
+    DE-Stadt/AT/NL), sonst bleiben 'Remote'/leer aktiv (im Zweifel nicht verstecken);
+    ein sonstiger benannter, nicht-heimischer Ort → Ausland."""
     norm = (location or "").strip().lower()
+    if _FOREIGN_RE.search(norm) or _US_STATE_ABBR_RE.search(norm):
+        return True
     if _PLZ_RE.search(norm):
         return False
     if "deutschland" in norm or "germany" in norm:
@@ -90,8 +99,8 @@ def classify_location(location: str) -> bool:
         return False
     if any(city in norm for city in _DE_CITIES):
         return False
-    if _FOREIGN_RE.search(norm) or _US_STATE_ABBR_RE.search(norm):
-        return True
+    if _AT_RE.search(norm) or _NL_RE.search(norm):
+        return False
     if not norm or "remote" in norm or "home office" in norm or "homeoffice" in norm:
         return False
     return True

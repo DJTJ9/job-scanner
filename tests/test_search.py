@@ -303,6 +303,20 @@ class TestClassifyLocation:
         assert classify_location("Los Angeles, CA") is True
 
 
+def test_classify_location_us_zip_not_mistaken_for_plz():
+    # US-ZIP-Lücke: 5-stellige ZIP matchte die deutsche PLZ-Regex
+    assert classify_location("New York, NY 10001") is True
+    assert classify_location("Austin, TX 78701") is True
+
+
+def test_classify_location_at_nl_sind_zielraum():
+    assert classify_location("Wien, Österreich") is False
+    assert classify_location("Graz") is False
+    assert classify_location("Amsterdam, Netherlands") is False
+    assert classify_location("Den Haag, Niederlande") is False
+    assert classify_location("Eindhoven") is False
+
+
 def test_is_german_location_accepts_de():
     assert is_german_location("Berlin") is True
     assert is_german_location("50667 Köln") is True
