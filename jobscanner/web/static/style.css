@@ -459,6 +459,10 @@ body.has-drawer.drawer-collapsed .site-footer { margin-left: 56px; }
 .anl-faq p { margin: 0.5rem 0; font-size: 0.95rem; }
 
 .anl-check-wrap { border-top: 1px solid rgba(234, 242, 251, 0.12); padding-top: 1.5rem; }
+.anl-check-fertig { opacity: 0.55; }
+.anl-check-fertig .link { color: var(--beute); }
+.anl-upgrade h3 { margin: 0 0 0.5rem; font-family: "Chakra Petch", sans-serif; font-size: 1rem; }
+.anl-upgrade p { margin: 0 0 0.5rem; font-size: 0.9rem; }
 .anl-outro { font-size: 1.02rem; }
 
 /* ---- /einstellungen: Reiter ---- */

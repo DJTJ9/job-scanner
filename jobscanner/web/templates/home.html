@@ -77,17 +77,23 @@
 </div>
 {% endif %}
 {% endif %}
-{% if not steps_done %}
 <div class="panel">
   {% set fertig = steps.values() | select | list | length %}
-  <h2>Nächste Schritte <span class="schritt-zaehler mono">{{ fertig }}/3</span></h2>
-  <div class="schritt-balken"><div class="schritt-balken-fill" style="width: {{ '%.0f' % (fertig / 3 * 100) }}%"></div></div>
+  <h2>Nächste Schritte <span class="schritt-zaehler mono">{{ fertig }}/4</span></h2>
+  <div class="schritt-balken"><div class="schritt-balken-fill" style="width: {{ '%.0f' % (fertig / 4 * 100) }}%"></div></div>
   <ul class="anl-check">
-    <li>{{ '✅' if steps.profil else '□' }} <a class="link" href="/wizard/new">Profil anlegen</a></li>
-    <li>{{ '✅' if steps.scan else '□' }} <a class="link" href="/scan">ersten Scan starten</a></li>
-    <li>{{ '✅' if steps.votes else '□' }} <a class="link" href="/jobs">5 Jobs bewerten</a></li>
+    <li{% if steps.profil %} class="anl-check-fertig"{% endif %}>{{ '✅' if steps.profil else '□' }} <a class="link" href="/wizard/new">Profil anlegen</a></li>
+    <li{% if steps.jobs %} class="anl-check-fertig"{% endif %}>{{ '✅' if steps.jobs else '□' }} <a class="link" href="/jobs">Job-Angebote ansehen</a></li>
+    <li{% if steps.votes %} class="anl-check-fertig"{% endif %}>{{ '✅' if steps.votes else '□' }} <a class="link" href="/jobs">5 Jobs bewerten</a></li>
+    <li{% if steps.feintuning %} class="anl-check-fertig"{% endif %}>{{ '✅' if steps.feintuning else '□' }} <a class="link" href="/feintuning">Feintuning anpassen</a></li>
   </ul>
+  <div class="anl-check-wrap anl-upgrade">
+    <h3>Optional: eigener Scan</h3>
+    <p>Ohne Claude-Abo arbeitest du mit dem gemeinsamen Job-Pool — Profil, Bewertungen und Feintuning reichen für deine ersten Treffer.</p>
+    <p>Mit Claude-Abo scannst du selbst über deine Heim-IP und füllst den Pool für alle mit.</p>
+    <a class="link" href="/scan">Scan einrichten →</a>
+    <p class="hinweis">Mehrere Profile bringen präzisere Treffer — z.B. je Rolle eins.</p>
+  </div>
 </div>
-{% endif %}
 <script src="/static/dashboard.js?v={{ asset_version }}" defer></script>
 {% endblock %}

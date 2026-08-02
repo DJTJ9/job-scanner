@@ -50,18 +50,17 @@ def test_home_markiert_nichts_als_notified(client):
     assert len(storage.list_unnotified_top_matches(pid)) == 1
 
 
-def test_naechste_schritte_verschwinden_wenn_erledigt(client):
+def test_naechste_schritte_bleiben_sichtbar_wenn_erledigt(client):
     _login(client)
     pid = storage.get_profile_by_name("Tjark")["id"]
     resp = client.get("/")
-    assert "Nächste Schritte" in resp.text   # kein Scan, keine 5 Votes
-    storage.log_event("scan_pushed", meta={})
+    assert "Nächste Schritte" in resp.text   # keine 5 Votes
     for i in range(5):
         fp = storage.upsert_job(Job(title=f"J{i}", company=f"C{i}", location="HH",
                                     first_seen="2026-07-27"))
         storage.add_feedback(pid, fp, "up")
     resp = client.get("/")
-    assert "Nächste Schritte" not in resp.text
+    assert "Nächste Schritte" in resp.text
 
 
 def test_wizard_abschluss_redirectet_auf_home(client):

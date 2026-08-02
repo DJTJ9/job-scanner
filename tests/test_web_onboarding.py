@@ -401,3 +401,43 @@ def test_tour_sweep_keyframes_ohne_ping_kollision():
     # bestehende Keyframes nicht dupliziert (Kaskaden-Kollision, siehe echo-ping-Learning)
     assert css.count("@keyframes ping-pulse") == 1
     assert css.count("@keyframes feedback-fab-pulse") == 1
+
+
+def test_panel_bleibt_bei_4_von_4_sichtbar(tour_member, monkeypatch):
+    c, uid = tour_member
+    storage.create_profile("Testprofil", {}, user_id=uid)
+    storage.log_event("jobs_gesehen", uid)
+    storage.log_event("criteria_gespeichert", uid)
+    echt = storage.get_home_summary
+
+    def fake(profile_id):
+        s = dict(echt(profile_id))
+        s["vote_count"] = 5
+        return s
+
+    monkeypatch.setattr(storage, "get_home_summary", fake)
+    text = c.get("/").text
+    assert "Nächste Schritte" in text
+    assert "4/4" in text
+    assert "width: 100%" in text
+    assert "anl-check-fertig" in text
+
+
+def test_grundschritte_ohne_scan_schritt(member_client):
+    text = member_client.get("/").text
+    for label in ("Profil anlegen", "Job-Angebote ansehen",
+                  "5 Jobs bewerten", "Feintuning anpassen"):
+        assert label in text
+    assert "ersten Scan starten" not in text
+
+
+def test_upgrade_block_erklaert_scan_ohne_abo(member_client):
+    text = member_client.get("/").text
+    assert "Optional: eigener Scan" in text
+    assert "gemeinsamen Job-Pool" in text
+    assert "anl-check-wrap" in text
+
+
+def test_erledigte_schritte_css_definiert():
+    css = Path("jobscanner/web/static/style.css").read_text(encoding="utf-8")
+    assert ".anl-check-fertig" in css
