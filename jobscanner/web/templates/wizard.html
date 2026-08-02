@@ -79,7 +79,7 @@
       </div>
     {% endfor %}
     <label class="chip"><input type="checkbox" name="no_custom_queries" value="1"
-      {{ 'checked' if not data.get('queries') else '' }}> Ohne eigene Begriffe — Standard Bob-Suche nutzen</label>
+      {{ 'checked' if data.get('queries') == {} else '' }}> Ohne eigene Begriffe — Standard Bob-Suche nutzen</label>
     <script>
       document.querySelectorAll('.chip-tags').forEach(function (container) {
         var idx = container.dataset.chipContainer;

@@ -84,6 +84,17 @@ def test_wizard_suchbegriffe_step_no_custom_queries_stores_none(client):
     assert p["queries"] is None
 
 
+def test_wizard_suchbegriffe_toggle_defaults_off_for_new_profile(client):
+    client.get("/wizard/new")
+    client.post("/wizard/basis", data={"name": "DefaultOffProfil", "level": "junior",
+                                       "experience_years": "1"})
+    client.post("/wizard/skills", data={"skills": "Python"})
+    client.post("/wizard/zielrollen", data={"target_roles": "Backend Dev"})
+    html = client.get("/wizard/suchbegriffe").text
+    toggle = html.split('name="no_custom_queries"', 1)[1].split(">", 1)[0]
+    assert "checked" not in toggle
+
+
 def test_wizard_zielrollen_step_links_to_suchbegriffe_next(client):
     client.get("/wizard/new")
     client.post("/wizard/basis", data={"name": "OrderCheck", "level": "junior",
