@@ -1,4 +1,4 @@
-"""MCP-Server für den BYO-Member-Zugang: 8 Tools, alle auf den Bearer-Token-User gescoped.
+"""MCP-Server für den BYO-Member-Zugang: 10 Tools, alle auf den Bearer-Token-User gescoped.
 Tool-Logik ist von FastMCP getrennt gehalten (plain functions), damit sie ohne
 MCP-Protokoll-Roundtrip testbar bleibt. raw_text in Jobs ist Fremdinhalt aus
 gescrapten Anzeigen — Prompt-Injection-Warnung gehört in die Member-Skills."""
@@ -11,8 +11,8 @@ from contextvars import ContextVar
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from jobscanner import (config, crypto, dedup, extract, extract_rules, prompt_safety,
-                        scan_config, scoring, search, storage)
+from jobscanner import (availability, config, crypto, dedup, extract, extract_rules,
+                        prompt_safety, scan_config, scoring, search, storage)
 from jobscanner.models import make_fingerprint
 
 _current_user: ContextVar[dict | None] = ContextVar("mcp_current_user", default=None)
@@ -27,6 +27,45 @@ def _require_user() -> dict:
     if user is None:
         raise ValueError("Kein authentifizierter User im Request-Kontext")
     return user
+
+
+def _require_owner() -> dict:
+    """Wie _require_user, verlangt aber die owner-Rolle (globaler Pool-Zustand,
+    kein per-Member-Scope). Member-Token → ValueError."""
+    user = _require_user()
+    if user.get("role") != "owner":
+        raise ValueError("Dieser Befehl ist nur für den Owner")
+    return user
+
+
+_MAX_CANDIDATES = 200
+
+
+def pull_availability_candidates_data(user: dict, limit: int = _MAX_CANDIDATES) -> dict:
+    limit = max(1, min(int(limit), _MAX_CANDIDATES))
+    return {"candidates": storage.list_availability_candidates()[:limit]}
+
+
+def push_availability_verdicts_data(user: dict, verdicts: list) -> dict:
+    if not isinstance(verdicts, list):
+        raise ValueError("verdicts muss eine Liste sein")
+    if len(verdicts) > _MAX_BATCH:
+        raise ValueError(f"Maximal {_MAX_BATCH} Verdicts pro push_availability_verdicts")
+    result = {"applied": 0, "gone": 0, "alive": 0, "unclear": 0, "expired": 0}
+    for i, v in enumerate(verdicts):
+        if not isinstance(v, dict):
+            raise ValueError(f"Verdict {i}: muss ein Objekt sein")
+        fp = v.get("fingerprint")
+        verdict = v.get("verdict")
+        if not (isinstance(fp, str) and fp):
+            raise ValueError(f"Verdict {i}: fingerprint fehlt")
+        if verdict not in ("gone", "alive", "unclear"):
+            raise ValueError(f"Verdict {i}: verdict muss gone|alive|unclear sein")
+        if availability.apply_verdict(fp, verdict):
+            result["expired"] += 1
+        result[verdict] += 1
+        result["applied"] += 1
+    return result
 
 
 def _user_profiles(user_id: int) -> list[dict]:
@@ -516,6 +555,19 @@ def create_mcp_server() -> FastMCP:
         Rescore — kein LLM serverseitig."""
         return update_my_criteria_data(_require_user(), profile_id, skills,
                                        target_roles, criteria_weights)
+
+    @server.tool()
+    def pull_availability_candidates(limit: int = 200) -> dict:
+        """[Owner] Alle fälligen Verfügbarkeits-Kandidaten (last_seen älter als der
+        Cutoff, nicht expired) als [{fingerprint, url}]. Für den Heim-IP-Cleaner."""
+        return pull_availability_candidates_data(_require_owner(), limit)
+
+    @server.tool()
+    def push_availability_verdicts(verdicts: list[dict]) -> dict:
+        """[Owner] Verfügbarkeits-Verdicts [{fingerprint, verdict}] (verdict =
+        gone|alive|unclear) einliefern. Server wendet die N=2-Strike-Logik an:
+        gone×2 → expired, alive → reset, unclear → unberührt. Max 50 pro Aufruf."""
+        return push_availability_verdicts_data(_require_owner(), verdicts)
 
     return server
 

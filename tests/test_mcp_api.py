@@ -534,7 +534,8 @@ class TestMcpTransport:
         names = {t["name"] for t in resp.json()["result"]["tools"]}
         assert names == {"get_my_profile", "pull_pending_jobs", "push_batch", "push_jobs",
                           "get_scan_config", "get_my_votes", "apply_member_insights",
-                          "update_my_criteria", "scan_aggregators"}
+                          "update_my_criteria", "scan_aggregators",
+                          "pull_availability_candidates", "push_availability_verdicts"}
 
     def test_mcp_tool_call_scoped_to_token_user(self, client, member):
         pid = storage.create_profile("Member-Sicht", {"no_gos": []},
@@ -787,3 +788,57 @@ class TestPromptInjectionGuard:
         assert vote["vote"] == "up" and vote["fingerprint"] == fp
         assert vote["title"].count("</job_data>") == 1
         assert vote["company"] == "<job_data>\nFirma-inj2\n</job_data>"
+
+
+class TestAvailabilityTools:
+    def _owner(self):
+        return storage.get_user_by_email("owner@test.de")
+
+    def test_require_owner_rejects_member(self, client, member):
+        m = storage.get_user(member["id"])
+        tok = mcp_api._current_user.set(m)
+        try:
+            with pytest.raises(ValueError):
+                mcp_api._require_owner()
+        finally:
+            mcp_api._current_user.reset(tok)
+
+    def test_require_owner_accepts_owner(self, client):
+        tok = mcp_api._current_user.set(self._owner())
+        try:
+            assert mcp_api._require_owner()["role"] == "owner"
+        finally:
+            mcp_api._current_user.reset(tok)
+
+    def test_pull_candidates_shape(self, client):
+        from datetime import date, timedelta
+        from jobscanner.models import Job
+        old = (date.today() - timedelta(days=5)).isoformat()
+        fp = storage.upsert_job(Job(
+            title="Dev", company="ACME", location="HH", language="de",
+            requirements=["Unity"], tech_stack=["Unity"],
+            sources=[{"portal": "indeed", "url": "https://indeed.com/j/1", "found_at": old}],
+            first_seen=old, last_seen=old))
+        out = mcp_api.pull_availability_candidates_data(self._owner(), limit=200)
+        assert {"fingerprint": fp, "url": "https://indeed.com/j/1"} in out["candidates"]
+
+    def test_push_verdicts_applies_strike_logic(self, client):
+        from datetime import date, timedelta
+        from jobscanner.models import Job
+        old = (date.today() - timedelta(days=5)).isoformat()
+        fp = storage.upsert_job(Job(
+            title="Dev2", company="ACME2", location="HH", language="de",
+            requirements=["Unity"], tech_stack=["Unity"],
+            sources=[{"portal": "indeed", "url": "https://indeed.com/j/2", "found_at": old}],
+            first_seen=old, last_seen=old))
+        owner = self._owner()
+        r1 = mcp_api.push_availability_verdicts_data(owner, [{"fingerprint": fp, "verdict": "gone"}])
+        assert r1 == {"applied": 1, "gone": 1, "alive": 0, "unclear": 0, "expired": 0}
+        assert storage.get_job(fp).status != "expired"
+        r2 = mcp_api.push_availability_verdicts_data(owner, [{"fingerprint": fp, "verdict": "gone"}])
+        assert r2["expired"] == 1
+        assert storage.get_job(fp).status == "expired"
+
+    def test_push_verdicts_rejects_bad_verdict(self, client):
+        with pytest.raises(ValueError):
+            mcp_api.push_availability_verdicts_data(self._owner(), [{"fingerprint": "x", "verdict": "maybe"}])
