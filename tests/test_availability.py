@@ -23,16 +23,6 @@ def _old_job(fp_seed: str, url: str) -> str:
     return storage.upsert_job(job)
 
 
-def _strikes(fp):
-    return storage._require_conn().execute(
-        "SELECT unavailable_strikes FROM jobs WHERE fingerprint = ?", (fp,)).fetchone()[0]
-
-
-def _status(fp):
-    return storage._require_conn().execute(
-        "SELECT status FROM jobs WHERE fingerprint = ?", (fp,)).fetchone()[0]
-
-
 DETAIL = "https://indeed.test/detail/123"
 
 
@@ -64,36 +54,24 @@ class TestClassify:
         assert availability.classify(DETAIL, {"status": 200, "final_url": DETAIL, "html": "<html></html>"}) == "unclear"
 
 
-class TestCheckAll:
-    def test_gone_increments_strike(self, db, monkeypatch):
-        fp = _old_job("g", "https://indeed.test/g")
-        monkeypatch.setattr(availability, "_render_with_status",
-                            lambda url: {"status": 404, "final_url": url, "html": ""})
-        availability.check_all()
-        assert _strikes(fp) == 1
-        assert _status(fp) != "expired"
+class TestApplyVerdict:
+    def test_gone_bumps_strike_expires_on_second(self, db):
+        fp = _old_job("g1", "https://indeed.com/j/1")
+        assert availability.apply_verdict(fp, "gone") is False
+        assert storage.get_job(fp).status != "expired"
+        assert availability.apply_verdict(fp, "gone") is True
+        assert storage.get_job(fp).status == "expired"
 
-    def test_two_strikes_expire(self, db, monkeypatch):
-        fp = _old_job("g2", "https://indeed.test/g2")
-        monkeypatch.setattr(availability, "_render_with_status",
-                            lambda url: {"status": 404, "final_url": url, "html": ""})
-        availability.check_all()
-        availability.check_all()
-        assert _status(fp) == "expired"
+    def test_alive_resets_strike(self, db):
+        fp = _old_job("a1", "https://indeed.com/j/2")
+        availability.apply_verdict(fp, "gone")          # strike = 1
+        availability.apply_verdict(fp, "alive")         # reset
+        assert availability.apply_verdict(fp, "gone") is False  # wieder bei 1, kein expire
+        assert storage.get_job(fp).status != "expired"
 
-    def test_alive_resets_strike(self, db, monkeypatch):
-        fp = _old_job("a", "https://indeed.test/a")
-        storage.bump_unavailable_strike(fp)
-        alive = ("<html>Aufgaben Anforderungen Unity Vollzeit bewerben wir bieten</html>")
-        monkeypatch.setattr(availability, "_render_with_status",
-                            lambda url: {"status": 200, "final_url": url, "html": alive})
-        availability.check_all()
-        assert _strikes(fp) == 0
-
-    def test_unclear_leaves_strike_untouched(self, db, monkeypatch):
-        fp = _old_job("u", "https://indeed.test/u")
-        storage.bump_unavailable_strike(fp)
-        monkeypatch.setattr(availability, "_render_with_status", lambda url: None)
-        availability.check_all()
-        assert _strikes(fp) == 1
-        assert _status(fp) != "expired"
+    def test_unclear_leaves_counter_untouched(self, db):
+        fp = _old_job("u1", "https://indeed.com/j/3")
+        availability.apply_verdict(fp, "gone")          # strike = 1
+        assert availability.apply_verdict(fp, "unclear") is False
+        assert availability.apply_verdict(fp, "gone") is True   # 1 -> 2 -> expire
+        assert storage.get_job(fp).status == "expired"

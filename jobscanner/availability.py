@@ -3,21 +3,15 @@ ausgeschriebene per Soft-Mark status='expired'. Nur Playwright — NIE Firecrawl
 (Credits nur für echtes Scraping, folgt der precheck.py-Doktrin). N=2-Strikes gegen
 transiente Portal-Blocks: nur eindeutige Weg-Signale (404/410/Redirect/Textmarker)
 treiben die Expiry.
+
+# HINWEIS: classify() + Marker sind auch als portable Kopie im Home-Helper bob_pool_cleaner.py — diese Datei bleibt maßgeblich (Drift manuell gehalten).
 """
 from __future__ import annotations
 
-import argparse
-import json
-from pathlib import Path
 from urllib.parse import urlparse
-
-from playwright.sync_api import sync_playwright
 
 from jobscanner import storage
 from jobscanner.extract import _clean_text
-
-_TIMEOUT_MS = 30000
-_DEFAULT_DB = Path(__file__).parent.parent / "data" / "jobs.db"
 
 # Eindeutige "Stelle ist weg"-Textmarker (case-insensitive, erweiterbar).
 _GONE_MARKERS = (
@@ -32,23 +26,6 @@ _CONTENT_KEYWORDS = (
     "vollzeit", "teilzeit", "requirements", "responsibilities", "apply",
 )
 _MIN_CONTENT_HITS = 2
-
-
-def _render_with_status(url: str) -> dict | None:
-    """Wie browser.render(), behält aber das goto()-Response-Objekt, um HTTP-Status
-    und finale (Redirect-)URL zu lesen. Gibt None bei Render-Fehler/Timeout."""
-    try:
-        with sync_playwright() as p:
-            browser_obj = p.chromium.launch()
-            page = browser_obj.new_page()
-            resp = page.goto(url, timeout=_TIMEOUT_MS, wait_until="domcontentloaded")
-            html = page.content()
-            status = resp.status if resp is not None else 0
-            final_url = page.url
-            browser_obj.close()
-            return {"status": status, "final_url": final_url, "html": html}
-    except Exception:
-        return None
 
 
 def classify(detail_url: str, rendered: dict | None) -> str:
@@ -74,36 +51,14 @@ def classify(detail_url: str, rendered: dict | None) -> str:
     return "unclear"
 
 
-def check_all(older_than_days: int = 3, strikes: int = 2) -> dict:
-    """Ein Lauf: alle Kandidaten prüfen, Strike-Zähler pflegen, bei `strikes`
-    konsekutiven Weg-Signalen expiren."""
-    candidates = storage.list_availability_candidates(older_than_days=older_than_days)
-    result = {"checked": 0, "gone": 0, "alive": 0, "unclear": 0, "expired": 0}
-    for cand in candidates:
-        fp, url = cand["fingerprint"], cand["url"]
-        verdict = classify(url, _render_with_status(url))
-        result["checked"] += 1
-        result[verdict] += 1
-        if verdict == "gone":
-            if storage.bump_unavailable_strike(fp) >= strikes:
-                storage.mark_expired(fp)
-                result["expired"] += 1
-        elif verdict == "alive":
-            storage.reset_unavailable_strike(fp)
-        # unclear: Zähler bleibt unangetastet
-    return result
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--db", default=str(_DEFAULT_DB))
-    parser.add_argument("--older-than-days", type=int, default=3)
-    parser.add_argument("--strikes", type=int, default=2)
-    args = parser.parse_args()
-    storage.init_db(args.db)
-    report = check_all(older_than_days=args.older_than_days, strikes=args.strikes)
-    print(json.dumps(report, indent=2, ensure_ascii=False))
-
-
-if __name__ == "__main__":
-    main()
+def apply_verdict(fingerprint: str, verdict: str, strikes: int = 2) -> bool:
+    """Wendet EIN eingeliefertes Verdict an: gone bumpt den Strike (expire bei
+    >= strikes konsekutiven), alive resettet, unclear lässt den Zähler unberührt.
+    Gibt True zurück, wenn dieser Aufruf die Stelle expired hat."""
+    if verdict == "gone":
+        if storage.bump_unavailable_strike(fingerprint) >= strikes:
+            storage.mark_expired(fingerprint)
+            return True
+    elif verdict == "alive":
+        storage.reset_unavailable_strike(fingerprint)
+    return False
