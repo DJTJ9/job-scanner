@@ -6,6 +6,7 @@ import requests
 from jobscanner.search import (PortalSearchProvider, ArbeitsagenturSearchProvider,
                                discover_urls, provider_for, classify_location,
                                build_search_url, is_target_location,
+                               expand_location_filters,
                                AdzunaSearchProvider, JoobleSearchProvider)
 from jobscanner import browser, search
 
@@ -455,3 +456,23 @@ def test_validate_jooble_key(monkeypatch):
 
     monkeypatch.setattr(search.requests, "post", boom)
     assert search.validate_jooble_key("k") is False
+
+
+def test_expand_location_filters_adds_de_country_terms():
+    from jobscanner.search import expand_location_filters
+    out = expand_location_filters(["Hamburg", "München", "remote"])
+    assert out[:3] == ["Hamburg", "München", "remote"]
+    assert "deutschland" in out and "germany" in out
+    assert "austria" not in out
+
+
+def test_expand_location_filters_adds_at_and_nl_terms():
+    from jobscanner.search import expand_location_filters
+    assert "austria" in expand_location_filters(["Wien"])
+    assert "netherlands" in expand_location_filters(["Amsterdam"])
+
+
+def test_expand_location_filters_ohne_zielraum_ort_unveraendert():
+    from jobscanner.search import expand_location_filters
+    assert expand_location_filters(["remote"]) == ["remote"]
+    assert expand_location_filters([]) == []

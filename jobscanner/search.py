@@ -129,6 +129,23 @@ def is_target_location(loc: str) -> bool:
     return bool(_AT_RE.search(norm) or _NL_RE.search(norm))
 
 
+def expand_location_filters(locations: list[str]) -> list[str]:
+    """Ergänzt die Länder-Terme des Zielraums, sobald die Liste einen Ort im jeweiligen
+    Land nennt. Die Aggregator-APIs liefern den Standort nur auf Landesebene
+    ("Germany"); ohne diese Aliase würde der Profil-Stadtfilter genau diese Treffer
+    wieder verwerfen. Reihenfolge der Eingabe bleibt erhalten, keine Duplikate."""
+    out = list(locations)
+    joined = " ".join(locations).lower()
+    if (_PLZ_RE.search(joined) or "deutschland" in joined or "germany" in joined
+            or any(city in joined for city in _DE_CITIES)):
+        out += ["deutschland", "germany"]
+    if _AT_RE.search(joined):
+        out += ["österreich", "austria"]
+    if _NL_RE.search(joined):
+        out += ["niederlande", "netherlands"]
+    return list(dict.fromkeys(out))
+
+
 def _load_env() -> None:
     if ENV_FILE.exists():
         for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
