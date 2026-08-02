@@ -5,6 +5,12 @@ US-Jobs auf 1, AT/NL-Jobs kippen auf 0. Es wird nichts gelöscht, nur umklassifi
 
     python -m tools.backfill_is_ausland --dry-run
     python -m tools.backfill_is_ausland
+
+WARNUNG: Solange der offene Bug "classify_location DE-Whitelist zu klein" nicht gefixt
+ist, kippt ein ungefilterter Lauf ~339 echte deutsche Kleinstadt-Jobs (Ulm, Passau,
+"bundesweit") auf is_ausland = 1 — sie verschwinden dann aus dem Dashboard UND aus
+beiden Scoring-Queues. Am 2026-08-02 wurde deshalb nur die Regeländerungs-Delta
+geschrieben (1 Zeile, NL). Vor dem Whitelist-Fix immer erst --dry-run prüfen.
 """
 import argparse
 import sqlite3
