@@ -473,3 +473,20 @@ def test_base_html_reicht_tour2_startindex_durch(tour_member):
     storage.create_profile("Testprofil", {}, user_id=uid)
     c.post("/tour/seen", json={"tour": "tour_seen"})
     assert 'data-tour-auto="3"' in c.get("/").text
+
+
+def test_bob_intro_neue_css_regeln():
+    css = Path("jobscanner/web/static/style.css").read_text(encoding="utf-8")
+    # Technik-Annex: Haarlinie + Mono-Summary + sichtbarer Fokusring
+    assert ".bob-annex {" in css
+    assert ".bob-annex summary {" in css
+    assert ".bob-annex summary:focus-visible {" in css
+    assert "IBM Plex Mono" in css.split(".bob-annex summary {")[1].split("}")[0]
+    # Mitmach-Block: 3px --beute-Kante links
+    assert ".bob-mitmach {" in css
+    assert "3px solid var(--beute)" in css.split(".bob-mitmach {")[1].split("}")[0]
+    # Liste ohne Bullets
+    assert ".bob-liste {" in css
+    assert "list-style: none" in css.split(".bob-liste {")[1].split("}")[0]
+    # keine neue Animation eingeschleppt
+    assert css.count("@keyframes") == 3
