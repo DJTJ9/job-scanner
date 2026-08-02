@@ -441,3 +441,34 @@ def test_upgrade_block_erklaert_scan_ohne_abo(member_client):
 def test_erledigte_schritte_css_definiert():
     css = Path("jobscanner/web/static/style.css").read_text(encoding="utf-8")
     assert ".anl-check-fertig" in css
+
+
+def test_tour_bubble_ortsfest_unten_mittig():
+    css = Path("jobscanner/web/static/style.css").read_text(encoding="utf-8")
+    assert "translateX(-50%)" in css
+    assert ".tour-spot-neben" in css
+    # der alte Mobile-Override mit !important ist weg
+    assert "left: 0.5rem !important" not in css
+    assert css.count("@keyframes") == 3
+
+
+def test_tour_engine_kennt_startindex_und_tourname():
+    js = Path("jobscanner/web/static/app.js").read_text(encoding="utf-8")
+    assert "starte(startIndex" in js
+    assert "tour2_seen" in js
+    assert "tour-spot-neben" in js
+    # Panel wird nicht mehr per JS positioniert
+    assert "bubble.style.top" not in js
+
+
+def test_tour_text_nennt_vier_grundschritte():
+    js = Path("jobscanner/web/static/app.js").read_text(encoding="utf-8")
+    assert "Scan starten, fünf Jobs bewerten" not in js
+    assert "Feintuning anpassen" in js
+
+
+def test_base_html_reicht_tour2_startindex_durch(tour_member):
+    c, uid = tour_member
+    storage.create_profile("Testprofil", {}, user_id=uid)
+    c.post("/tour/seen", json={"tour": "tour_seen"})
+    assert 'data-tour-auto="3"' in c.get("/").text

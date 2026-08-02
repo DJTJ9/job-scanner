@@ -260,32 +260,38 @@ document.querySelectorAll("[data-profile-delete-cancel]").forEach(function (btn)
     { sel: "#drawer", titel: "Dein Menü", text: "Hier kommst du überall hin: Job-Angebote, Favoriten, dein Profil und das Feintuning." },
     { sel: "[data-drawer-open]", titel: "Dein Menü", text: "Hinter dem ☰ steckt alles: Job-Angebote, Favoriten, dein Profil und das Feintuning." },
     { sel: ".bob-intro", titel: "Wer ich bin", text: "Kurz vorgestellt: was ich kann und wie ich arbeite. Aufklappen lohnt sich." },
-    { sel: ".anl-check", titel: "Deine To-do-Liste", text: "Drei Schritte, dann suche ich für dich: Profil anlegen, Scan starten, fünf Jobs bewerten." },
-    { sel: ".sonar-band", titel: "Mein Sonar", text: "Hier siehst du, wann ich zuletzt gescannt habe und wie viele Anzeigen im Netz sind." },
-    { sel: ".job-card", titel: "Dein Treffer", text: "So sieht ein Treffer aus — mit Passung von 0 bis 100 und Begründung pro Kriterium." },
+    { sel: ".anl-check", titel: "Deine To-do-Liste", text: "Vier Schritte, ganz ohne eigenes Claude-Abo: Profil anlegen, Job-Angebote ansehen, fünf Jobs bewerten, Feintuning anpassen." },
+    { sel: ".sonar-band", titel: "Mein Sonar", text: "Hier siehst du, wann ich zuletzt gescannt habe und wie viele Anzeigen im Netz sind.", extra: '.drawer-item[href="/jobs"]' },
+    { sel: ".job-card", titel: "Dein Treffer", text: "So sieht ein Treffer aus — mit Passung von 0 bis 100 und Begründung pro Kriterium.", extra: '.drawer-item[href="/jobs"]' },
     { sel: "[data-vote-btn]", titel: "Bewerten", text: "👍 oder 👎 — jede Bewertung schärft meine Suche für dich." },
   ];
   const reduziert = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let schritte = [], idx = 0, spot = null, bubble = null, letzterFokus = null;
+  let schritte = [], idx = 0, spot = null, spot2 = null, bubble = null, letzterFokus = null;
+  let tourName = "tour_seen", introOffen = false;
 
   const sichtbar = (el) => {
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0;
   };
 
-  const positioniere = () => {
-    const r = schritte[idx].el.getBoundingClientRect();
+  const setzeSpot = (el, ziel) => {
+    const r = ziel.getBoundingClientRect();
     const pad = 6;
-    spot.style.top = `${r.top - pad}px`;
-    spot.style.left = `${r.left - pad}px`;
-    spot.style.width = `${r.width + 2 * pad}px`;
-    spot.style.height = `${r.height + 2 * pad}px`;
-    if (window.innerWidth > 600) {
-      const bh = bubble.offsetHeight, bw = bubble.offsetWidth;
-      let top = r.bottom + pad + 12;
-      if (top + bh > window.innerHeight - 8) top = Math.max(8, r.top - pad - bh - 12);
-      bubble.style.top = `${top}px`;
-      bubble.style.left = `${Math.min(Math.max(8, r.left), window.innerWidth - bw - 8)}px`;
+    el.style.top = `${r.top - pad}px`;
+    el.style.left = `${r.left - pad}px`;
+    el.style.width = `${r.width + 2 * pad}px`;
+    el.style.height = `${r.height + 2 * pad}px`;
+  };
+
+  const positioniere = () => {
+    const s = schritte[idx];
+    setzeSpot(spot, s.el);
+    const neben = s.extra ? document.querySelector(s.extra) : null;
+    if (neben && sichtbar(neben)) {
+      spot2.style.display = "";
+      setzeSpot(spot2, neben);
+    } else {
+      spot2.style.display = "none";
     }
   };
 
@@ -296,6 +302,9 @@ document.querySelectorAll("[data-profile-delete-cancel]").forEach(function (btn)
     spot.classList.remove("tour-ping");
     void spot.offsetWidth;  // Reflow, damit der Sweep bei jedem Schritt neu läuft
     if (!reduziert) spot.classList.add("tour-ping");
+    spot2.classList.remove("tour-ping");
+    void spot2.offsetWidth;
+    if (!reduziert) spot2.classList.add("tour-ping");
     bubble.querySelector("h3").textContent = s.titel;
     bubble.querySelector("p").textContent = s.text;
     bubble.querySelector(".tour-zaehler").textContent = `${i + 1}/${schritte.length}`;
@@ -309,8 +318,13 @@ document.querySelectorAll("[data-profile-delete-cancel]").forEach(function (btn)
     document.removeEventListener("keydown", tastatur, true);
     window.removeEventListener("scroll", positioniere, true);
     window.removeEventListener("resize", positioniere);
-    spot.remove(); bubble.remove();
-    spot = bubble = null;
+    spot.remove(); spot2.remove(); bubble.remove();
+    spot = spot2 = bubble = null;
+    if (introOffen) {
+      const intro = document.querySelector(".bob-intro");
+      if (intro) intro.open = true;
+      introOffen = false;
+    }
     if (document.body.hasAttribute("data-tour-auto")) {
       document.body.removeAttribute("data-tour-auto");
       fetch("/tour/seen", {
@@ -319,7 +333,7 @@ document.querySelectorAll("[data-profile-delete-cancel]").forEach(function (btn)
           "Content-Type": "application/json",
           "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content,
         },
-        body: "{}",
+        body: JSON.stringify({ tour: tourName }),
       });
     }
     if (letzterFokus) letzterFokus.focus();
@@ -334,8 +348,10 @@ document.querySelectorAll("[data-profile-delete-cancel]").forEach(function (btn)
     else if (!e.shiftKey && document.activeElement === letzte) { e.preventDefault(); erste.focus(); }
   };
 
-  const starte = () => {
+  function starte(startIndex = 0) {
     if (spot) return;  // läuft schon
+    const intro = document.querySelector(".bob-intro");
+    if (intro && intro.open) { intro.open = false; introOffen = true; }
     schritte = TOUR
       .map((s) => ({ ...s, el: document.querySelector(s.sel) }))
       .filter((s) => s.el && sichtbar(s.el));
@@ -343,6 +359,9 @@ document.querySelectorAll("[data-profile-delete-cancel]").forEach(function (btn)
     letzterFokus = document.activeElement;
     spot = document.createElement("div");
     spot.className = "tour-spot";
+    spot2 = document.createElement("div");
+    spot2.className = "tour-spot tour-spot-neben";
+    spot2.style.display = "none";
     bubble = document.createElement("div");
     bubble.className = "tour-bubble";
     bubble.setAttribute("role", "dialog");
@@ -355,7 +374,7 @@ document.querySelectorAll("[data-profile-delete-cancel]").forEach(function (btn)
       '<button type="button" class="btn btn-secondary" data-tour-prev>Zurück</button>' +
       '<button type="button" class="btn btn-primary" data-tour-next>Weiter</button></div>' +
       '<button type="button" class="tour-beenden" data-tour-exit>Tour beenden</button>';
-    document.body.append(spot, bubble);
+    document.body.append(spot, spot2, bubble);
     bubble.querySelector("[data-tour-prev]").addEventListener("click", () => zeige(idx - 1));
     bubble.querySelector("[data-tour-next]").addEventListener("click", () => {
       if (idx === schritte.length - 1) beende(); else zeige(idx + 1);
@@ -364,10 +383,14 @@ document.querySelectorAll("[data-profile-delete-cancel]").forEach(function (btn)
     document.addEventListener("keydown", tastatur, true);
     window.addEventListener("scroll", positioniere, true);
     window.addEventListener("resize", positioniere);
-    zeige(0);
+    zeige(Math.min(Math.max(0, startIndex), schritte.length - 1));
     bubble.querySelector("[data-tour-next]").focus();
-  };
+  }
 
-  document.querySelectorAll("[data-tour-start]").forEach((b) => b.addEventListener("click", starte));
-  if (document.body.hasAttribute("data-tour-auto")) starte();
+  document.querySelectorAll("[data-tour-start]").forEach((b) => b.addEventListener("click", () => starte()));
+  const auto = document.body.getAttribute("data-tour-auto");
+  if (auto !== null) {
+    tourName = auto ? "tour2_seen" : "tour_seen";
+    starte(auto ? Number(auto) : 0);
+  }
 })();
