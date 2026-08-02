@@ -138,6 +138,21 @@ def test_sidebar_reihenfolge_system(client):
     assert drawer.index("Roadmap/Patch Notes") < drawer.index("Einstellungen")
 
 
+def test_sidebar_meine_profile_vor_job_angebote(client):
+    drawer = _drawer(client)
+    # Profil steht jetzt in der Gruppe JOBS, als erster Eintrag über Job-Angebote
+    assert drawer.index(">Jobs<") < drawer.index("Meine Profile") < drawer.index("Job-Angebote")
+    assert drawer.index("Meine Profile") < drawer.index(">Suche tunen<")
+
+
+def test_sidebar_icons_in_eigener_spalte(client):
+    drawer = _drawer(client)
+    for icon in ("⌂", "📋", "★", "🔔", "👤", "🎛", "🧠", "🌐", "🗺", "❓", "⚙", "📊", "🚪"):
+        assert f'<span class="drawer-item-icon">{icon}</span>' in drawer, icon
+    # kein nacktes Emoji mehr direkt vor dem Label
+    assert '">⌂ <span class="drawer-item-label"' not in drawer
+
+
 def test_banner_asset_zeigt_bob_und_schild():
     """1672x500-Crop aus hero-landscape-full.png — enthält Schild, Bob und den Pfad."""
     from pathlib import Path

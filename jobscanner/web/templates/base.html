@@ -28,15 +28,15 @@
     <button type="button" class="drawer-close" data-drawer-close aria-label="Menü schließen">✕</button>
     {% set _pfad = request.url.path %}
     {% macro nav_item(href, icon, label) -%}
-    <a class="drawer-item {{ 'drawer-item-active' if _pfad == href }}" href="{{ href }}">{{ icon }} <span class="drawer-item-label">{{ label }}</span></a>
+    <a class="drawer-item {{ 'drawer-item-active' if _pfad == href }}" href="{{ href }}"><span class="drawer-item-icon">{{ icon }}</span><span class="drawer-item-label">{{ label }}</span></a>
     {%- endmacro %}
     {{ nav_item("/", "⌂", "Übersicht") }}
     <span class="drawer-group"><span class="drawer-item-label">Jobs</span></span>
+    {{ nav_item("/profil", "👤", "Meine Profile") }}
     {{ nav_item("/jobs", "📋", "Job-Angebote") }}
     {{ nav_item("/favoriten", "★", "Favoriten") }}
-    <a class="drawer-item {{ 'drawer-item-active' if _pfad == '/benachrichtigungen' }}" href="/benachrichtigungen">🔔 <span class="drawer-item-label">Benachrichtigungen</span>{% set _u = unread_count(request) %}{% if _u %} <span class="nav-badge">{{ _u }}</span>{% endif %}</a>
+    <a class="drawer-item {{ 'drawer-item-active' if _pfad == '/benachrichtigungen' }}" href="/benachrichtigungen"><span class="drawer-item-icon">🔔</span><span class="drawer-item-label">Benachrichtigungen</span>{% set _u = unread_count(request) %}{% if _u %} <span class="nav-badge">{{ _u }}</span>{% endif %}</a>
     <span class="drawer-group"><span class="drawer-item-label">Suche tunen</span></span>
-    {{ nav_item("/profil", "👤", "Meine Profile") }}
     {{ nav_item("/feintuning", "🎛", "Feintuning") }}
     {{ nav_item("/lernen", "🧠", "Lern-Zentrum") }}
     {{ nav_item("/portale", "🌐", "Portale prüfen") }}
@@ -46,7 +46,7 @@
     {{ nav_item("/einstellungen", "⚙", "Einstellungen") }}
     {% if request.session.get("role") == "owner" %}
     <details class="drawer-admin"{% if _pfad == '/metriken' or _pfad.startswith('/admin') %} open{% endif %}>
-      <summary class="drawer-item">📊 <span class="drawer-item-label">Admin</span></summary>
+      <summary class="drawer-item"><span class="drawer-item-icon">📊</span><span class="drawer-item-label">Admin</span></summary>
       {{ nav_item("/metriken", "📈", "Metriken") }}
       {{ nav_item("/admin/feedback", "✉", "Feedback") }}
       {{ nav_item("/admin/registrations", "📋", "Registrierungen") }}
@@ -54,8 +54,8 @@
     </details>
     {% endif %}
     <div class="drawer-footer">
-      <a class="drawer-item" href="/einstellungen">👤 <span class="drawer-item-label">{{ request.session.get("username") or request.session.get("email") }}</span></a>
-      <a class="drawer-item" href="/logout" title="Abmelden">🚪 <span class="drawer-item-label">Abmelden</span></a>
+      <a class="drawer-item" href="/einstellungen"><span class="drawer-item-icon">👤</span><span class="drawer-item-label">{{ request.session.get("username") or request.session.get("email") }}</span></a>
+      <a class="drawer-item" href="/logout" title="Abmelden"><span class="drawer-item-icon">🚪</span><span class="drawer-item-label">Abmelden</span></a>
       <button type="button" class="drawer-collapse" data-drawer-collapse aria-label="Sidebar einklappen">«</button>
     </div>
   </nav>
