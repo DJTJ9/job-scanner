@@ -661,12 +661,13 @@ def list_pending_extraction(limit: int | None = None) -> list[dict]:
 def list_unscored_extracted(limit: int | None = None) -> list[dict]:
     """Extrahierte, aber nie gescorte Jobs (extraction_status='extracted' AND score IS NULL)
     für den score-only-Zweig des Agent-Batch-Laufs — schließt die Re-Pick-Lücke, die
-    entsteht wenn ein Agent-Lauf nach apply_extraction, aber vor dem Scoring abbricht."""
+    entsteht wenn ein Agent-Lauf nach apply_extraction, aber vor dem Scoring abbricht.
+    Auslands-Jobs (is_ausland = 1) bleiben außen vor — sie verbrauchen kein Scoring-Budget."""
     conn = _require_conn()
     sql = ("SELECT fingerprint, title, company, location, employment_type, "
            "requirements_json, tech_stack_json FROM jobs "
            "WHERE extraction_status = 'extracted' AND score IS NULL "
-           "AND status != 'expired' ORDER BY id")
+           "AND status != 'expired' AND is_ausland = 0 ORDER BY id")
     if limit is not None:
         sql += f" LIMIT {int(limit)}"
     out = []
@@ -686,7 +687,8 @@ def list_unscored_extracted(limit: int | None = None) -> list[dict]:
 def list_unscored_for_profiles(profile_ids: list[int], limit: int | None = None) -> list[dict]:
     """Extrahierte Jobs, denen für mindestens eines der gegebenen Profile der
     job_scores-Eintrag fehlt — der user-scoped to_score-Zweig des MCP-pull_pending_jobs.
-    Item-Shape identisch zu list_unscored_extracted."""
+    Item-Shape identisch zu list_unscored_extracted.
+    Auslands-Jobs (is_ausland = 1) bleiben außen vor — sie verbrauchen kein Scoring-Budget."""
     conn = _require_conn()
     if not profile_ids:
         return []
@@ -697,6 +699,7 @@ def list_unscored_for_profiles(profile_ids: list[int], limit: int | None = None)
         "FROM jobs JOIN profiles ON profiles.id IN (" + placeholders + ") "
         "WHERE jobs.extraction_status = 'extracted' "
         "AND jobs.status != 'expired' "
+        "AND jobs.is_ausland = 0 "
         "AND NOT EXISTS (SELECT 1 FROM job_scores "
         "                WHERE job_scores.profile_id = profiles.id "
         "                AND job_scores.fingerprint = jobs.fingerprint) "

@@ -513,3 +513,33 @@ class TestFirecrawlMemberKey:
         storage.init_db(db_path)  # darf nicht crashen, Spalte additiv ergaenzt
         cols = {r["name"] for r in storage._require_conn().execute("PRAGMA table_info(users)")}
         assert "firecrawl_key_enc" in cols
+
+
+class TestScoreQueueSperrtAusland:
+    @pytest.fixture(autouse=True)
+    def db(self, tmp_path):
+        from jobscanner import storage
+        storage.init_db(tmp_path / "jobs.db")
+        yield
+        storage.close()
+
+    def test_list_unscored_extracted_skips_ausland(self):
+        from jobscanner import storage
+        from jobscanner.models import Job
+        storage.upsert_job(Job(title="DE Job", company="A", location="Hamburg",
+                               first_seen="2026-08-01"))
+        storage.upsert_job(Job(title="US Job", company="B", location="Austin, TX",
+                               first_seen="2026-08-01"))
+        titel = [j["title"] for j in storage.list_unscored_extracted()]
+        assert titel == ["DE Job"]
+
+    def test_list_unscored_for_profiles_skips_ausland(self):
+        from jobscanner import storage
+        from jobscanner.models import Job
+        pid = storage.create_profile("Testi", {})
+        storage.upsert_job(Job(title="DE Job", company="A", location="Hamburg",
+                               first_seen="2026-08-01"))
+        storage.upsert_job(Job(title="US Job", company="B", location="Austin, TX",
+                               first_seen="2026-08-01"))
+        titel = [j["title"] for j in storage.list_unscored_for_profiles([pid])]
+        assert titel == ["DE Job"]
