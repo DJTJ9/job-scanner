@@ -153,6 +153,32 @@ def test_sidebar_icons_in_eigener_spalte(client):
     assert '">⌂ <span class="drawer-item-label"' not in drawer
 
 
+def test_sidebar_icon_spalte_css():
+    from pathlib import Path
+    css = Path("jobscanner/web/static/style.css").read_text(encoding="utf-8")
+
+    item = css.split(".drawer-item {", 1)[1].split("}", 1)[0]
+    assert "display: flex" in item
+    assert "align-items: center" in item
+    assert "gap: 0.5rem" in item
+
+    icon = css.split(".drawer-item-icon {", 1)[1].split("}", 1)[0]
+    assert "1.5rem" in icon
+    assert "text-align: center" in icon
+
+    # Gruppen-Überschriften auf derselben Textkante wie die Labels
+    gruppe = css.split(".drawer-group {", 1)[1].split("}", 1)[0]
+    assert "padding: 0 0.5rem 0 2.5rem" in gruppe
+
+    # float wirkt auf ein Flex-Item nicht mehr -> Aufklapp-Pfeil braucht margin-left
+    pfeil = css.split(".drawer-admin > summary::after {", 1)[1].split("}", 1)[0]
+    assert "float" not in pfeil
+    assert "margin-left: auto" in pfeil
+
+    # eingeklappt (56px): nur Icons, zentriert
+    assert ".drawer.drawer-collapsed .drawer-item { justify-content: center; }" in css
+
+
 def test_banner_asset_zeigt_bob_und_schild():
     """1672x500-Crop aus hero-landscape-full.png — enthält Schild, Bob und den Pfad."""
     from pathlib import Path
