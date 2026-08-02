@@ -46,7 +46,8 @@ def test_onboarding_redirects_301_to_hilfe():
 
 def test_bob_intro_sections_on_home_in_order(member_client):
     text = member_client.get("/").text
-    positions = [text.index(h) for h in ("Wer bin ich?", "Was kann ich?", "Wie ich arbeite")]
+    positions = [text.index(h) for h in ("Wer bin ich?", "Was kann ich?",
+                                         "Wie arbeite ich?", "Wie kannst du dabei helfen?")]
     assert positions == sorted(positions)
 
 

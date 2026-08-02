@@ -85,7 +85,9 @@ def test_onboarding_301(client_ohne_login):
 
 def test_drawer_has_hilfe_instead_of_two_anleitung_links(member_client):
     text = member_client.get("/").text
-    assert 'class="drawer-item ' in text          # Sidebar gerendert
-    assert 'href="/hilfe"' in text
-    assert 'href="/anleitung"' not in text
-    assert 'href="/anleitung/scan"' not in text
+    # nur die Sidebar prüfen — Inhaltsblöcke der Seite dürfen auf /anleitung/* verlinken
+    drawer = text[text.index('<nav class="drawer'):text.index("</nav>")]
+    assert 'class="drawer-item ' in drawer        # Sidebar gerendert
+    assert 'href="/hilfe"' in drawer
+    assert 'href="/anleitung"' not in drawer
+    assert 'href="/anleitung/scan"' not in drawer
