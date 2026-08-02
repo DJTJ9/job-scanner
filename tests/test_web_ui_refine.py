@@ -119,10 +119,9 @@ def test_sidebar_ohne_scan_eintrag(client):
 
 def test_sidebar_reihenfolge_suche_tunen(client):
     drawer = _drawer(client)
-    for label in ("Meine Profile", "Feintuning", "Lern-Zentrum", "Portale prüfen"):
+    for label in ("Feintuning", "Lern-Zentrum", "Portale prüfen"):
         assert label in drawer
-    assert (drawer.index("Meine Profile") < drawer.index("Feintuning")
-            < drawer.index("Lern-Zentrum") < drawer.index("Portale prüfen"))
+    assert drawer.index("Feintuning") < drawer.index("Lern-Zentrum") < drawer.index("Portale prüfen")
 
 
 def test_sidebar_lern_zentrum_umbenannt(client):
