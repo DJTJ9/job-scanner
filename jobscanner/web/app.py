@@ -966,12 +966,12 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                                                     locations=spar.get("locations"),
                                                     languages=spar.get("languages")):
             fp = entry["job"].fingerprint
-            if entry["score"] is None:
+            if entry["is_ausland"]:
+                ausland.append(entry)
+            elif entry["score"] is None:
                 wartet.append(entry)
             elif feedback.get(fp) == "down":
                 bewertet.append(entry)
-            elif entry["is_ausland"]:
-                ausland.append(entry)
             elif entry["category"] == "No-Go":
                 no_go.append(entry)
             else:

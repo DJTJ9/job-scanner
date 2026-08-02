@@ -907,3 +907,12 @@ def test_dashboard_results_wrapper_present(client):
 def test_dashboard_search_css_defined():
     css = Path("jobscanner/web/static/style.css").read_text()
     assert ".dash-search" in css
+
+
+def test_ungescorter_auslandsjob_landet_im_ausland_tab(client):
+    storage.upsert_job(Job(title="US Wartet Job", company="B", location="Los Angeles, CA",
+                           first_seen="2026-08-01"))
+    resp_ausland = client.get("/jobs?tab=ausland")
+    resp_wartet = client.get("/jobs?tab=wartet")
+    assert "US Wartet Job" in resp_ausland.text
+    assert "US Wartet Job" not in resp_wartet.text
